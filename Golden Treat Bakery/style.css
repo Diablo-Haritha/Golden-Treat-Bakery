@@ -1,0 +1,14 @@
+@import url('https://fonts.googleapis.com/css?family=Poppins:200,300,400,500,600,700,800,900&display=swap');
+:root{
+    --bg:#f5deb3;
+  --card:#f5f5dc;
+  --ink:#3e2f27;
+  --ink-soft:#5d463b;
+  --btn:#f4a460;
+  --btn-hover:#d2b48c;
+  --line:#f0e68c;
+  --chip:#f0e68c;
+  --focus:#d2b48c;
+  --shadow:0 8px 22px rgba(0,0,0,.08);
+  --radius:16px;
+ }
