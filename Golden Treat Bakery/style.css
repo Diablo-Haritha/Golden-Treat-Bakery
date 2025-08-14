@@ -251,10 +251,10 @@ footer .follow i{
     font-size: 20px;
 }
 footer .follow i:hover{
-    color: var(--blue);
+    color: var(--orange);
 }
 footer a:hover{
-    color: var(--blue);
+    color: var(--orange);
     padding-left: 5px;
 }
 footer .copyright{
