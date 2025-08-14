@@ -74,12 +74,10 @@ html {
 }
 body{
     width: 100%;
-  background-color: #ffffff !important;
+  background-color: var(--bg) !important;
 }
 .logo{
-    
-    width: 170px;
-    height: 40px;
+    width: 100px;
 }
 /*======header======*/
 #header{
@@ -104,8 +102,61 @@ body{
     padding: 0 20px;
     position: relative;
 }
+/*======Cart======*/
+#cart {
+    overflow-x: auto;
+}
+ #cart i{
+    color: #bf1165;
+ }
 
+#cart table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    white-space: nowrap;
+}
+#cart table img {
+    width: 70px;
+}
 
+#cart table td:nth-child(1),
+#cart table td:nth-child(3),
+#cart table td:nth-child(4),
+#cart table td:nth-child(5),
+#cart table td:nth-child(6) {
+    text-align: center;
+    padding: 10px;
+}
+#cart table td:nth-child(2) {
+    word-wrap: break-word;   /* Allows long words to break */
+    white-space: normal;     /* Ensures the text wraps */
+}
+#cart table td:nth-child(5) input {
+    width: 70px;
+    padding: 10px 5px;
+}
+
+#cart table thead {
+    border: 1px solid var(--black1);
+    border-left: none;
+    border-right: none;
+}
+
+#cart table thead td {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 13px;
+    padding: 18px 0;
+}
+
+#cart table tbody tr td {
+    padding-top: 15px;
+}
+
+#cart table tbody td {
+    font-size: 13px;
+}
  /*======footer=======*/
 footer{
     display: flex;
