@@ -253,7 +253,7 @@ body{
     font-size: 13px;
 }
 /*===========================================================order_confirmation===============================================*/
-#order-confirmation{
+#order-confirmation,#order-track-main{
     max-width: 90%;
     margin: 50px auto;
     padding: 20px;
