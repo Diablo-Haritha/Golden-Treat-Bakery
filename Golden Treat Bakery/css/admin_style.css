@@ -1,0 +1,354 @@
+
+:root{
+  --brand: #30b6a2;
+  --accent: #c25700; /* used for strong accents */
+  --muted: #6b7280;
+  --bg-page: #f4f7f6;
+  --card-bg: #ffffff;
+  --approve: #0f766e;
+  --cancel: #b91c1c;
+  --shadow: 0 6px 18px rgba(16,24,40,0.06);
+}
+
+/* Basic reset (kept minimal because Bootstrap already resets) */
+*{
+    box-sizing:border-box;
+}
+html,body{
+    height:100%;
+}
+body{
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  background: linear-gradient(180deg, var(--bg-page) 0%, #eaf6f3 100%);
+  color: #111827;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+}
+
+/* Header */
+.header{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  padding:14px 20px;
+  background:var(--card-bg);
+  border-bottom: 1px solid rgba(16,24,40,0.04);
+  box-shadow: var(--shadow);
+  z-index:5;
+}
+.header-left img{
+    width:60px;
+    height:auto;
+    border-radius:8px;
+    box-shadow:2px 4px 10px rgba(16,24,40,0.08);
+}
+.header-middle{
+    display:flex;
+    align-items:center;
+    gap:18px;
+    flex:1;
+    min-width:0;
+}
+.header-middle-title{
+    font-weight:700;
+    font-size:22px;
+    color:var(--brand);
+    white-space:nowrap;
+}
+
+.search-bar{
+    flex:1;
+    display:flex;
+}
+.search-bar input{
+    width:100%;
+    padding:8px 12px;
+    border:1px solid rgba(16,24,40,0.08);
+    border-radius:8px;
+}
+
+.header-right{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+.role-btn{
+    background:var(--brand);
+    color:#fff;
+    padding:8px 14px;
+    border-radius:8px;
+    border:none;
+    font-weight:600;
+    cursor:pointer;
+}
+.role-btn:hover{
+    opacity:.95;
+}
+.user-icon{
+    width:34px;
+    height:34px;
+    border-radius:50%;
+    background:linear-gradient(135deg,#e6eef0,#d2f0eb);
+    display:inline-block;
+}
+
+/* Layout */
+.layout{
+    flex:1;
+    display:flex;
+    gap:20px;
+    padding:20px;
+    align-items:flex-start;
+}
+.sidebar{
+    width:250px;
+    background:var(--card-bg);
+    padding:18px;
+    border-radius:12px;
+    box-shadow:var(--shadow);
+    flex-shrink:0;
+}
+.sidebar h1{
+    text-align:center;
+    font-size:18px;
+    margin-bottom:10px;
+}
+.sidebar nav{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+
+/* Sidebar buttons — keep your color choices but make them look like Bootstrap buttons */
+.sidebar button{
+    display:block;
+    width:100%;
+    padding:10px 12px;
+    border-radius:8px;
+    border:none;
+    color:#fff;
+    font-weight:600;
+    cursor:pointer;
+}
+.salesbtn{
+    background:var(--brand);
+    font-size:18px;
+    padding:12px;
+    border-radius:10px;
+}
+.Sbtn{
+    background:#c25700
+}
+.Ubtn{
+    background:#1000a2
+}
+.Bbtn{
+    background:#017612
+}
+.salebtn{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    margin-top:10px;
+}
+.salebtn button{
+    background:var(--brand);
+    color:#fff;
+     padding:8px 12px;
+     border-radius:6px;
+    }
+/* Make hover states accessible */
+.sidebar button:hover{
+    filter:brightness(.95);
+    transform:translateY(-1px);
+}
+
+/* Content area */
+.content{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+    min-height:60vh;
+}
+.card{
+    background:var(--card-bg);
+    padding:18px;
+    border-radius:12px;
+    box-shadow:var(--shadow);
+}
+.card h3{font-size:18px;margin-bottom:8px}
+.small-muted{color:var(--muted);font-size:13px}
+
+/* Controls row */
+.controls{
+    display:flex;
+    flex-wrap:wrap;
+    gap:12px;
+    align-items:center;
+}
+.controls .field{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+}
+.controls select,.controls input[type=date]{
+    padding:8px;
+    border-radius:8px;
+    border:1px solid rgba(16,24,40,0.06);
+}
+
+/* Buttons — provide "btn-small" which visually matches Bootstrap small buttons */
+.btn-small{
+  display:inline-block;
+  padding:6px 10px;
+  border-radius:8px;
+  border:1px solid rgba(16,24,40,0.06);
+  background:#fff;
+  color:#111827;
+  font-weight:600;
+  font-size:13px;
+  cursor:pointer;
+  box-shadow:none;
+}
+.btn-small:disabled{
+    opacity:.5;
+    cursor:not-allowed;
+}
+
+.btn-edit{
+    border-left:4px solid #f59e0b;
+}
+.btn-approve{
+    background:var(--approve);
+    color:#fff;border:none
+}
+.btn-cancel{
+    background:transparent;
+    color:var(--cancel);
+    border:1px solid rgba(185,28,28,0.12)
+}
+
+/* Orders table */
+.orders-table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:12px;
+    font-size:14px
+}
+.orders-table thead th{
+    background:transparent;
+    text-align:left;
+    padding:12px 10px;
+    color:var(--muted);
+    font-weight:700;
+    border-bottom:1px solid rgba(16,24,40,0.06)
+}
+.orders-table tbody td{
+    padding:12px 10px;
+    border-bottom:1px solid rgba(16,24,40,0.04);
+    vertical-align:middle
+}
+.orders-table tbody tr:hover{
+    background:rgba(16,24,40,0.02)
+}
+.orders-table .small-muted{
+    display:block;
+    color:var(--muted);
+    font-size:12px
+}
+
+/* Status badges */
+.badge{
+    display:inline-block;
+    padding:6px 10px;
+    border-radius:999px;
+    font-weight:700;
+    font-size:12px;
+    color:#fff
+}
+.badge.pending{background:#f59e0b}
+.badge.shipped{background:#2563eb}
+.badge.delivered{background:#10b981}
+.badge.cancelled{background:#ef4444}
+
+/* Pagination container */
+.pagination{
+    display:flex;
+    align-items:center;
+    justify-content:flex-start;
+    gap:12px;margin-top:12px
+}
+.pagination button{
+    padding:6px 8px;
+    border-radius:8px;
+    border:1px solid rgba(16,24,40,0.06);
+    background:#fff}
+
+/* Modal */
+.modal-backdrop{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(2,6,23,0.5);
+    align-items:center;
+    justify-content:center;
+    padding:20px}
+.modal{
+    background:var(--card-bg);
+    max-width:900px;
+    width:100%;
+    border-radius:12px;
+    padding:16px;
+    box-shadow:0 30px 60px rgba(2,6,23,0.35)}
+.modal-head{
+    display:flex;
+    justify-content:
+    space-between;
+    align-items:center;
+    gap:12px;
+    margin-bottom:8px}
+.modal-body{
+    max-height:60vh;
+    overflow:auto;
+    border-top:1px solid rgba(16,24,40,0.03);
+    padding-top:12px}
+.modal-actions{
+    display:flex;
+    gap:8px;
+    justify-content:flex-end;
+    margin-top:12px}
+
+/* Responsive behaviour */
+@media (max-width:960px){
+  .layout{
+    padding:12px
+}
+  .sidebar{
+    width:200px
+}
+  .header-middle-title{
+    font-size:18px
+}
+}
+
+@media (max-width:720px){
+  .layout{
+    flex-direction:column
+}
+  .sidebar{
+    width:100%;
+    order:2
+}
+  .content{
+    order:1
+}
+  .header-middle{
+    flex-direction:column;
+    align-items:flex-start
+}
+}
+
