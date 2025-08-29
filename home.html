@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sweet Dreams Bakery - Premium Custom Cakes & Pastries</title>
+    <!-- Font Awesome for icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Google Fonts for typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* CSS Variables for a consistent color scheme */
+        :root {
+            --primary-color: #8B4513; /* SaddleBrown - a rich brown */
+            --secondary-color: #D2691E; /* Chocolate - a warm, inviting orange-brown */
+            --accent-color: #FFD700; /* Gold - a luxurious accent color */
+            --bg-light: #fdf8f3; /* Very light cream */
+            --bg-medium: #f5e6d3; /* Soft cream */
+            --bg-dark: #2c1810; /* Dark, rich brown for contrast */
+            --text-dark: #333;
+            --text-light: #fff;
+            --border-radius-lg: 30px;
+            --border-radius-md: 20px;
+            --box-shadow-1: 0 8px 32px rgba(139, 69, 19, 0.4);
+            --box-shadow-2: 0 15px 35px rgba(0,0,0,0.1);
+        }
+
+        /* Basic & Animated Body Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            line-height: 1.6;
+            color: var(--text-dark);
+            background: linear-gradient(135deg, var(--bg-light) 0%, var(--bg-medium) 50%, #ede0d0 100%);
+            overflow-x: hidden;
+        }
+
+        /* Animated background particles for a whimsical effect */
+        .bg-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .particle {
+            position: absolute;
+            background: linear-gradient(45deg, #FFE4B5, #FFDAB9);
+            border-radius: 50%;
+            opacity: 0.1;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(180deg); }
+        }
+
+        /* Main container for content */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Enhanced Header Styling with gradients and shadows */
+        header {
+            background: linear-gradient(135deg, var(--bg-dark) 0%, var(--primary-color) 50%, #A0522D 100%);
+            color: var(--text-light);
+            padding: 1.5rem 0;
+            box-shadow: var(--box-shadow-1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            backdrop-filter: blur(20px);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo-icon {
+            font-size: 3rem;
+            background: linear-gradient(45deg, var(--accent-color), #FFA500);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: logoGlow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes logoGlow {
+            0% { filter: drop-shadow(0 0 5px var(--accent-color)); }
+            100% { filter: drop-shadow(0 0 20px #FFA500); }
+        }
+
+        .logo h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 2.5rem;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.5);
+            background: linear-gradient(45deg, var(--accent-color), var(--text-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            background: linear-gradient(135deg, var(--secondary-color), #FF7F50);
+            color: var(--text-light);
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(210, 105, 30, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cart-badge {
+            background: #FF1744;
+            color: var(--text-light);
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 0.8rem;
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            animation: bounce 1s ease infinite;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+
+        /* Enhanced Navigation */
+        nav {
+            background: rgba(139, 69, 19, 0.1);
+            padding: 15px 0;
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .nav-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .nav-tab {
+            background: rgba(255,255,255,0.9);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.4s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .nav-tab.active,
+        .nav-tab:hover {
+            color: var(--text-light);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(210, 105, 30, 0.3);
+        }
+
+        /* Hero Section with a unique, luxurious look */
+        .hero {
+            background: linear-gradient(135deg, rgba(44, 24, 16, 0.9), rgba(139, 69, 19, 0.8), rgba(210, 105, 30, 0.7));
+            background-size: cover;
+            background-attachment: fixed;
+            color: var(--text-light);
+            text-align: center;
+            padding: 120px 0;
+            border-radius: var(--border-radius-lg);
+            margin: 30px 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 4rem;
+            margin-bottom: 25px;
+            text-shadow: 3px 3px 10px rgba(0,0,0,0.7);
+            background: linear-gradient(45deg, var(--accent-color), var(--text-light), #FFE4B5);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: titleShimmer 3s ease-in-out infinite;
+        }
+
+        @keyframes titleShimmer {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.2); }
+        }
+
+        /* Product Grid and Card */
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 40px;
+            margin-top: 40px;
+        }
+
+        .product-card {
+            background: rgba(255,255,255,0.95);
+            border-radius: 25px;
+            overflow: hidden;
+            box-shadow: var(--box-shadow-2);
+            transition: all 0.5s ease;
+            border: 3px solid transparent;
+            position: relative;
+            backdrop-filter: blur(20px);
+        }
+
+        .product-card:hover {
+            transform: translateY(-15px) scale(1.02);
+            box-shadow: 0 25px 50px rgba(210, 105, 30, 0.2);
+            border-color: var(--secondary-color);
+        }
+
+        .product-image {
+            height: 280px;
+            background: linear-gradient(135deg, #FFE4B5, #FFDAB9, #F5DEB3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 5rem;
+            position: relative;
+            overflow: hidden;
+            color: var(--primary-color);
+        }
+
+        .product-rating {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(0,0,0,0.7);
+            color: var(--accent-color);
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+
+        .product-info {
+            padding: 25px;
+            position: relative;
+        }
+
+        .customizable-badge {
+            background: linear-gradient(135deg, var(--accent-color), #FFA500);
+            color: var(--text-light);
+            padding: 8px 20px;
+            border-radius: 25px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            display: inline-block;
+            margin: 15px 0;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
+            animation: customPulse 3s ease-in-out infinite;
+        }
+
+        @keyframes customPulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4); }
+            50% { transform: scale(1.05); box-shadow: 0 6px 20px rgba(255, 215, 0, 0.6); }
+        }
+
+        .product-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 15px 20px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--secondary-color), #FF7F50);
+            color: var(--text-light);
+            box-shadow: 0 5px 15px rgba(210, 105, 30, 0.3);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #DAA520, var(--accent-color));
+            color: var(--text-light);
+            box-shadow: 0 5px 15px rgba(218, 165, 32, 0.3);
+        }
+
+        /* Quick View button */
+        .quick-view-btn {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(0,0,0,0.7);
+            color: var(--text-light);
+            border: none;
+            padding: 8px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .product-card:hover .quick-view-btn {
+            opacity: 1;
+            transform: translateY(-5px);
+        }
+        
+        /* Product Customization Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(10px);
+            animation: modalFadeIn 0.3s ease;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, var(--text-light) 0%, #fafafa 100%);
+            margin: 3% auto;
+            padding: 40px;
+            border-radius: var(--border-radius-lg);
+            width: 95%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 70px rgba(0,0,0,0.3);
+            animation: modalSlideIn 0.4s ease;
+        }
+
+        .close {
+            background: linear-gradient(135deg, #FF4444, #CC0000);
+            color: var(--text-light);
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .customization-options {
+            display: grid;
+            gap: 25px;
+            margin: 30px 0;
+        }
+
+        .option-group {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            padding: 25px;
+            border-radius: var(--border-radius-md);
+            border-left: 5px solid var(--secondary-color);
+        }
+
+        .option-group select,
+        .option-group input {
+            width: 100%;
+            padding: 15px;
+            border: 3px solid #e9ecef;
+            border-radius: 15px;
+            font-size: 1.1rem;
+        }
+
+        /* Quantity Selector */
+        .quantity-selector {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .quantity-btn {
+            background: linear-gradient(135deg, var(--secondary-color), #FF7F50);
+            color: var(--text-light);
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+        
+        /* Cart Page Styling */
+        .cart-item {
+            background: linear-gradient(135deg, var(--text-light) 0%, #f8f9fa 100%);
+            padding: 25px;
+            margin-bottom: 20px;
+            border-radius: var(--border-radius-md);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 20px;
+            align-items: center;
+        }
+        
+        /* Cart Total */
+        .cart-total {
+            background: linear-gradient(135deg, var(--bg-dark) 0%, var(--primary-color) 50%, #A0522D 100%);
+            color: var(--text-light);
+            padding: 35px;
+            border-radius: 25px;
+            text-align: center;
+            margin-top: 30px;
+            box-shadow: 0 15px 35px rgba(139, 69, 19, 0.4);
+        }
+
+        /* Notifications */
+        .notification {
+            position: fixed;
+            top: 100px;
+            right: 30px;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: var(--text-light);
+            padding: 20px 25px;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(76, 175, 80, 0.4);
+            z-index: 3000;
+            font-weight: bold;
+            animation: notificationSlide 0.4s ease;
+        }
+        
+        .content-section {
+            display: none;
+            padding: 50px 0;
+            min-height: 60vh;
+        }
+
+        .content-section.active {
+            display: block;
+            animation: sectionFade 0.5s ease;
+        }
+
+        @keyframes sectionFade {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Responsive Design for smaller screens */
+        @media (max-width: 992px) {
+            .hero h2 { font-size: 3rem; }
+            .hero p { font-size: 1.2rem; }
+            .header-content { flex-direction: column; text-align: center; }
+            .header-actions { justify-content: center; width: 100%; }
+            .nav-container { flex-direction: column; }
+            .product-grid { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Animated Background -->
+    <div class="bg-animation">
+        <div class="particle" style="top: 10%; left: 20%; width: 50px; height: 50px;"></div>
+        <div class="particle" style="top: 80%; left: 50%; width: 70px; height: 70px; animation-duration: 8s;"></div>
+        <div class="particle" style="top: 30%; left: 70%; width: 40px; height: 40px; animation-duration: 5s;"></div>
+    </div>
+
+    <!-- Header -->
+    <header>
+        <div class="container header-content">
+            <div class="logo">
+                <i class="fas fa-birthday-cake logo-icon"></i>
+                <div>
+                    <h1>Sweet Dreams Bakery</h1>
+                    <p>Where every slice is a masterpiece.</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <div class="user-actions">
+                    <button class="action-btn nav-tab-btn" data-target="cart">
+                        <i class="fas fa-shopping-cart"></i>
+                        Cart
+                        <span class="cart-badge">0</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav>
+        <div class="container nav-container">
+            <div class="nav-tabs">
+                <button class="nav-tab nav-tab-btn active" data-target="home">Home</button>
+                <button class="nav-tab nav-tab-btn" data-target="cakes">Cakes</button>
+                <button class="nav-tab nav-tab-btn" data-target="pastries">Pastries</button>
+                <button class="nav-tab nav-tab-btn" data-target="cart">Cart</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Sections -->
+    <main class="container">
+        <!-- Home Section -->
+        <section id="home" class="content-section active">
+            <div class="hero">
+                <div class="hero-content">
+                    <h2>Custom Cakes for Every Celebration</h2>
+                    <p>Experience the joy of our handcrafted, personalized masterpieces.</p>
+                    <button class="btn btn-secondary nav-tab-btn" data-target="cakes">Explore Our Cakes</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Cakes Section -->
+        <section id="cakes" class="content-section">
+            <div class="section-header">
+                <h2>Our Signature Cakes</h2>
+                <p>Browse our collection of beautifully designed cakes, perfect for any occasion.</p>
+            </div>
+            <div class="product-grid">
+                <!-- Product Card 1 -->
+                <div class="product-card" data-product-id="cake1">
+                    <div class="product-image">
+                        <i class="fas fa-cake-candles"></i>
+                        <span class="product-rating"><i class="fas fa-star"></i> 4.8</span>
+                        <button class="quick-view-btn">Quick View</button>
+                    </div>
+                    <div class="product-info">
+                        <h3>Classic Vanilla Celebration</h3>
+                        <p class="product-description">A light and fluffy vanilla cake layered with our signature vanilla buttercream.</p>
+                        <span class="price">$55.00</span>
+                        <span class="customizable-badge"><i class="fas fa-pencil"></i> Fully Customizable</span>
+                        <div class="product-buttons">
+                            <button class="btn btn-primary add-to-cart-btn"><i class="fas fa-shopping-cart"></i> Add to Cart</button>
+                            <button class="btn btn-secondary"><i class="fas fa-heart"></i> Wishlist</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Product Card 2 -->
+                <div class="product-card" data-product-id="cake2">
+                    <div class="product-image">
+                        <i class="fas fa-birthday-cake"></i>
+                        <span class="product-rating"><i class="fas fa-star"></i> 5.0</span>
+                        <button class="quick-view-btn">Quick View</button>
+                    </div>
+                    <div class="product-info">
+                        <h3>Rich Chocolate Decadence</h3>
+                        <p class="product-description">Indulge in layers of moist chocolate cake with a rich, velvety chocolate ganache.</p>
+                        <span class="price">$65.00</span>
+                        <span class="customizable-badge"><i class="fas fa-pencil"></i> Fully Customizable</span>
+                        <div class="product-buttons">
+                            <button class="btn btn-primary add-to-cart-btn"><i class="fas fa-shopping-cart"></i> Add to Cart</button>
+                            <button class="btn btn-secondary"><i class="fas fa-heart"></i> Wishlist</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Pastries Section -->
+        <section id="pastries" class="content-section">
+            <div class="section-header">
+                <h2>Artisan Pastries</h2>
+                <p>Discover our delectable selection of pastries, baked fresh daily with the finest ingredients.</p>
+            </div>
+            <div class="product-grid">
+                <!-- Product Card 3 -->
+                <div class="product-card" data-product-id="pastry1">
+                    <div class="product-image">
+                        <i class="fas fa-croissant"></i>
+                        <span class="product-rating"><i class="fas fa-star"></i> 4.5</span>
+                        <button class="quick-view-btn">Quick View</button>
+                    </div>
+                    <div class="product-info">
+                        <h3>Almond Croissant</h3>
+                        <p class="product-description">A buttery, flaky croissant filled with a sweet almond frangipane and topped with toasted almonds.</p>
+                        <span class="price">$4.50</span>
+                        <div class="product-buttons">
+                            <button class="btn btn-primary add-to-cart-btn"><i class="fas fa-shopping-cart"></i> Add to Cart</button>
+                            <button class="btn btn-secondary"><i class="fas fa-heart"></i> Wishlist</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Cart Section -->
+        <section id="cart" class="content-section">
+            <div class="section-header">
+                <h2>Your Shopping Cart</h2>
+            </div>
+            <div class="cart-items">
+                <!-- Cart items will be dynamically added here -->
+            </div>
+            <div class="cart-total">
+                <div class="cart-summary">
+                    <div class="summary-row"><span>Subtotal:</span><span id="subtotal-price">$0.00</span></div>
+                    <div class="summary-row"><span>Tax:</span><span id="tax-price">$0.00</span></div>
+                    <div class="summary-row total"><span>Total:</span><span id="total-price">$0.00</span></div>
+                </div>
+                <button class="checkout-btn"><i class="fas fa-cash-register"></i> Proceed to Checkout</button>
+            </div>
+        </section>
+    </main>
+
+    <!-- Product Customization Modal -->
+    <div id="product-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Customize Your Cake</h3>
+                <button class="close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="customization-options">
+                    <!-- Flavor Selection -->
+                    <div class="option-group">
+                        <h4><i class="fas fa-cookie-cutter"></i> Select Flavor</h4>
+                        <select id="flavor-select">
+                            <option value="vanilla">Vanilla</option>
+                            <option value="chocolate">Chocolate</option>
+                            <option value="red-velvet">Red Velvet</option>
+                            <option value="strawberry">Strawberry</option>
+                        </select>
+                    </div>
+
+                    <!-- Size Selection -->
+                    <div class="option-group">
+                        <h4><i class="fas fa-ruler-combined"></i> Choose Size</h4>
+                        <select id="size-select">
+                            <option value="small">Small (Serves 6-8)</option>
+                            <option value="medium">Medium (Serves 10-12)</option>
+                            <option value="large">Large (Serves 15-20)</option>
+                        </select>
+                    </div>
+
+                    <!-- Message Input -->
+                    <div class="option-group">
+                        <h4><i class="fas fa-comment-dots"></i> Add Custom Message</h4>
+                        <input type="text" id="message-input" placeholder="e.g., Happy Birthday, John!">
+                    </div>
+
+                    <!-- Frosting Color -->
+                    <div class="option-group">
+                        <h4><i class="fas fa-palette"></i> Choose Frosting Color</h4>
+                        <input type="color" id="color-input" value="#f3e0d0">
+                    </div>
+                </div>
+                <div class="quantity-selector">
+                    <button class="quantity-btn" id="decrease-qty">-</button>
+                    <input type="number" id="quantity-input" class="quantity-input" value="1" min="1">
+                    <button class="quantity-btn" id="increase-qty">+</button>
+                </div>
+                <button class="btn btn-primary" id="modal-add-to-cart"><i class="fas fa-shopping-cart"></i> Add to Cart</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const navTabs = document.querySelectorAll('.nav-tab-btn');
+            const contentSections = document.querySelectorAll('.content-section');
+            const cartBadge = document.querySelector('.cart-badge');
+            const quickViewBtns = document.querySelectorAll('.quick-view-btn');
+            const modal = document.getElementById('product-modal');
+            const closeModalBtn = document.querySelector('.close');
+            const modalTitle = document.getElementById('modal-title');
+            const modalAddToCartBtn = document.getElementById('modal-add-to-cart');
+            const quantityInput = document.getElementById('quantity-input');
+            const decreaseQtyBtn = document.getElementById('decrease-qty');
+            const increaseQtyBtn = document.getElementById('increase-qty');
+            const cartItemsContainer = document.querySelector('.cart-items');
+            const subtotalPriceEl = document.getElementById('subtotal-price');
+            const taxPriceEl = document.getElementById('tax-price');
+            const totalPriceEl = document.getElementById('total-price');
+
+            let cart = JSON.parse(localStorage.getItem('cart')) || [];
+            const products = [
+                { id: 'cake1', name: 'Classic Vanilla Celebration', price: 55.00, customizable: true, icon: 'fas fa-cake-candles' },
+                { id: 'cake2', name: 'Rich Chocolate Decadence', price: 65.00, customizable: true, icon: 'fas fa-birthday-cake' },
+                { id: 'pastry1', name: 'Almond Croissant', price: 4.50, customizable: false, icon: 'fas fa-croissant' },
+            ];
+
+            const TAX_RATE = 0.08;
+            let currentProduct = null;
+
+            // --- UI FUNCTIONS ---
+            const showNotification = (message, type = 'success') => {
+                const notification = document.createElement('div');
+                notification.className = `notification ${type}`;
+                notification.textContent = message;
+                document.body.appendChild(notification);
+                setTimeout(() => notification.remove(), 3000);
+            };
+
+            const updateCartUI = () => {
+                cartBadge.textContent = cart.reduce((total, item) => total + item.quantity, 0);
+                localStorage.setItem('cart', JSON.stringify(cart));
+                renderCartItems();
+                updateCartTotal();
+            };
+
+            const renderCartItems = () => {
+                cartItemsContainer.innerHTML = '';
+                if (cart.length === 0) {
+                    cartItemsContainer.innerHTML = '<p style="text-align: center; color: #666; font-style: italic;">Your cart is empty. Start adding some sweet treats!</p>';
+                    return;
+                }
+                cart.forEach(item => {
+                    const cartItemEl = document.createElement('div');
+                    cartItemEl.className = 'cart-item';
+                    cartItemEl.innerHTML = `
+                        <div class="cart-item-image">
+                            <i class="${item.icon}"></i>
+                        </div>
+                        <div class="cart-item-details">
+                            <h4>${item.name}</h4>
+                            <p>${item.customization ? `(${item.customization})` : ''} Quantity: ${item.quantity}</p>
+                        </div>
+                        <div class="cart-item-actions">
+                            <span class="cart-item-price">$${(item.price * item.quantity).toFixed(2)}</span>
+                            <button class="remove-btn" data-id="${item.id}">Remove</button>
+                        </div>
+                    `;
+                    cartItemsContainer.appendChild(cartItemEl);
+                });
+            };
+
+            const updateCartTotal = () => {
+                const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                const tax = subtotal * TAX_RATE;
+                const total = subtotal + tax;
+                subtotalPriceEl.textContent = `$${subtotal.toFixed(2)}`;
+                taxPriceEl.textContent = `$${tax.toFixed(2)}`;
+                totalPriceEl.textContent = `$${total.toFixed(2)}`;
+            };
+
+            const toggleModal = (show = true) => {
+                modal.style.display = show ? 'flex' : 'none';
+            };
+
+            // --- EVENT LISTENERS ---
+            // Navigation
+            navTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    navTabs.forEach(t => t.classList.remove('active'));
+                    contentSections.forEach(s => s.classList.remove('active'));
+                    tab.classList.add('active');
+                    const targetId = tab.dataset.target;
+                    document.getElementById(targetId).classList.add('active');
+                });
+            });
+
+            // Quick View Modal
+            quickViewBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const productId = btn.closest('.product-card').dataset.productId;
+                    currentProduct = products.find(p => p.id === productId);
+                    
+                    if (!currentProduct.customizable) {
+                        showNotification('This item is not customizable.', 'warning');
+                        return;
+                    }
+
+                    modalTitle.textContent = `Customize Your ${currentProduct.name}`;
+                    toggleModal();
+                });
+            });
+            
+            // Add to Cart from Product Grid (non-customizable items)
+            document.querySelectorAll('.add-to-cart-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const productId = e.target.closest('.product-card').dataset.productId;
+                    const productToAdd = products.find(p => p.id === productId);
+                    if (!productToAdd.customizable) {
+                         addToCart(productToAdd);
+                    } else {
+                         showNotification('Please use "Quick View" to customize this item before adding to cart.', 'warning');
+                    }
+                });
+            });
+
+            // Close Modal
+            closeModalBtn.addEventListener('click', () => {
+                toggleModal(false);
+            });
+            window.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    toggleModal(false);
+                }
+            });
+
+            // Quantity controls
+            decreaseQtyBtn.addEventListener('click', () => {
+                if (quantityInput.value > 1) {
+                    quantityInput.value = parseInt(quantityInput.value) - 1;
+                }
+            });
+            increaseQtyBtn.addEventListener('click', () => {
+                quantityInput.value = parseInt(quantityInput.value) + 1;
+            });
+
+            // Modal Add to Cart
+            modalAddToCartBtn.addEventListener('click', () => {
+                const flavor = document.getElementById('flavor-select').value;
+                const size = document.getElementById('size-select').value;
+                const message = document.getElementById('message-input').value;
+                const color = document.getElementById('color-input').value;
+
+                const customization = `Flavor: ${flavor}, Size: ${size}, Frosting Color: ${color}` + (message ? `, Message: "${message}"` : '');
+                const item = {
+                    id: currentProduct.id + Date.now(),
+                    name: currentProduct.name,
+                    price: currentProduct.price,
+                    icon: currentProduct.icon,
+                    quantity: parseInt(quantityInput.value),
+                    customization: customization
+                };
+                addToCart(item);
+                toggleModal(false);
+            });
+
+            // Add to Cart function
+            const addToCart = (item) => {
+                const existingItem = cart.find(c => c.name === item.name && c.customization === item.customization);
+                if (existingItem) {
+                    existingItem.quantity += item.quantity;
+                } else {
+                    cart.push(item);
+                }
+                updateCartUI();
+                showNotification(`Added ${item.name} x${item.quantity} to cart!`);
+            };
+
+            // Remove from Cart
+            cartItemsContainer.addEventListener('click', (e) => {
+                if (e.target.classList.contains('remove-btn')) {
+                    const itemId = e.target.dataset.id;
+                    cart = cart.filter(item => item.id !== itemId);
+                    updateCartUI();
+                    showNotification('Item removed from cart.', 'error');
+                }
+            });
+
+            // Initial UI setup
+            updateCartUI();
+        });
+    </script>
+</body>
+</html>

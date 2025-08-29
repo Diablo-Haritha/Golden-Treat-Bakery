@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sales Management Admin UI</title>
+  <!-- Charts & export -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    :root {
+      --brand: #008cd8;
+      --ink: #111827;
+      --paper: #fff;
+      --muted: #6b7280;
+      --soft: #e5e7eb;
+      --warn: #ffc107;
+      --danger: #dc3545;
+      --primary: #007bff;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box
+    }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: #f4f6f9;
+      color: #0f172a;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #fff;
+      padding: 12px 16px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, .08)
+    }
+
+    .header-left img {
+      width: 56px;
+      height: auto;
+      border-radius: 8px;
+      display: block;
+      box-shadow: 2px 2px 5px rgba(0, 0, 0, .15)
+    }
+
+    .header-middle {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+      margin: 0 16px;
+      max-width: 720px
+    }
+
+    .header-middle-title {
+      font-weight: 800;
+      font-size: 26px;
+      color: var(--brand);
+      white-space: nowrap
+    }
+
+    .search-bar {
+      flex: 1;
+      display: flex
+    }
+
+    .search-bar input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px
+    }
+
+    .role-btn {
+      background: #111827;
+      color: #fff;
+      padding: 8px 14px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer
+    }
+
+    .role-btn:hover {
+      opacity: .9
+    }
+
+    .user-icon {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, #bbb, #888);
+      border-radius: 50%
+    }
+
+    /* Layout */
+    .layout {
+      flex: 1;
+      display: flex;
+      min-height: 0
+    }
+
+    .sidebar {
+      width: 260px;
+      background: #fff;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border-right: 1px solid #e5e7eb;
+      
+    }
+
+    .sidebar h1 {
+      text-align: center;
+      font-size: 20px;
+      margin-bottom: 8px;
+      color: #0f172a
+    }
+
+    .sidebar nav {
+      display: flex;
+      flex-direction: column;
+      gap: 10px
+    }
+
+    /* Sidebar groups */
+    .salesbtn {
+      background: var(--brand);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-weight: 800;
+      font-size: 22px;
+      padding: 12px;
+      text-align: center
+    }
+
+    .otherbtn button {
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      cursor: pointer;
+      padding: 10px 12px;
+      font-weight: 700;
+      gap: 10px;
+    }
+
+    .salebtn button {
+      background: #008cd8;
+      border: none;
+      text-align: left;
+      padding: 10px;
+      margin: 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      color: #fff;
+    }
+
+    .Sbtn {
+      background: #e37200;
+      margin-left: 10px;
+    }
+
+    .Ubtn {
+      background: #30b6a2
+    }
+
+    .Bbtn {
+      background: #edcd00
+    }
+
+    .otherbtn button:hover {
+      filter: brightness(1.1)
+    }
+
+    .sidebar hr {
+      margin: 8px 0
+    }
+
+    .sidebar p {
+      font-size: 12px;
+      color: #6b7280;
+      font-weight: 700
+    }
+
+    .salebtn button {
+      background: var(--brand);
+      text-align: left
+    }
+
+    .salebtn button.active {
+      outline: 3px solid rgba(146, 48, 182, 0.35)
+    }
+
+    .sidebar hr {
+      margin: 8px 0
+    }
+
+    .sidebar p {
+      font-size: 12px;
+      color: #6b7280;
+      font-weight: 700
+    }
+
+    /* Sales Management sub-tabs */
+    .salebtn {
+      display: flex;
+      flex-direction: column
+    }
+
+    .salebtn .tab-btn {
+      background: var(--brand);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      cursor: pointer;
+      padding: 10px 12px;
+      font-weight: 700;
+      text-align: left
+    }
+
+    .salebtn .tab-btn+.tab-btn {
+      margin-top: 8px
+    }
+
+    .salebtn .tab-btn.active {
+      outline: 3px solid rgba(48, 182, 162, .35)
+    }
+
+    /* Main area */
+    .free-area {
+      flex: 1;
+      background: #f3f4f6;
+      padding: 24px;
+      overflow: auto
+    }
+
+    .panel {
+      display: none
+    }
+
+    .panel.active {
+      display: block
+    }
+
+    .content {
+      background: #008cd8;
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+      display: flex;
+      flex-direction: column;
+      gap: 16px
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
+      text-align: center
+    }
+
+    .card h3 {
+      font-size: 14px;
+      color: #374151
+    }
+
+    .card p {
+      font-size: 22px;
+      font-weight: 800;
+      margin-top: 6px;
+      color: #0f172a
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center
+    }
+
+    .filter-bar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap
+    }
+
+    .filter-bar input,
+    .filter-bar select,
+    .filter-bar button {
+      padding: 8px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      background: #fff
+    }
+
+    .btn {
+      padding: 9px 12px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      color: #fff;
+      background: var(--primary)
+    }
+
+    .btn.secondary {
+      background: #10b981
+    }
+
+    .btn.warn {
+      background: var(--warn);
+      color: #000
+    }
+
+    .btn.danger {
+      background: var(--danger)
+    }
+
+    .btn.light {
+      background: #e5e7eb;
+      color: #111827;
+      border: 1px solid #d1d5db
+    }
+
+    .table-wrap {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
+      overflow: auto
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse
+    }
+
+    th,
+    td {
+      padding: 12px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: left;
+      white-space: nowrap
+    }
+
+    th {
+      background: #f9fafb;
+      font-size: 13px;
+      color: #374151;
+      cursor: pointer;
+      position: sticky;
+      top: 0
+    }
+
+    tr:hover td {
+      background: #fcfcfd
+    }
+
+    .badge {
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700
+    }
+
+    .Completed {
+      background: #d1fae5;
+      color: #065f46
+    }
+
+    .Pending {
+      background: #fef3c7;
+      color: #92400e
+    }
+
+    .Cancelled {
+      background: #fee2e2;
+      color: #991b1b
+    }
+
+    .row-actions button {
+      padding: 6px 10px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer
+    }
+
+    .row-actions .edit {
+      background: var(--warn)
+    }
+
+    .row-actions .del {
+      background: var(--danger);
+      color: #fff
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .35);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 50
+    }
+
+    .modal {
+      width: 100%;
+      max-width: 520px;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
+      padding: 18px
+    }
+
+    .modal h2 {
+      margin-bottom: 10px
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px
+    }
+
+    .form-grid .full {
+      grid-column: 1/-1
+    }
+
+    .modal input,
+    .modal select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px
+    }
+
+    .modal .footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 12px
+    }
+
+    /* Analysis */
+    .chart-card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .08)
+    }
+
+    .analysis-controls {
+      background: #fff;
+      border-radius: 14px;
+      padding: 12px;
+      box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
+      margin-bottom: 12px
+    }
+
+    .analysis-controls .filter-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center
+    }
+
+    .analysis-controls label {
+      font-size: 12px;
+      color: #374151
+    }
+
+    .mini-cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin: 12px 0
+    }
+
+    .mini-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+      box-shadow: 0 1px 6px rgba(0, 0, 0, .06)
+    }
+
+    .mini-card h4 {
+      margin-bottom: 6px;
+      font-size: 12px;
+      color: #374151
+    }
+
+    .mini-card p {
+      font-size: 20px;
+      font-weight: 800;
+      color: #0f172a
+    }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px
+    }
+
+    .chart-wrap {
+      position: relative;
+      height: 320px
+    }
+
+    /* Export panel */
+    .export-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px
+    }
+
+    .export-grid .row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 13px
+    }
+
+    @media (max-width:1000px) {
+      .cards {
+        grid-template-columns: 1fr
+      }
+
+      .charts-grid {
+        grid-template-columns: 1fr
+      }
+
+      .sidebar {
+        width: 220px
+      }
+    }
+    /* Common button style */
+.btnview, .btnupdate, .btndelete {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  margin: 0 4px;
+  color: white;
+}
+
+/* View button (blue) */
+.btnview {
+  background-color: #1a73e8;
+}
+.btnview:hover {
+  background-color: #155bb5;
+}
+
+/* Update button (orange) */
+.btnupdate {
+  background-color: #f39c12;
+}
+.btnupdate:hover {
+  background-color: #d98200;
+}
+
+/* Delete button (red) */
+.btndelete {
+  background-color: #e74c3c;
+}
+.btndelete:hover {
+  background-color: #c0392b;
+}
+
+  </style>
+</head>
+
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left"><img src="logo.jpg" alt="Logo" /></div>
+    <div class="header-middle">
+      <div class="header-middle-title">Order Management</div>
+      <div class="search-bar"><input id="globalSearch" type="text" placeholder="Search by customer, status or ID..." />
+      </div>
+    </div>
+    <div class="header-right">
+    <button class="role-btn" onclick="window.location.href='index.html'">Dashboard</button>
+      <div class="user-icon"></div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <h1>Order Dashboard</h1>
+      <nav>
+        <button class="salesbtn" disabled>Order</button>
+        <div class="otherbtn">
+     <button class="Sbtn" onclick="window.location.href='stoke.html'">Stock</button>
+<button class="Ubtn" onclick="window.location.href='sales.html'">Sales</button>
+<button class="Bbtn" onclick="window.location.href='booking.html'">Booking</button>
+
+        </div>
+        <hr />
+        <p>Order Management</p>
+        <div class="salebtn">
+          <button class="tab-btn active" data-page="payment-dashboard">Payment Dashboard</button>
+
+          <button class="tab-btn" data-page="payment-export">Export Report</button>
+        </div>
+      </nav>
+    </aside>
+
+  
+
+        <!-- Main -->
+        <main class="free-area">
+            <!-- Dashboard -->
+            <section id="payment-dashboard" class="panel active">
+                <div class="content">
+                    <h1>Payment Management</h1>
+                    <div class="cards">
+                        <div class="card">
+                            <h3>Total Payments</h3>
+                            <p id="cardTotalPayments">0</p>
+                        </div>
+                        <div class="card">
+                            <h3>Approved Payments</h3>
+                            <p id="cardApprovedPayments">0</p>
+                        </div>
+                        <div class="card">
+                            <h3>Pending Payments</h3>
+                            <p id="cardPendingPayments">0</p>
+                        </div>
+                    </div>
+                    <div class="toolbar">
+                        <div class="filter-bar">
+                            <input type="date" id="filterDate" />
+                            <input type="text" id="filterCustomer" placeholder="Customer Name" />
+                            <select id="filterStatus">
+                                <option value="">All Status</option>
+                                <option>Pending</option>
+                                <option>Approved</option>
+                                <option>Refunded</option>
+                            </select>
+                            <button class="btn light" id="btnFilter">Filter</button>
+                            <button class="btn light" id="btnReset">Reset</button>
+                        </div>
+                        <div style="flex:1"></div>
+
+                        <button class="btn" id="btnExportCsv">⬇ CSV</button>
+                    </div>
+                    <div class="table-wrap">
+                        <table id="paymentTable">
+                            <thead>
+                                <tr>
+                                    <th data-sort="paymentId">Payment ID ▲▼</th>
+                                    <th data-sort="customerName">Customer ▲▼</th>
+                                    <th data-sort="amount">Amount ▲▼</th>
+                                    <th data-sort="date">Date ▲▼</th>
+                                    <th data-sort="status">Status ▲▼</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Export -->
+            <section id="payment-export" class="panel">
+                <div class="content">
+                    <h2>Export Payment Reports</h2>
+                    <div class="export-grid">
+                        <div class="row">
+                            <input type="date" id="expFrom" />
+                            <input type="date" id="expTo" />
+                            <select id="expStatus">
+                                <option value="">All Status</option>
+                                <option>Pending</option>
+                                <option>Approved</option>
+                                <option>Refunded</option>
+                            </select>
+                            <input type="text" id="expCustomer" placeholder="Customer Name" />
+                        </div>
+                        <div class="row">
+                            <button class="btn" id="expCsv">Export CSV</button>
+                            <button class="btn secondary" id="expXlsx">Export Excel</button>
+                            <button class="btn warn" id="expPdf">Export PDF</button>
+                            <span class="muted">Exports use live, filtered data.</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal Add/Edit -->
+    <div class="modal-backdrop" id="modalBackdrop">
+        <div class="modal">
+            <h2 id="modalTitle">Add Payment</h2>
+            <div class="form-grid">
+                <div><label>Payment ID</label><input id="fPaymentId" type="text" placeholder="e.g. PID1001"></div>
+                <div><label>Customer Name</label><input id="fCustomerName" type="text" placeholder="Customer name"></div>
+                <div><label>Amount ($)</label><input id="fAmount" type="number" step="0.01" min="0" placeholder="e.g. 10.99"></div>
+                <div><label>Date</label><input id="fDate" type="date"></div>
+                <div>
+                    <label>Status</label>
+                    <select id="fStatus">
+                        <option>Pending</option>
+                        <option>Approved</option>
+                        <option>Refunded</option>
+                    </select>
+                </div>
+            </div>
+            <div class="footer">
+                <button class="btn light" id="btnCancel">Cancel</button>
+                <button class="btn" id="btnSave">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ---------- UTIL & STATE ---------- */
+        const $ = (s, root = document) => root.querySelector(s);
+        const $$ = (s, root = document) => [...root.querySelectorAll(s)];
+        const LS_KEY = 'paymentData_v1';
+
+        let payments = loadPayments();
+        let sortState = { key: 'date', dir: 'desc' };
+        let editingIndex = null;
+
+        function loadPayments() {
+            const raw = localStorage.getItem(LS_KEY);
+            if (raw) return JSON.parse(raw);
+            const seed = [
+                { paymentId: "PID1001", customerName: "John Doe", amount: 12.99, date: "2025-08-01", status: "Approved" },
+                { paymentId: "PID1002", customerName: "Jane Smith", amount: 8.99, date: "2025-08-01", status: "Pending" },
+                { paymentId: "PID1003", customerName: "Alice Brown", amount: 6.99, date: "2025-08-02", status: "Approved" },
+                { paymentId: "PID1004", customerName: "Bob Johnson", amount: 10.99, date: "2025-08-02", status: "Refunded" },
+                { paymentId: "PID1005", customerName: "Emma Wilson", amount: 15.99, date: "2025-08-03", status: "Pending" }
+            ];
+            localStorage.setItem(LS_KEY, JSON.stringify(seed));
+            return seed;
+        }
+        function savePayments() { localStorage.setItem(LS_KEY, JSON.stringify(payments)); }
+
+        /* ---------- RENDER (Dashboard) ---------- */
+        function renderCards(data = payments) {
+            const totalPayments = data.length;
+            const approvedPayments = data.filter(p => p.status === "Approved").length;
+            const pendingPayments = data.filter(p => p.status === "Pending").length;
+            $('#cardTotalPayments').textContent = totalPayments;
+            $('#cardApprovedPayments').textContent = approvedPayments;
+            $('#cardPendingPayments').textContent = pendingPayments;
+        }
+        function rowHTML(r, idx) {
+            return `<tr data-idx="${idx}">
+                <td>${r.paymentId}</td>
+                <td>${r.customerName}</td>
+                <td>$${r.amount.toFixed(2)}</td>
+                <td>${r.date}</td>
+                <td><span class="badge ${r.status}">${r.status}</span></td>
+                <td class="row-actions">
+                    <button class="edit">✏ Edit</button>
+                    <button class="del">🗑 Delete</button>
+                    ${r.status === "Pending" ? `
+                        <button class="approve">✔ Approve</button>
+                        <button class="refund">↩ Refund</button>
+                    ` : ''}
+                </td>
+            </tr>`;
+        }
+        function getFilters() {
+            return {
+                date: $('#filterDate').value.trim(),
+                customer: $('#filterCustomer').value.trim().toLowerCase(),
+                status: $('#filterStatus').value.trim(),
+                search: $('#globalSearch').value.trim().toLowerCase()
+            };
+        }
+        function applyFilters(data) {
+            const { date, customer, status, search } = getFilters();
+            return data.filter(r => {
+                const okDate = !date || r.date === date;
+                const okCustomer = !customer || r.customerName.toLowerCase().includes(customer);
+                const okStatus = !status || r.status === status;
+                const okSearch = !search || (
+                    r.paymentId.toLowerCase().includes(search) ||
+                    r.customerName.toLowerCase().includes(search) ||
+                    r.status.toLowerCase().includes(search)
+                );
+                return okDate && okCustomer && okStatus && okSearch;
+            });
+        }
+        function applySort(data) {
+            const { key, dir } = sortState, mult = dir === 'asc' ? 1 : -1;
+            return data.slice().sort((a, b) => {
+                let va = a[key], vb = b[key];
+                if (key === 'amount') { va = +va; vb = +vb; }
+                if (key === 'date') { return (new Date(va) - new Date(vb)) * mult; }
+                if (va < vb) return -1 * mult; if (va > vb) return 1 * mult; return 0;
+            });
+        }
+        function renderTable() {
+            const filtered = applyFilters(payments);
+            const sorted = applySort(filtered);
+            const tbody = $('#paymentTable tbody');
+            tbody.innerHTML = sorted.map(r => rowHTML(r, payments.indexOf(r))).join('');
+            renderCards(filtered);
+            wireRowButtons();
+        }
+
+        /* ---------- TABLE INTERACTIONS ---------- */
+        function wireRowButtons() {
+            $$('#paymentTable .edit').forEach(btn => btn.onclick = (e) => {
+                const idx = +e.target.closest('tr').dataset.idx;
+                openModal('Edit Payment', payments[idx], idx);
+            });
+            $$('#paymentTable .del').forEach(btn => btn.onclick = (e) => {
+                const idx = +e.target.closest('tr').dataset.idx;
+                if (confirm('Delete payment #' + payments[idx].paymentId + '?')) {
+                    payments.splice(idx, 1);
+                    savePayments();
+                    renderTable();
+                }
+            });
+            $$('#paymentTable .approve').forEach(btn => btn.onclick = (e) => {
+                const idx = +e.target.closest('tr').dataset.idx;
+                payments[idx].status = 'Approved';
+                savePayments();
+                renderTable();
+            });
+            $$('#paymentTable .refund').forEach(btn => btn.onclick = (e) => {
+                const idx = +e.target.closest('tr').dataset.idx;
+                payments[idx].status = 'Refunded';
+                savePayments();
+                renderTable();
+            });
+        }
+        $$('#paymentTable thead th').forEach(th => {
+            const key = th.dataset.sort;
+            if (!key) return;
+            th.onclick = () => {
+                if (sortState.key === key) {
+                    sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    sortState.key = key;
+                    sortState.dir = 'asc';
+                }
+                renderTable();
+            };
+        });
+
+        /* ---------- MODAL (Add/Edit) ---------- */
+        const backdrop = $('#modalBackdrop');
+        function openModal(title, record = null, idx = null) {
+            $('#modalTitle').textContent = title;
+            editingIndex = idx;
+            $('#fPaymentId').value = record?.paymentId ?? `PID${nextId()}`;
+            $('#fCustomerName').value = record?.customerName ?? '';
+            $('#fAmount').value = record?.amount ?? '';
+            $('#fDate').value = record?.date ?? new Date().toISOString().slice(0, 10);
+            $('#fStatus').value = record?.status ?? 'Pending';
+            backdrop.style.display = 'flex';
+        }
+        function closeModal() { backdrop.style.display = 'none'; }
+        function nextId() {
+            return (payments.reduce((m, r) => Math.max(m, parseInt(r.paymentId.replace('PID', '') || 0)), 0) || 1000) + 1;
+        }
+        $('#btnAdd').onclick = () => openModal('Add Payment');
+        $('#btnCancel').onclick = closeModal;
+        $('#btnSave').onclick = () => {
+            const amount = parseFloat($('#fAmount').value);
+            const rec = {
+                paymentId: ($('#fPaymentId').value || '').trim() || `PID${nextId()}`,
+                customerName: ($('#fCustomerName').value || '').trim() || 'Unknown',
+                amount: isNaN(amount) ? 0 : amount,
+                date: $('#fDate').value,
+                status: $('#fStatus').value
+            };
+            if (!rec.date) { alert('Please select a date'); return; }
+            if (rec.amount <= 0) { alert('Please enter a valid amount greater than 0'); return; }
+            if (editingIndex == null) { payments.push(rec); } else { payments[editingIndex] = rec; }
+            savePayments();
+            closeModal();
+            renderTable();
+        };
+
+        /* ---------- FILTERS & SEARCH ---------- */
+        $('#btnFilter').onclick = renderTable;
+        $('#btnReset').onclick = () => {
+            $('#filterDate').value = '';
+            $('#filterCustomer').value = '';
+            $('#filterStatus').value = '';
+            renderTable();
+        };
+        $('#globalSearch').addEventListener('input', renderTable);
+
+        /* ---------- EXPORTS ---------- */
+        function toCSV(rows) {
+            const header = ['Payment ID', 'Customer Name', 'Amount', 'Date', 'Status'];
+            const lines = [header.join(',')];
+            rows.forEach(r => lines.push([quoteCSV(r.paymentId), quoteCSV(r.customerName), r.amount.toFixed(2), r.date, r.status].join(',')));
+            return lines.join('\n');
+        }
+        function quoteCSV(s) {
+            const str = String(s ?? '');
+            return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+        }
+        function download(name, blob) {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = name;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        }
+        $('#btnExportCsv').onclick = () => {
+            const data = applyFilters(payments);
+            const csv = toCSV(data);
+            download('payment_report.csv', new Blob([csv], { type: 'text/csv' }));
+        };
+        function getExportFiltered() {
+            const from = $('#expFrom').value, to = $('#expTo').value, status = $('#expStatus').value, customer = $('#expCustomer').value.trim().toLowerCase();
+            return payments.filter(r => {
+                const okFrom = !from || r.date >= from;
+                const okTo = !to || r.date <= to;
+                const okStatus = !status || r.status === status;
+                const okCustomer = !customer || r.customerName.toLowerCase().includes(customer);
+                return okFrom && okTo && okStatus && okCustomer;
+            });
+        }
+        $('#expCsv').onclick = () => {
+            const csv = toCSV(getExportFiltered());
+            download('payment_export.csv', new Blob([csv], { type: 'text/csv' }));
+        };
+        $('#expXlsx').onclick = () => {
+            const rows = getExportFiltered().map(r => ({
+                'Payment ID': r.paymentId,
+                'Customer Name': r.customerName,
+                Amount: r.amount.toFixed(2),
+                Date: r.date,
+                Status: r.status
+            }));
+            const ws = XLSX.utils.json_to_sheet(rows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Payments');
+            XLSX.writeFile(wb, 'payment_export.xlsx');
+        };
+        $('#expPdf').onclick = () => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.setFontSize(14);
+            doc.text('Payment Report', 14, 16);
+            const rows = getExportFiltered().map(r => [r.paymentId, r.customerName, `$${r.amount.toFixed(2)}`, r.date, r.status]);
+            doc.autoTable({ startY: 22, head: [['Payment ID', 'Customer Name', 'Amount', 'Date', 'Status']], body: rows });
+            doc.save('payment_export.pdf');
+        };
+
+        /* ---------- NAVIGATION ---------- */
+        function activatePanel(id) {
+            $$('.panel').forEach(p => p.classList.remove('active'));
+            $('#' + id).classList.add('active');
+            $$('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.page === id));
+        }
+        $$('.tab-btn').forEach(btn => btn.onclick = () => activatePanel(btn.dataset.page));
+
+        /* ---------- ROLE TOGGLE ---------- */
+        let currentRole = 'Manager';
+        $('#roleBtn').onclick = () => {
+            currentRole = currentRole === 'Manager' ? 'Admin' : 'Manager';
+            $('#roleBtn').textContent = currentRole;
+        };
+
+        /* ---------- INIT ---------- */
+        renderTable();
+    </script>
+</body>
+</html>
+```

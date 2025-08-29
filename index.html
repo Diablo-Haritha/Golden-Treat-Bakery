@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sales Management Admin UI</title>
+  <!-- Charts & export -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
+<style>
+ 
+:root {
+  --brand: #000000;
+  --ink: #ffffff;
+  --paper: #fff;
+  --muted: #6b7280;
+  --soft: #e5e7eb;
+  --warn: #ffc107;
+  --danger: #dc3545;
+  --primary: #007bff;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  background: #000000;
+  color: #ffffff;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  padding: 12px 16px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, .08);
+}
+
+.header-left img {
+  width: 56px;
+  height: auto;
+  border-radius: 8px;
+  display: block;
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, .15);
+}
+
+.header-middle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  margin: 0 16px;
+  max-width: 720px;
+}
+
+.header-middle-title {
+  font-weight: 800;
+  font-size: 26px;
+  color: var(--brand);
+  white-space: nowrap;
+}
+
+.search-bar {
+  flex: 1;
+  display: flex;
+}
+
+.search-bar input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.role-btn {
+  background: #111827;
+  color: #fff;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.role-btn:hover {
+  opacity: .9;
+}
+
+.user-icon {
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, #bbb, #888);
+  border-radius: 50%;
+}
+
+/* Layout */
+.layout {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.sidebar {
+  width: 260px;
+  background: #fff;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-right: 1px solid #e5e7eb;
+}
+
+.sidebar h1 {
+  text-align: center;
+  font-size: 20px;
+  margin-bottom: 8px;
+  color: #0f172a;
+}
+
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tab-btn {
+  background: var(--brand);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  padding: 10px 12px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.tab-btn.active {
+  outline: 3px solid rgba(48, 182, 162, .35);
+}
+
+.tab-btn.Sbtn { background: #c25700; }
+.tab-btn.Ubtn { background: #1000a2; }
+.tab-btn.Bbtn { background: #017612; }
+.sbtn{ background: #30b6a2;  border: none;
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  padding: 10px 12px;
+  font-weight: 700;
+  text-align: left;}
+.ssbtn{ background: #e37200;  border: none;
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  padding: 10px 12px;
+  font-weight: 700;
+  text-align: left;}
+.ubtn{ background: #00a619;  border: none;
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  padding: 10px 12px;
+  font-weight: 700;
+  text-align: left;}
+.bbtn{ background: #edcd00;  border: none;
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  padding: 10px 12px;
+  font-weight: 700;
+  text-align: left;}
+.Pbtn{ background: #008cd8;  border: none;
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  padding: 10px 12px;
+  font-weight: 700;
+  text-align: left;}
+.obtn{ background: #9c0dc7;  border: none;
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  padding: 10px 12px;
+  font-weight: 700;
+  text-align: left;}
+
+.tab-btn:hover {
+  filter: brightness(1.1);
+}
+
+.salesbtn {
+  background: var(--brand);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-weight: 800;
+  font-size: 22px;
+  padding: 12px;
+  text-align: center;
+}
+
+.salebtn button {
+  background: var(--brand);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  padding: 10px 12px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.salebtn button.active {
+  outline: 3px solid rgba(48, 182, 162, .35);
+}
+
+.otherbtn button {
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  padding: 10px 12px;
+  font-weight: 700;
+}
+
+.otherbtn button:hover,
+.salebtn button:hover {
+  filter: brightness(1.1);
+}
+
+.sidebar hr {
+  margin: 8px 0;
+}
+
+.sidebar p {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 700;
+}
+
+/* Main area */
+.free-area {
+  flex: 1;
+  background: #f3f4f6;
+  padding: 24px;
+  overflow: auto;
+}
+
+.content {
+  background: #000000;
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 100px;
+}
+
+.card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
+  text-align: center;
+}
+
+.card h3 {
+  font-size: 14px;
+  color: #374151;
+}
+
+.card p {
+  font-size: 22px;
+  font-weight: 800;
+  margin-top: 6px;
+  color: #0f172a;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.filter-bar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.filter-bar input,
+.filter-bar select,
+.filter-bar button {
+  padding: 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.btn {
+  padding: 9px 12px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  color: #fff;
+  background: var(--primary);
+}
+
+.btn.secondary {
+  background: #10b981;
+}
+
+.btn.warn {
+  background: var(--warn);
+  color: #000;
+}
+
+.btn.danger {
+  background: var(--danger);
+}
+
+.btn.light {
+  background: #e5e7eb;
+  color: #111827;
+  border: 1px solid #d1d5db;
+}
+
+.table-wrap {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
+  overflow: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  white-space: nowrap;
+}
+
+th {
+  background: #f9fafb;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+  position: sticky;
+  top: 0;
+}
+
+tr:hover td {
+  background: #fcfcfd;
+}
+
+.badge {
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.Completed {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.Pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.Cancelled {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.row-actions button {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.row-actions .edit {
+  background: var(--warn);
+}
+
+.row-actions .del {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* Modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .35);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.modal {
+  width: 100%;
+  max-width: 520px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
+  padding: 18px;
+}
+
+.modal h2 {
+  margin-bottom: 10px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.form-grid .full {
+  grid-column: 1/-1;
+}
+
+.modal input,
+.modal select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+}
+
+.modal .footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+/* Analysis */
+.chart-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+}
+
+.analysis-controls {
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
+  margin-bottom: 12px;
+}
+
+.analysis-controls .filter-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.analysis-controls label {
+  font-size: 12px;
+  color: #374151;
+}
+
+.mini-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.mini-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 14px;
+  text-align: center;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
+}
+
+.mini-card h4 {
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: #374151;
+}
+
+.mini-card p {
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.chart-wrap {
+  position: relative;
+  height: 320px;
+}
+
+/* Export panel */
+.export-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.export-grid .row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+@media (max-width:1000px) {
+  .cards {
+    grid-template-columns: 1fr;
+  }
+
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    width: 220px;
+  }
+}
+
+@media (max-width:600px) {
+  .sidebar {
+    width: 180px;
+  }
+
+  .header-middle {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+</style>
+</head>
+
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left"><img src="logo.jpg" alt="Logo" /></div>
+    <div class="header-middle">
+      <div class="header-middle-title">Admin Dashboard</div>
+      <div class="search-bar"><input id="globalSearch" type="text" placeholder="Search by customer, status or ID..." />
+      </div>
+    </div>
+    <div class="header-right">
+      <button class="role-btn" id="roleBtn">Manager</button>
+      <div class="user-icon"></div>
+    </div>
+  </div>
+
+
+
+
+
+    <!-- Main -->
+    <main class="free-area">
+      <div class="content">
+        <h1>Welcome to the Management Dashboard</h1>
+        <p class="muted">Select a module from the sidebar to manage Sales, Stock, Users, or Bookings.</p>
+        <div class="cards">
+          <div class="card">
+            <h3>Sales Management</h3>
+            <p>Manage sales, analyze data, and export reports.</p>
+            <button class="sbtn" onclick="window.location.href='sales.html'">Go to Sales</button>
+          </div>
+          <div class="card">
+            <h3>Stock Management</h3>
+            <p>Track and manage inventory.</p>
+            <button class="ssbtn secondary" onclick="window.location.href='stoke.html'">Go to Stock</button>
+          </div>
+          <div class="card">
+            <h3>User Management</h3>
+            <p>Manage user accounts and permissions.</p>
+            <button class="ubtn" onclick="window.location.href='user.html'">Go to Users</button>
+          </div>
+            <div class="card">
+            <h3>Orper Management</h3>
+            <p>Manage Order permissions.</p>
+            <button class="obtn " onclick="window.location.href='order.html'">Go to Order</button>
+          </div>
+            <div class="card">
+            <h3>Payment Management</h3>
+            <p>Manage Payment and permissions.</p>
+            <button class="Pbtn" onclick="window.location.href='payment.html'">Go to Payment</button>
+          </div>
+          <div class="card">
+            <h3>Booking Management</h3>
+            <p>Handle bookings and reservations.</p>
+            <button class="bbtn" onclick="window.location.href='booking.html'">Go to Bookings</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="scripts.js"></script>
+  <script>
+    let currentRole = 'Manager';
+    $('#roleBtn').onclick = () => {
+      currentRole = currentRole === 'Manager' ? 'Admin' : 'Manager';
+      $('#roleBtn').textContent = currentRole;
+    };
+
+    $('#globalSearch').addEventListener('input', (e) => {
+      const search = e.target.value.trim().toLowerCase();
+      const cards = $$('.card');
+      cards.forEach(card => {
+        const text = card.textContent.toLowerCase();
+        card.style.display = text.includes(search) ? 'block' : 'none';
+      });
+    });
+  </script>
+</body>
+</html>
+
+
+
+
+
+
+
