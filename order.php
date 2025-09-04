@@ -27,10 +27,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
         $customer   = trim($_POST['customer'] ?? '');
         $product    = trim($_POST['product'] ?? '');
         $quantity   = (int)($_POST['quantity'] ?? 1);
+        $price      = (float)($_POST['price'] ?? 0.00);
         $status     = $_POST['status'] ?? 'Pending';
 
-        $stmt = $conn->prepare("INSERT INTO orders (order_date, customer, product, quantity, status) VALUES (?, ?, ?, ?, ?)");
-        $stmt->bind_param("sssis", $order_date, $customer, $product, $quantity, $status);
+
+        $stmt = $conn->prepare("INSERT INTO orders (order_date, customer, product, quantity, price, status) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssids", $order_date, $customer, $product, $quantity, $price, $status);
         $ok = $stmt->execute();
         $err = $stmt->error;
         $stmt->close();
@@ -40,15 +42,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
     }
 
     if ($action === 'edit') {
-        $id         = (int)($_POST['id'] ?? 0);
+        $id         = (int)($_POST['id'] ?? 0);          
         $order_date = $_POST['order_date'] ?: null;
         $customer   = trim($_POST['customer'] ?? '');
         $product    = trim($_POST['product'] ?? '');
         $quantity   = (int)($_POST['quantity'] ?? 1);
+        $price      = (float)($_POST['price'] ?? 0.00);
         $status     = $_POST['status'] ?? 'Pending';
 
-        $stmt = $conn->prepare("UPDATE orders SET order_date = ?, customer = ?, product = ?, quantity = ?, status = ? WHERE id = ?");
-        $stmt->bind_param("sssisi", $order_date, $customer, $product, $quantity, $status, $id);
+        $stmt = $conn->prepare("UPDATE orders SET order_date = ?, customer = ?, product = ?, quantity = ?, price = ?, status = ? WHERE id = ?");
+        $stmt->bind_param("sssidsi", $order_date, $customer, $product, $quantity, $price, $status, $id);
         $ok = $stmt->execute();
         $err = $stmt->error;
         $stmt->close();
@@ -56,6 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
         if (!$ok) $flash_error = "Update failed: " . $err;
         else { header("Location: " . $_SERVER['PHP_SELF']); exit; }
     }
+
 
     if ($action === 'delete') {
         $id = (int)($_POST['id'] ?? 0);
@@ -71,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
 }
 
 // Fetch orders for display
-$sql = "SELECT id, order_date, customer, product, quantity, status FROM orders ORDER BY id DESC";
+$sql = "SELECT id, order_date, customer, product, quantity, price, status FROM orders ORDER BY id DESC";
 $stmt = $conn->prepare($sql);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -92,6 +96,7 @@ $totalOrders = (int)$row2['total_orders'];
   <title>Sales Management Admin UI</title>
   <!-- Charts & export -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
@@ -688,7 +693,7 @@ $totalOrders = (int)$row2['total_orders'];
   background-color: #c0392b;
 }
 
-  </style>
+</style>
 </head>
 
 <body>
@@ -758,38 +763,54 @@ $totalOrders = (int)$row2['total_orders'];
               <th>Customer</th>
               <th>Product</th>
               <th>Quantity</th>
+              <th>Price</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody id="orderTable">
             <?php if(empty($orders)): ?>
-              <tr><td colspan="6" style="text-align:center;padding:18px">No orders found</td></tr>
+              <tr><td colspan="7" style="text-align:center;padding:18px">No orders found</td></tr>
             <?php else: foreach($orders as $o): ?>
               <tr>
                 <td><?= htmlspecialchars($o['id']) ?></td>
                 <td><?= htmlspecialchars($o['customer']) ?></td>
                 <td><?= htmlspecialchars($o['product']) ?></td>
                 <td><?= (int)$o['quantity'] ?></td>
+                <td><?= number_format((float)$o['price'], 2) ?></td>
                 <td><?= htmlspecialchars($o['status']) ?></td>
                 <td>
-                  <!-- View -->
+                  <!-- View (data attributes) -->
                   <button class="btnview"
-                    onclick="openOrderView(<?= json_encode($o['id']) ?>, <?= json_encode($o['order_date']) ?>, <?= json_encode($o['customer']) ?>, <?= json_encode($o['product']) ?>, <?= (int)$o['quantity'] ?>, <?= json_encode($o['status']) ?>)">
-                    View
+                    type="button"
+                    data-id="<?= htmlspecialchars($o['id']) ?>"
+                    data-order-date="<?= htmlspecialchars($o['order_date']) ?>"
+                    data-customer="<?= htmlspecialchars($o['customer']) ?>"
+                    data-product="<?= htmlspecialchars($o['product']) ?>"
+                    data-quantity="<?= (int)$o['quantity'] ?>"
+                    data-price="<?= htmlspecialchars($o['price']) ?>"
+                    data-status="<?= htmlspecialchars($o['status']) ?>">
+                    <i class="fa-solid fa-eye"></i>
                   </button>
 
-                  <!-- Update -->
+                  <!-- Update (data attributes) -->
                   <button class="btnupdate"
-                    onclick="openOrderEdit(<?= json_encode($o['id']) ?>, <?= json_encode($o['order_date']) ?>, <?= json_encode($o['customer']) ?>, <?= json_encode($o['product']) ?>, <?= (int)$o['quantity'] ?>, <?= json_encode($o['status']) ?>)">
-                    Update
+                    type="button"
+                    data-id="<?= htmlspecialchars($o['id']) ?>"
+                    data-order-date="<?= htmlspecialchars($o['order_date']) ?>"
+                    data-customer="<?= htmlspecialchars($o['customer']) ?>"
+                    data-product="<?= htmlspecialchars($o['product']) ?>"
+                    data-quantity="<?= (int)$o['quantity'] ?>"
+                    data-price="<?= htmlspecialchars($o['price']) ?>"
+                    data-status="<?= htmlspecialchars($o['status']) ?>">
+                    <i class="fa-regular fa-pen-to-square"></i>
                   </button>
 
                   <!-- Delete -->
                   <form method="post" style="display:inline" onsubmit="return confirm('Delete order #<?= $o['id'] ?>?')">
                     <input type="hidden" name="action" value="delete">
                     <input type="hidden" name="id" value="<?= $o['id'] ?>">
-                    <button class="btndelete" type="submit">Delete</button>
+                    <button class="btndelete" type="submit"><i class="fa-solid fa-trash-can"></i></button>
                   </form>
                 </td>
               </tr>
@@ -846,6 +867,7 @@ $totalOrders = (int)$row2['total_orders'];
         <div class="form-grid">
           <div><label>Date</label><input id="order_form_date" name="order_date" type="date"></div>
           <div><label>Quantity</label><input id="order_form_quantity" name="quantity" type="number" min="1" value="1"></div>
+          <div class="full"><label>Price</label><input id="order_form_price" name="price" type="number" step="0.01" min="0" value="0.00" required></div>
           <div class="full"><label>Customer</label><input id="order_form_customer" name="customer" type="text" required></div>
           <div class="full"><label>Product</label><input id="order_form_product" name="product" type="text" required></div>
           <div class="full">
@@ -867,237 +889,190 @@ $totalOrders = (int)$row2['total_orders'];
   </div>
 
   <!-- =========== Your existing JS (unchanged) =========== -->
-  <script>
-    /* ---------- UTIL & STATE ---------- */
-    const $ = (s, root = document) => root.querySelector(s);
-    const $$ = (s, root = document) => [...root.querySelectorAll(s)];
-    const LS_KEY = 'salesData_v1';
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+  const orderModalBackdrop = document.getElementById('orderModalBackdrop');
+  const orderForm = document.getElementById('orderForm');
+  const inAction = (val) => document.getElementById('order_form_action').value = val;
+  const inId = (val) => document.getElementById('order_form_id').value = val;
+  const inDate = (val) => document.getElementById('order_form_date').value = val;
+  const inCustomer = (val) => document.getElementById('order_form_customer').value = val;
+  const inProduct = (val) => document.getElementById('order_form_product').value = val;
+  const inQuantity = (val) => document.getElementById('order_form_quantity').value = val;
+  const inPrice = (val) => {
+    const el = document.getElementById('order_form_price');
+    if (el) el.value = (val === undefined || val === null) ? '0.00' : Number(val).toFixed(2);
+  };
+  const inStatus = (val) => document.getElementById('order_form_status').value = val;
+  const saveBtn = () => document.querySelector('#orderModalBackdrop .footer .btn:not(.light)');
+  const today = () => new Date().toISOString().slice(0,10);
+  // Also ensure that after server submit (page reload) modal is closed
+  // ----- wire data-* buttons to modal functions (robust) -----
+function parseAndCallOpen(btn, fn) {
+  const ds = btn.dataset;
+  // dataset properties: orderDate, customer, product, quantity, price, status, id
+  const id = ds.id;
+  const order_date = ds.orderDate || '';
+  const customer = ds.customer || '';
+  const product = ds.product || '';
+  const quantity = ds.quantity || '1';
+  const price = ds.price || '0.00';
+  const status = ds.status || '';
+  try {
+    fn(id, order_date, customer, product, Number(quantity), price, status);
+  } catch (err) {
+    console.error('Failed to call modal function', err, { id, order_date, customer, product, quantity, price, status });
+  }
+}
 
-    let sales = loadSales();
-    let sortState = { key: 'date', dir: 'desc' };
-    let editingIndex = null;
+document.querySelectorAll('.btnupdate').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    parseAndCallOpen(btn, window.openOrderEdit);
+  });
+});
 
-    function loadSales() {
-      const raw = localStorage.getItem(LS_KEY);
-      if (raw) return JSON.parse(raw);
-      const seed = [
-        { id: 1001, date: '2025-08-01', customer: 'John Doe', total: 250, status: 'Completed' },
-        { id: 1002, date: '2025-08-05', customer: 'Jane Smith', total: 120, status: 'Pending' },
-        { id: 1003, date: '2025-08-06', customer: 'Acme Corp', total: 640.5, status: 'Completed' },
-        { id: 1004, date: '2025-08-08', customer: 'Beta Ltd', total: 300, status: 'Cancelled' },
-        { id: 1005, date: '2025-08-13', customer: 'John Doe', total: 99.99, status: 'Completed' }
-      ];
-      localStorage.setItem(LS_KEY, JSON.stringify(seed));
-      return seed;
-    }
-    function saveSales() { localStorage.setItem(LS_KEY, JSON.stringify(sales)); }
+document.querySelectorAll('.btnview').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    parseAndCallOpen(btn, window.openOrderView);
+  });
+});
 
-    /* ---------- RENDER (Dashboard) ---------- */
-    function formatMoney(n) { return '$' + (+n).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }); }
-    function renderCards(data = sales) {
-      const uniqCustomers = new Set(data.map(r => r.customer));
-      $('#cardTotal').textContent = formatMoney(data.reduce((s, r) => s + (+r.total || 0), 0));
-      $('#cardOrders').textContent = data.length;
-      $('#cardCustomers').textContent = uniqCustomers.size;
-    }
-    function rowHTML(r, idx) {
-      return `<tr data-idx="${idx}">\
-<td>${r.id}</td>\
-<td>${r.date}</td>\
-<td>${r.customer}</td>\
-<td>${formatMoney(r.total)}</td>\
-<td><span class="badge ${r.status}">${r.status}</span></td>\
-<td class="row-actions"><button class="edit">✏ Edit</button><button class="del">🗑 Delete</button></td>\
-</tr>`;
-    }
-    function getFilters() {
-      return { date: $('#filterDate').value.trim(), customer: $('#filterCustomer').value.trim().toLowerCase(), status: $('#filterStatus').value.trim(), search: $('#globalSearch').value.trim().toLowerCase() };
-    }
-    function applyFilters(data) {
-      const { date, customer, status, search } = getFilters();
-      return data.filter(r => {
-        const okDate = !date || r.date === date;
-        const okCust = !customer || r.customer.toLowerCase().includes(customer);
-        const okStatus = !status || r.status === status;
-        const okSearch = !search || (String(r.id).includes(search) || r.customer.toLowerCase().includes(search) || r.status.toLowerCase().includes(search));
-        return okDate && okCust && okStatus && okSearch;
-      });
-    }
-    function applySort(data) {
-      const { key, dir } = sortState, mult = dir === 'asc' ? 1 : -1;
-      return data.slice().sort((a, b) => {
-        let va = a[key], vb = b[key];
-        if (key === 'total' || key === 'id') { va = +va; vb = +vb; }
-        if (key === 'date') { return (new Date(va) - new Date(vb)) * mult; }
-        if (va < vb) return -1 * mult; if (va > vb) return 1 * mult; return 0;
-      });
-    }
-    function renderTable() {
-      const filtered = applyFilters(sales);
-      const sorted = applySort(filtered);
-      const tbody = $('#salesTable tbody');
-      if (tbody) tbody.innerHTML = sorted.map(r => rowHTML(r, sales.indexOf(r))).join('');
-      renderCards(filtered);
-      wireRowButtons();
-      updateDashboardChart();
-      syncAnalysisIfVisible();
-    }
 
-    /* ---------- TABLE INTERACTIONS ---------- */
-    function wireRowButtons() {
-      $$('#salesTable .edit').forEach(btn => btn.onclick = (e) => {
-        const idx = +e.target.closest('tr').dataset.idx; openModal('Edit Sale', sales[idx], idx);
-      });
-      $$('#salesTable .del').forEach(btn => btn.onclick = (e) => {
-        const idx = +e.target.closest('tr').dataset.idx;
-        if (confirm('Delete sale #' + sales[idx].id + '?')) { sales.splice(idx, 1); saveSales(); renderTable(); }
-      });
-    }
-    $$('#salesTable thead th').forEach(th => {
-      const key = th.dataset.sort; if (!key) return;
-      th.onclick = () => { if (sortState.key === key) { sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc'; } else { sortState.key = key; sortState.dir = 'asc'; } renderTable(); };
+  // Open Add
+  window.openOrderAdd = function(){
+    document.getElementById('orderModalTitle').textContent = 'Add Order';
+    inAction('add');
+    inId('0');
+    inDate(today());
+    inCustomer('');
+    inProduct('');
+    inQuantity('1');
+    inPrice('0.00');
+    inStatus('Pending');
+    // ensure form enabled
+    enableFormFields();
+    if (saveBtn()) saveBtn().style.display = '';
+    orderModalBackdrop.style.display = 'flex';
+  };
+
+  // Open Edit - called by onclick attributes in PHP rows
+  // signature now includes price
+  window.openOrderEdit = function(id, order_date, customer, product, quantity, price, status){
+    console.log('openOrderEdit called with', id, order_date, customer, product, quantity, price, status);
+    document.getElementById('orderModalTitle').textContent = 'Edit Order #' + id;
+    inAction('edit');
+    inId(String(id));
+    inDate(order_date || today());
+    inCustomer(customer || '');
+    inProduct(product || '');
+    inQuantity(String(quantity ?? 1));
+    inPrice(price ?? '0.00');
+    inStatus(status || 'Pending');
+    enableFormFields();
+    if (saveBtn()) saveBtn().style.display = '';
+    orderModalBackdrop.style.display = 'flex';
+  };
+
+  // Open View (read-only) — accepts price param too
+  window.openOrderView = function(id, order_date, customer, product, quantity, price, status){
+    console.log('openOrderView called with', id, order_date, customer, product, quantity, price, status);
+    document.getElementById('orderModalTitle').textContent = 'View Order #' + id;
+    inAction('view');
+    inId(String(id));
+    inDate(order_date || today());
+    inCustomer(customer || '');
+    inProduct(product || '');
+    inQuantity(String(quantity ?? 1));
+    inPrice(price ?? '0.00');
+    inStatus(status || '');
+    // disable inputs & hide Save
+    disableFormFields();
+    const s = saveBtn();
+    if (s) s.style.display = 'none';
+    orderModalBackdrop.style.display = 'flex';
+  };
+
+  function disableFormFields(){
+    ['order_form_date','order_form_customer','order_form_product','order_form_quantity','order_form_price','order_form_status'].forEach(n=>{
+      const el = document.getElementById(n);
+      if (el) el.setAttribute('disabled','disabled');
     });
-
-    /* ---------- MODAL (Add/Edit) ---------- */
-    const backdrop = $('#modalBackdrop');
-    function openModal(title, record = null, idx = null) {
-      $('#modalTitle').textContent = title; editingIndex = idx;
-      $('#fId').value = record?.id ?? nextId();
-      $('#fDate').value = record?.date ?? new Date().toISOString().slice(0, 10);
-      $('#fCustomer').value = record?.customer ?? '';
-      $('#fTotal').value = record?.total ?? '';
-      $('#fStatus').value = record?.status ?? 'Completed';
-      backdrop.style.display = 'flex';
-    }
-    function closeModal() { backdrop.style.display = 'none'; }
-    function nextId() { return (sales.reduce((m, r) => Math.max(m, r.id), 0) || 1000) + 1; }
-    $('#btnAdd')?.addEventListener('click', () => openModal('Add Sale'));
-    $('#btnCancel')?.addEventListener('click', closeModal);
-    $('#btnSave')?.addEventListener('click', () => {
-      const rec = { id: +$('#fId').value, date: $('#fDate').value, customer: ($('#fCustomer').value || '').trim() || 'Unknown', total: +$('#fTotal').value || 0, status: $('#fStatus').value };
-      if (!rec.date) { alert('Please select a date'); return; }
-      if (editingIndex == null) { sales.push(rec); } else { sales[editingIndex] = rec; }
-      saveSales(); closeModal(); renderTable();
+  }
+  function enableFormFields(){
+    ['order_form_date','order_form_customer','order_form_product','order_form_quantity','order_form_price','order_form_status'].forEach(n=>{
+      const el = document.getElementById(n);
+      if (el) el.removeAttribute('disabled');
     });
+  }
 
-    /* ---------- FILTERS & SEARCH ---------- */
-    $('#btnFilter')?.addEventListener('click', renderTable);
-    $('#btnReset')?.addEventListener('click', () => { $('#filterDate').value = ''; $('#filterCustomer').value = ''; $('#filterStatus').value = ''; renderTable(); });
-    $('#globalSearch').addEventListener('input', renderTable);
+  // Close modal
+  window.closeOrderModal = function(){
+    enableFormFields();
+    const s = saveBtn();
+    if (s) s.style.display = '';
+    orderModalBackdrop.style.display = 'none';
+  };
 
-    /* ---------- EXPORTS / CHARTS (unchanged) ---------- */
-    function toCSV(rows) { const header = ['ID', 'Date', 'Customer', 'Total', 'Status']; const lines = [header.join(',')]; rows.forEach(r => lines.push([r.id, r.date, quoteCSV(r.customer), r.total, r.status].join(','))); return lines.join('\n'); }
-    function quoteCSV(s) { const str = String(s ?? ''); return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str; }
-    function download(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
-    $('#btnExportCsv')?.addEventListener('click', () => { const data = applyFilters(sales); const csv = toCSV(data); download('sales_report.csv', new Blob([csv], { type: 'text/csv' })); });
-
-    function getExportFiltered() {
-      const from = $('#expFrom')?.value, to = $('#expTo')?.value, status = $('#expStatus')?.value, customer = $('#expCustomer')?.value?.trim()?.toLowerCase();
-      return sales.filter(r => { const okFrom = !from || r.date >= from; const okTo = !to || r.date <= to; const okStatus = !status || r.status === status; const okCust = !customer || r.customer.toLowerCase().includes(customer); return okFrom && okTo && okStatus && okCust; });
-    }
-    $('#expCsv')?.addEventListener('click', () => { const csv = toCSV(getExportFiltered()); download('sales_export.csv', new Blob([csv], { type: 'text/csv' })); });
-    $('#expXlsx')?.addEventListener('click', () => { const rows = getExportFiltered().map(r => ({ ID: r.id, Date: r.date, Customer: r.customer, Total: r.total, Status: r.status })); const ws = XLSX.utils.json_to_sheet(rows); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Sales'); XLSX.writeFile(wb, 'sales_export.xlsx'); });
-    $('#expPdf')?.addEventListener('click', () => { const { jsPDF } = window.jspdf; const doc = new jsPDF(); doc.setFontSize(14); doc.text('Sales Report', 14, 16); const rows = getExportFiltered().map(r => [r.id, r.date, r.customer, String(r.total), r.status]); doc.autoTable({ startY: 22, head: [["ID", "Date", "Customer", "Total", "Status"]], body: rows }); doc.save('sales_export.pdf'); });
-
-    /* ---------- DASHBOARD CHART & ANALYSIS (unchanged) ---------- */
-    let dashChart;
-    function monthlyAgg(data) { const byMonth = {}; data.forEach(r => { const k = r.date.slice(0, 7); byMonth[k] = (byMonth[k] || 0) + (+r.total || 0); }); const labels = Object.keys(byMonth).sort(); const values = labels.map(k => +byMonth[k].toFixed(2)); return { labels, values }; }
-    function updateDashboardChart() { const canvas = document.getElementById('salesChart'); if (!canvas) return; const { labels, values } = monthlyAgg(sales); if (dashChart) dashChart.destroy(); dashChart = new Chart(canvas, { type: 'line', data: { labels, datasets: [{ label: 'Revenue', data: values, tension: .3 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } } }); }
-
-    let anChartRevenue = null, anChartTopCust = null;
-    function getYears() { return [...new Set(sales.map(r => r.date.slice(0, 4)))].sort(); }
-    function filterByYMStatus(data, y, m, status) { return data.filter(r => { const yOk = !y || r.date.startsWith(y); const mOk = (m === 'all' || !m) ? true : r.date.slice(5, 7) === m; const sOk = !status || r.status === status; return yOk && mOk && sOk; }); }
-    function dailyAgg(data, y, m) { if (m && m !== 'all') { const daysInMonth = new Date(+y, +m, 0).getDate(); const labels = Array.from({ length: daysInMonth }, (_, i) => String(i + 1).padStart(2, '0')); const map = {}; data.forEach(r => { const d = r.date.slice(8, 10); map[d] = (map[d] || 0) + (+r.total || 0); }); const values = labels.map(d => +(map[d] || 0).toFixed(2)); return { labels, values, unit: 'Day' }; } else { const labels = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']; const map = {}; data.forEach(r => { const mm = r.date.slice(5, 7); map[mm] = (map[mm] || 0) + (+r.total || 0); }); const values = labels.map(mm => +(map[mm] || 0).toFixed(2)); return { labels, values, unit: 'Month' }; } }
-    function topCustomersAgg(data, topN = 5) { const map = {}; data.forEach(r => { map[r.customer] = (map[r.customer] || 0) + (+r.total || 0); }); const pairs = Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, topN); return { labels: pairs.map(p => p[0]), values: pairs.map(p => +p[1].toFixed(2)) }; }
-    function updateKpis(data) { const rev = data.reduce((s, r) => s + (+r.total || 0), 0); const orders = data.length; const aov = orders ? rev / orders : 0; const tc = topCustomersAgg(data, 1); $('#anRevenue').textContent = formatMoney(rev); $('#anOrders').textContent = String(orders); $('#anAOV').textContent = formatMoney(aov); $('#anTopCustomer').textContent = tc.labels?.[0] || '—'; }
-    function setRangeLabel(y, m) { const mapMonth = { '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr', '05': 'May', '06': 'Jun', '07': 'Jul', '08': 'Aug', '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dec' }; $('#anRangeLabel').textContent = (m && m !== 'all') ? `${mapMonth[m]} ${y}` : `Year ${y}`; }
-    function drawAnalysis() {
-      const y = $('#anYear').value; const m = $('#anMonth').value; const st = $('#anStatus').value; const data = filterByYMStatus(sales, y, m, st); updateKpis(data); setRangeLabel(y, m); const dAgg = dailyAgg(data, y, m); const tAgg = topCustomersAgg(data, 5);
-      const c1 = $('#anChartRevenue').getContext('2d'); if (anChartRevenue) anChartRevenue.destroy(); anChartRevenue = new Chart(c1, { type: 'bar', data: { labels: dAgg.labels, datasets: [{ label: `Revenue by ${dAgg.unit}`, data: dAgg.values }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } } });
-      const c2 = $('#anChartTopCust').getContext('2d'); if (anChartTopCust) anChartTopCust.destroy(); anChartTopCust = new Chart(c2, { type: 'pie', data: { labels: tAgg.labels, datasets: [{ label: 'Revenue', data: tAgg.values }] }, options: { responsive: true, maintainAspectRatio: false } });
-    }
-    function initAnalysis() { const years = getYears(); const yearSel = $('#anYear'); yearSel.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join(''); yearSel.value = years[years.length - 1] || new Date().getFullYear().toString(); $('#anMonth').value = 'all'; $('#anStatus').value = ''; drawAnalysis(); }
-    function isAnalysisActive() { return $('#sales-analysis').classList.contains('active'); }
-    function syncAnalysisIfVisible() { if (isAnalysisActive()) drawAnalysis(); }
-    document.addEventListener('change', (e) => { if (['anYear', 'anMonth', 'anStatus'].includes(e.target.id)) { if (isAnalysisActive()) drawAnalysis(); } });
-    $('#anReset')?.addEventListener('click', initAnalysis);
-
-    /* ---------- NAVIGATION ---------- */
-    function activatePanel(id) { $$('.panel').forEach(p => p.classList.remove('active')); $('#' + id).classList.add('active'); $$('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.page === id)); if (id === 'sales-analysis') { setTimeout(() => { if (!$('#anYear').options.length) initAnalysis(); else drawAnalysis(); }, 50); } }
-    $$('.tab-btn').forEach(btn => btn.onclick = () => activatePanel(btn.dataset.page));
-
-    /* ---------- ROLE TOGGLE ---------- */
-    let currentRole = 'Manager';
-    try { $('#roleBtn').onclick = () => { currentRole = currentRole === 'Manager' ? 'Admin' : 'Manager'; $('#roleBtn').textContent = currentRole; }; } catch(e) {}
-
-    /* ---------- INIT ---------- */
-    renderTable();
-
-    // Order Actions (demo only) - preserved (these don't conflict with server CRUD)
-    document.querySelectorAll(".btn.view").forEach(btn => {
-      btn.addEventListener("click", () => alert("View order details..."));
+  // Prevent submission when in view mode; otherwise allow normal POST to server
+  if (orderForm) {
+    orderForm.addEventListener('submit', function(e){
+      const act = document.getElementById('order_form_action').value;
+      if (act === 'view') {
+        e.preventDefault();
+        return false;
+      }
+      // otherwise let the form submit (POST to same page)
     });
-    document.querySelectorAll(".btn.update").forEach(btn => {
-      btn.addEventListener("click", () => alert("Update order status..."));
-    });
-    document.querySelectorAll(".btn.delete").forEach(btn => {
-      btn.addEventListener("click", () => {
-        if (confirm("Delete this order?")) btn.closest("tr").remove();
-      });
-    });
+  }
 
-    /* =========== ORDERS CRUD JS (new) =========== */
-    function openOrderAdd(){
-      document.getElementById('orderModalTitle').textContent = 'Add Order';
-      document.getElementById('order_form_action').value = 'add';
-      document.getElementById('order_form_id').value = '0';
-      document.getElementById('order_form_date').value = new Date().toISOString().slice(0,10);
-      document.getElementById('order_form_customer').value = '';
-      document.getElementById('order_form_product').value = '';
-      document.getElementById('order_form_quantity').value = 1;
-      document.getElementById('order_form_status').value = 'Pending';
-      document.getElementById('orderModalBackdrop').style.display = 'flex';
-    }
-    function openOrderEdit(id, order_date, customer, product, quantity, status){
-      document.getElementById('orderModalTitle').textContent = 'Edit Order #' + id;
-      document.getElementById('order_form_action').value = 'edit';
-      document.getElementById('order_form_id').value = id;
-      document.getElementById('order_form_date').value = order_date || new Date().toISOString().slice(0,10);
-      document.getElementById('order_form_customer').value = customer;
-      document.getElementById('order_form_product').value = product;
-      document.getElementById('order_form_quantity').value = quantity;
-      document.getElementById('order_form_status').value = status;
-      document.getElementById('orderModalBackdrop').style.display = 'flex';
-    }
-    function openOrderView(id, order_date, customer, product, quantity, status){
-      // view mode: populate and disable fields
-      openOrderEdit(id, order_date, customer, product, quantity, status);
-      document.getElementById('order_form_action').value = 'view'; // not submitted
-      document.getElementById('order_form_id').value = id;
-      // disable inputs
-      ['order_form_date','order_form_customer','order_form_product','order_form_quantity','order_form_status'].forEach(idn=>{
-        document.getElementById(idn).setAttribute('disabled','disabled');
-      });
-      // hide save button
-      const saveBtn = document.querySelector('#orderModalBackdrop .footer .btn:not(.light)');
-      if (saveBtn) saveBtn.style.display = 'none';
-    }
-    function closeOrderModal(){
-      // enable fields and restore save button before hiding
-      ['order_form_date','order_form_customer','order_form_product','order_form_quantity','order_form_status'].forEach(idn=>{
-        const el = document.getElementById(idn);
-        if (el) el.removeAttribute('disabled');
-      });
-      const saveBtn = document.querySelector('#orderModalBackdrop .footer .btn:not(.light)');
-      if (saveBtn) saveBtn.style.display = '';
-      document.getElementById('orderModalBackdrop').style.display = 'none';
-    }
-    // Close modal when clicking backdrop (optional)
-    document.getElementById('orderModalBackdrop').addEventListener('click', function(e){
-      if (e.target === this) closeOrderModal();
+  // Close when clicking backdrop
+  if (orderModalBackdrop) {
+    orderModalBackdrop.addEventListener('click', (ev) => {
+      if (ev.target === orderModalBackdrop) closeOrderModal();
     });
+  }
 
-  </script>
+  // Close on ESC
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && orderModalBackdrop.style.display === 'flex') {
+      closeOrderModal();
+    }
+  });
+
+  // GLOBAL SEARCH: filter server-rendered rows (search across all visible columns)
+  const globalSearch = document.getElementById('globalSearch');
+  const tbody = document.getElementById('orderTable');
+
+  function filterTable() {
+    const q = (globalSearch?.value || '').trim().toLowerCase();
+    if (!tbody) return;
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    if (!q) {
+      rows.forEach(r => r.style.display = '');
+      return;
+    }
+    rows.forEach(r => {
+      const tds = Array.from(r.querySelectorAll('td'));
+      if (!tds.length) { r.style.display = ''; return; }
+      // combine all cell text for robust matching (includes price if present)
+      const rowText = tds.map(td => (td.textContent || '').toLowerCase()).join(' ');
+      const match = rowText.includes(q);
+      r.style.display = match ? '' : 'none';
+    });
+  }
+
+  if (globalSearch) {
+    globalSearch.addEventListener('input', filterTable);
+  }
+
+  // If the page has "Add" UI element with id btnAdd, wire it
+  const btnAdd = document.getElementById('btnAdd');
+  if (btnAdd) btnAdd.addEventListener('click', openOrderAdd);
+
+  // Also ensure that after server submit (page reload) modal is closed
+  closeOrderModal();
+});
+</script>
 </body>
 
 </html>
