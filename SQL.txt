@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 -- Creating the database For sales-M--
 CREATE DATABASE IF NOT EXISTS gt;
 USE gt;
@@ -15,4 +16,23 @@ CREATE TABLE IF NOT EXISTS sales (
 INSERT INTO sales (date, customer, total, status) VALUES
 ('2025-09-01', 'John Doe', 150.75, 'Paid'),
 ('2025-09-02', 'Jane Smith', 89.99, 'Pending'),
+=======
+-- Creating the database For sales-M--
+CREATE DATABASE IF NOT EXISTS gt;
+USE gt;
+
+-- Creating the sales table --
+CREATE TABLE IF NOT EXISTS sales (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    date DATE NOT NULL,
+    customer VARCHAR(255) NOT NULL,
+    total DECIMAL(10, 2) NOT NULL,
+    status ENUM('Pending', 'Paid', 'Cancelled') NOT NULL
+);
+
+-- Inserting sample data for testing --
+INSERT INTO sales (date, customer, total, status) VALUES
+('2025-09-01', 'John Doe', 150.75, 'Paid'),
+('2025-09-02', 'Jane Smith', 89.99, 'Pending'),
+>>>>>>> 00d7dc65f524c66e745503cd74414410c31f06b6
 ('2025-09-03', 'Alice Johnson', 200.50, 'Completed'),
