@@ -72,6 +72,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
         if (!$ok) $flash_error = "Delete failed: " . $err;
         else { header("Location: " . $_SERVER['PHP_SELF']); exit; }
     }
+
+    // ---------- Return order handler ----------
+if ($action === 'return') {
+    $id = (int)($_POST['id'] ?? 0);
+    $return_qty = (int)($_POST['return_quantity'] ?? 1);
+    $reason = trim($_POST['return_reason'] ?? '');
+    $refund_amount = (float)($_POST['refund_amount'] ?? 0.00);
+    $return_date = $_POST['return_date'] ?: date('Y-m-d');
+
+    if ($id <= 0) {
+        $flash_error = "Invalid order id for return.";
+    } else {
+        // check order exists
+        $sel = $conn->prepare("SELECT id, quantity, status FROM orders WHERE id = ?");
+        $sel->bind_param("i", $id);
+        $sel->execute();
+        $res = $sel->get_result();
+        $row = $res ? $res->fetch_assoc() : null;
+        $sel->close();
+
+        if (!$row) {
+            $flash_error = "Order not found (id: $id)";
+        } else {
+            // optional: ensure return_qty <= original quantity
+            $origQty = (int)$row['quantity'];
+            if ($return_qty <= 0 || $return_qty > $origQty) {
+                $flash_error = "Invalid return quantity (must be between 1 and $origQty).";
+            } else {
+                // Insert into returns table if exists
+                $ins = $conn->prepare("INSERT INTO returns (order_id, return_date, quantity, reason, refund_amount) VALUES (?, ?, ?, ?, ?)");
+                if ($ins) {
+                    $ins->bind_param("isisd", $id, $return_date, $return_qty, $reason, $refund_amount);
+                    $ins->execute();
+                    $errIns = $ins->error;
+                    $ins->close();
+                    if ($errIns) {
+                        $flash_error = "Failed to record return: " . $errIns;
+                    }
+                } else {
+                    // table may not exist, ignore and continue to update order status
+                }
+
+                // Update order status to Returned (or 'Refunded' depending on your workflow)
+                $newStatus = 'Returned';
+                $upd = $conn->prepare("UPDATE orders SET status = ? WHERE id = ?");
+                $upd->bind_param("si", $newStatus, $id);
+                $ok = $upd->execute();
+                $errUpd = $upd->error;
+                $upd->close();
+
+                if (!$ok) $flash_error = "Failed to update order status: " . $errUpd;
+                else { header("Location: " . $_SERVER['PHP_SELF']); exit; }
+            }
+        }
+    }
+}
+
 }
 
 // Fetch orders for display
@@ -100,7 +157,8 @@ $totalOrders = (int)$row2['total_orders'];
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
-  <style>
+
+<style>
     :root {
       --brand: #9c0dc7;
       --ink: #111827;
@@ -668,7 +726,6 @@ $totalOrders = (int)$row2['total_orders'];
   margin: 0 4px;
   color: white;
 }
-
 /* View button (blue) */
 .btnview {
   background-color: #1a73e8;
@@ -691,6 +748,27 @@ $totalOrders = (int)$row2['total_orders'];
 }
 .btndelete:hover {
   background-color: #c0392b;
+}
+  /* quick overlay: show sales-export as a panel inside the free-area visually */
+#sales-export {
+  position: relative;            /* ensure positioned */
+  margin-top: 0;
+  padding-top: 0;
+  /* optionally visually match other .content */
+  display: none;                 /* keep hidden by default, show only when .active is present */
+}
+#sales-export.active {
+  display: block;
+}
+
+/* ensure it appears above footer/other content */
+#sales-export .content {
+  background: var(--brand);
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  max-width: calc(100% - 48px);
+  margin: 0 auto 24px;
 }
 
 </style>
@@ -735,8 +813,6 @@ $totalOrders = (int)$row2['total_orders'];
 
  
 <main class="free-area">
-        <!-- Main Content -->
-    <main class="main-content">
       <!-- Orders Panel -->
       <section id="orders" class="panel active">
          <div class="content">
@@ -744,7 +820,7 @@ $totalOrders = (int)$row2['total_orders'];
          <div class="cards">
             <div class="card">
               <h3>Total Returns</h3>
-              <p id="cardTotal">$0</p>
+              <p id="cardTotal">Rs.0</p>
             </div>
             <div class="card">
               <h3>Total Orders</h3>
@@ -824,11 +900,7 @@ $totalOrders = (int)$row2['total_orders'];
       <section id="dashboard" class="panel"><h2>Dashboard</h2></section>
       <section id="products" class="panel"><h2>Product Management</h2></section>
       <section id="users" class="panel"><h2>User Management</h2></section>
-      </div>
-    </main>
-  </div>
-
-    <!-- Export -->
+       <!-- Export -->
       <section id="sales-export" class="panel">
         <div class="content">
           <h2>Export Reports</h2>
@@ -853,9 +925,14 @@ $totalOrders = (int)$row2['total_orders'];
           </div>
         </div>
       </section>
+    </div>
+    </main>
+  </div>
 
+   
+    
   </main>
-
+</div>
   <!-- Modal Add/Edit for ORDERS (uses your .modal-backdrop/.modal styles) -->
   <div class="modal-backdrop" id="orderModalBackdrop">
     <div class="modal">
@@ -873,10 +950,18 @@ $totalOrders = (int)$row2['total_orders'];
           <div class="full">
             <label>Status</label>
             <select id="order_form_status" name="status">
-              <option>Pending</option>
-              <option>Shipped</option>
-              <option>Cancelled</option>
-            </select>
+                <option>Order Received</option>
+                <option>Payment Confirmed</option>
+                <option>Queued for Baking</option>
+                <option>In Preparation</option>
+                <option>Decorating</option>
+                <option>Ready for Pickup</option>
+                <option>Out for Delivery</option>
+                <option>Completed</option>
+                <option>Cancelled</option>
+                <option>Refunded</option>
+              </select>
+
           </div>
         </div>
 
@@ -887,6 +972,28 @@ $totalOrders = (int)$row2['total_orders'];
       </form>
     </div>
   </div>
+
+  <!-- Return Modal -->
+<div class="modal-backdrop" id="returnModalBackdrop" style="display:none">
+  <div class="modal">
+    <h2 id="returnModalTitle">Return Order</h2>
+    <form id="returnForm" method="post" style="margin-top:12px">
+      <input type="hidden" name="action" value="return">
+      <input type="hidden" name="id" id="return_order_id" value="0">
+      <div class="form-grid">
+        <div><label>Return Date</label><input name="return_date" id="return_date" type="date" value="<?= date('Y-m-d') ?>"></div>
+        <div><label>Quantity to return</label><input name="return_quantity" id="return_quantity" type="number" min="1" value="1"></div>
+        <div class="full"><label>Refund Amount</label><input name="refund_amount" id="return_refund_amount" type="number" step="0.01" min="0" value="0.00"></div>
+        <div class="full"><label>Reason</label><textarea name="return_reason" id="return_reason" rows="3"></textarea></div>
+      </div>
+      <div class="footer" style="margin-top:12px">
+        <button type="button" class="btn light" onclick="closeReturnModal()">Cancel</button>
+        <button type="submit" class="btn">Save Return</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 
   <!-- =========== Your existing JS (unchanged) =========== -->
 <script>
@@ -924,6 +1031,160 @@ function parseAndCallOpen(btn, fn) {
     console.error('Failed to call modal function', err, { id, order_date, customer, product, quantity, price, status });
   }
 }
+// Tab wiring with alias fallback
+(function(){
+  // alias map: map sample data-page values to actual panel ids in your page
+  const panelAlias = {
+    'sales-dashboard': 'orders',        // sample -> your orders panel id
+    'sales-analysis': 'sales-analysis', // keep if you have that id (or map to your return panel id)
+    'sales-export': 'sales-export'      // likely already matches
+  };
+
+  function activatePanelByName(name) {
+    // if direct match exists use it, otherwise try alias map
+    let id = name;
+    if (!document.getElementById(id) && panelAlias[name]) id = panelAlias[name];
+
+    const panel = document.getElementById(id);
+    if (!panel) {
+      console.warn('activatePanel: no panel found for', name, '->', id);
+      return;
+    }
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    panel.classList.add('active');
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.page === name));
+  }
+
+  // wire buttons
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const page = btn.dataset.page;
+      activatePanelByName(page);
+    });
+  });
+
+  // optional: activate initial panel from whichever has .active
+  const initial = document.querySelector('.tab-btn.active')?.dataset.page || document.querySelector('.panel.active')?.id;
+  if (initial) activatePanelByName(initial);
+})();
+
+
+// ---------- Return modal wiring ----------
+(function(){
+  const returnModalBackdrop = document.getElementById('returnModalBackdrop');
+  const returnForm = document.getElementById('returnForm');
+
+  function openReturnModal(id, origQty, price){
+    document.getElementById('returnModalTitle').textContent = 'Return Order #' + id;
+    document.getElementById('return_order_id').value = String(id);
+    document.getElementById('return_quantity').value = Math.min(1, origQty) ? '1' : '1';
+    document.getElementById('return_refund_amount').value = (Number(price) || 0).toFixed(2);
+    document.getElementById('return_reason').value = '';
+    returnModalBackdrop.style.display = 'flex';
+  }
+  window.closeReturnModal = function(){ returnModalBackdrop.style.display = 'none'; };
+
+  // attach handlers to dynamic buttons
+  document.querySelectorAll('.btnreturn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ds = btn.dataset;
+      const id = ds.id || ds['id'] || btn.getAttribute('data-id');
+      const qty = Number(ds.quantity || btn.getAttribute('data-quantity') || 1);
+      const price = Number(ds.price || btn.getAttribute('data-price') || 0);
+      openReturnModal(id, qty, price);
+    });
+  });
+
+  // prevent accidental GET of the page on view or other modes
+  if (returnForm) {
+    returnForm.addEventListener('submit', (e) => {
+      // allow normal post to server. (action=return is supplied)
+      // you could add client-side validation here:
+      const q = Number(document.getElementById('return_quantity').value);
+      if (!q || q < 1) {
+        e.preventDefault();
+        alert('Return quantity must be at least 1');
+      }
+      // otherwise form submits to order.php (server handles it)
+    });
+  }
+
+  // close when clicking backdrop
+  if (returnModalBackdrop) {
+    returnModalBackdrop.addEventListener('click', (ev) => { if (ev.target === returnModalBackdrop) closeReturnModal(); });
+  }
+})();
+
+// ---------- Export utilities (works on the orders table DOM) ----------
+(function(){
+  function gatherVisibleOrders() {
+    const rows = Array.from(document.querySelectorAll('#orderTable tr')).filter(r => r.style.display !== 'none');
+    const out = rows.map(r => {
+      const tds = r.querySelectorAll('td');
+      if (!tds.length) return null;
+      return {
+        id: tds[0].textContent.trim(),
+        customer: tds[1].textContent.trim(),
+        product: tds[2].textContent.trim(),
+        quantity: tds[3].textContent.trim(),
+        price: tds[4].textContent.trim(),
+        status: tds[5].textContent.trim()
+      };
+    }).filter(Boolean);
+    return out;
+  }
+
+  function quoteCSV(s) {
+    const str = String(s ?? '');
+    return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+  }
+
+  function toCSV(rows) {
+    const header = ['Order ID','Customer','Product','Quantity','Price','Status'];
+    const lines = [header.join(',')];
+    rows.forEach(r => lines.push([quoteCSV(r.id), quoteCSV(r.customer), quoteCSV(r.product), r.quantity, r.price, quoteCSV(r.status)].join(',')));
+    return lines.join('\n');
+  }
+
+  function download(name, blob) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+  }
+
+  // wire export buttons (IDs in your export panel: expCsv, expXlsx, expPdf)
+  const btnCsv = document.getElementById('expCsv');
+  const btnXlsx = document.getElementById('expXlsx');
+  const btnPdf = document.getElementById('expPdf');
+
+  if (btnCsv) btnCsv.addEventListener('click', () => {
+    const rows = gatherVisibleOrders();
+    const csv = toCSV(rows);
+    download('orders_export.csv', new Blob([csv], { type: 'text/csv' }));
+  });
+
+  if (btnXlsx) btnXlsx.addEventListener('click', () => {
+    const rows = gatherVisibleOrders().map(r => ({ 'Order ID': r.id, 'Customer': r.customer, 'Product': r.product, 'Quantity': +r.quantity, 'Price': r.price, 'Status': r.status }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Orders');
+    XLSX.writeFile(wb, 'orders_export.xlsx');
+  });
+
+  if (btnPdf) btnPdf.addEventListener('click', () => {
+    const rows = gatherVisibleOrders();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.setFontSize(12);
+    doc.text('Orders Report', 14, 16);
+    const body = rows.map(r => [r.id, r.customer, r.product, r.quantity, r.price, r.status]);
+    doc.autoTable({ startY: 22, head: [['ID','Customer','Product','Qty','Price','Status']], body });
+    doc.save('orders_export.pdf');
+  });
+})();
+
 
 document.querySelectorAll('.btnupdate').forEach(btn => {
   btn.addEventListener('click', (e) => {
