@@ -10,7 +10,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
 <style>
-    :root {
+  :root {
       --brand: #e37200;
       --ink: #111827;
       --paper: #fff;
@@ -609,7 +609,8 @@
         width: 220px
       }
     }
-  </style>
+
+</style>
 </head>
 <body>
 
@@ -617,7 +618,6 @@
   <div class="header-left"><img src="logo.jpg" alt="Logo" /></div>
   <div class="header-middle">
     <div class="header-middle-title">Stock Management</div>
-    <div class="search-bar"><input id="globalSearch" type="text" placeholder="Search..." /></div>
   </div>
   <button class="role-btn" onclick="window.location.href='index.html'">Dashboard</button>
   <div class="user-icon"></div>
@@ -637,8 +637,8 @@
     <p>Sales Management</p>
     <div class="salebtn">
       <button class="tab-btn active" data-page="stock-dashboard">Stock Dashboard</button>
-      <button class="tab-btn" data-page="stock-analysis">Stock Analysis</button>
-      <button class="tab-btn" data-page="stock-export">Export Report</button>
+      <button class="tab-btn" data-page="stock-analysis" onclick="window.location.href='stock_analysis.php'">Stock Analysis</button>
+      <button class="tab-btn" data-page="stock-export" id="btnExportCsv" onclick="window.location.href='stock_export.php'">Export Report</button>
     </div>
   </nav>
 </aside>
@@ -680,17 +680,22 @@
   </div>
   <div style="flex:1"></div>
   <button class="btn secondary" id="btnAdd">➕ Add Part</button>
-  <button class="btn" id="btnExportCsv">⬇ CSV</button>
+  <button class="btn" id="btnImportCsv">⬇ Import CSV</button>
+  <input type="file" id="csvFileInput" accept=".csv" style="display:none;">
+<button class="btn danger" id="btnDeleteSelected">🗑 Delete Selected</button>
+
 </div>
 
 <div class="table-wrap">
 <table id="stockTable">
   <thead>
     <tr>
+      <th><input type="checkbox" id="selectAll"></th> <!-- New select all checkbox -->
       <th>Part Number</th>
       <th>Last Updated</th>
       <th>Description</th>
       <th>Quantity</th>
+      <th>Unit</th>
       <th>Category</th>
       <th>Status</th>
       <th>Actions</th>
@@ -701,15 +706,17 @@
     $res = $conn->query("SELECT * FROM stock ORDER BY date DESC");
     while($row = $res->fetch_assoc()){
         echo "<tr data-id='{$row['id']}'>
+            <td><input type='checkbox' class='rowCheckbox'></td> <!-- New checkbox -->
             <td>{$row['partNumber']}</td>
             <td>{$row['date']}</td>
             <td>{$row['description']}</td>
             <td>{$row['quantity']}</td>
+            <td>{$row['unit']}</td>
             <td>{$row['category']}</td>
             <td><span class='badge ".str_replace(' ','',$row['status'])."'>{$row['status']}</span></td>
             <td>
-                <button class='edit'>✏ Edit</button>
-                <button class='del'>🗑 Delete</button>
+                <button class='edit'>✏ </button>
+                <button class='del'>🗑 </button>
             </td>
         </tr>";
     }
@@ -719,7 +726,6 @@
 </div>
 </section>
 </main>
-</div>
 
 <!-- Modal Add/Edit -->
 <div class="modal-backdrop" id="modalBackdrop" style="display:none;">
@@ -731,6 +737,7 @@
       <div><label>Last Updated</label><input id="fDate" type="date"></div>
       <div class="full"><label>Description</label><input id="fDescription" type="text"></div>
       <div><label>Quantity</label><input id="fQuantity" type="number"></div>
+      <div><label>Unit</label><input id="fUnit" type="text"></div>
       <div><label>Category</label><input id="fCategory" type="text"></div>
       <div>
         <label>Status</label>
@@ -753,7 +760,7 @@
 const backdrop = document.getElementById('modalBackdrop');
 let editingId = null;
 
-document.getElementById('btnAdd').onclick = ()=>{
+document.getElementById('btnAdd').onclick = ()=> {
     editingId = null;
     document.getElementById('modalTitle').textContent = 'Add Part';
     document.getElementById('fId').value = '';
@@ -761,6 +768,7 @@ document.getElementById('btnAdd').onclick = ()=>{
     document.getElementById('fDate').value = new Date().toISOString().slice(0,10);
     document.getElementById('fDescription').value = '';
     document.getElementById('fQuantity').value = '';
+    document.getElementById('fUnit').value = '';
     document.getElementById('fCategory').value = '';
     document.getElementById('fStatus').value = 'In Stock';
     backdrop.style.display = 'flex';
@@ -768,28 +776,36 @@ document.getElementById('btnAdd').onclick = ()=>{
 
 document.getElementById('btnCancel').onclick = ()=> backdrop.style.display='none';
 
-document.getElementById('btnSave').onclick = ()=>{
+document.getElementById('btnSave').onclick = async ()=> {
     const form = {
         id: document.getElementById('fId').value,
         partNumber: document.getElementById('fPartNumber').value,
         date: document.getElementById('fDate').value,
         description: document.getElementById('fDescription').value,
         quantity: document.getElementById('fQuantity').value,
+        unit: document.getElementById('fUnit').value,
         category: document.getElementById('fCategory').value,
         status: document.getElementById('fStatus').value
     };
+
+    // Validate Unit field (letters only)
+const unit = document.getElementById('fUnit').value.trim();
+if(!/^[A-Za-z]+$/.test(unit)){
+    alert('Unit can contain letters only (no numbers or special characters).');
+    return;
+}
+
+
     const action = editingId ? 'edit' : 'add';
     const params = new URLSearchParams({...form, action});
-    fetch('stock_crud.php',{
-        method:'POST',
-        body: params
-    }).then(r=>r.json()).then(r=>{
-        if(r.success) location.reload();
-        else alert('Error saving part');
-    });
+
+    const res = await fetch('stock_crud.php', {method:'POST', body:params});
+    const r = await res.json();
+    if(r.success) location.reload();
+    else alert('Error saving part');
 };
 
-// Function to attach Edit/Delete events
+// Attach Edit/Delete events
 function attachRowEvents(){
     document.querySelectorAll('.edit').forEach(btn=>{
         btn.onclick = e=>{
@@ -801,8 +817,9 @@ function attachRowEvents(){
             document.getElementById('fDate').value = tr.children[1].textContent;
             document.getElementById('fDescription').value = tr.children[2].textContent;
             document.getElementById('fQuantity').value = tr.children[3].textContent;
-            document.getElementById('fCategory').value = tr.children[4].textContent;
-            document.getElementById('fStatus').value = tr.children[5].textContent.trim();
+            document.getElementById('fUnit').value = tr.children[4].textContent;
+            document.getElementById('fCategory').value = tr.children[5].textContent;
+            document.getElementById('fStatus').value = tr.children[6].textContent.trim();
             backdrop.style.display = 'flex';
         };
     });
@@ -812,10 +829,8 @@ function attachRowEvents(){
             const tr = e.target.closest('tr');
             const id = tr.dataset.id;
             if(confirm('Delete this part?')){
-                fetch('stock_crud.php',{
-                    method:'POST',
-                    body: new URLSearchParams({action:'delete',id})
-                }).then(r=>r.json()).then(r=>location.reload());
+                fetch('stock_crud.php',{method:'POST', body: new URLSearchParams({action:'delete',id})})
+                .then(r=>r.json()).then(r=>location.reload());
             }
         };
     });
@@ -824,20 +839,14 @@ function attachRowEvents(){
 // Attach initially
 attachRowEvents();
 
-// Filter logic
+// Filter
 document.getElementById('btnFilter').onclick = () => {
     const date = document.getElementById('filterDate').value;
     const category = document.getElementById('filterCategory').value;
     const status = document.getElementById('filterStatus').value;
-
     const params = new URLSearchParams({action:'filter', date, category, status});
-
-    fetch('stock_crud.php',{
-        method:'POST',
-        body: params
-    })
-    .then(r=>r.json())
-    .then(r=>{
+    fetch('stock_crud.php',{method:'POST', body:params})
+    .then(r=>r.json()).then(r=>{
         if(r.success){
             const tbody = document.querySelector('#stockTable tbody');
             tbody.innerHTML = '';
@@ -849,8 +858,9 @@ document.getElementById('btnFilter').onclick = () => {
                     <td>${row.date}</td>
                     <td>${row.description}</td>
                     <td>${row.quantity}</td>
+                    <td>${row.unit}</td>
                     <td>${row.category}</td>
-                    <td><span class='badge ${row.status.replace(/\s+/g,'') }'>${row.status}</span></td>
+                    <td><span class='badge ${row.status.replace(/\s+/g,'')}'>${row.status}</span></td>
                     <td>
                         <button class='edit'>✏ Edit</button>
                         <button class='del'>🗑 Delete</button>
@@ -863,7 +873,90 @@ document.getElementById('btnFilter').onclick = () => {
     });
 };
 
-// Reset button reloads the page
+// CSV Import
+document.getElementById('btnImportCsv').onclick = () => document.getElementById('csvFileInput').click();
+
+document.getElementById('csvFileInput').onchange = async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+
+    const formData = new FormData();
+    formData.append('action', 'import_csv');
+    formData.append('csvFile', file);
+
+    try {
+        const res = await fetch('stock_crud.php', {method:'POST', body: formData});
+        const result = await res.json();
+
+        if(result.success){
+            alert(`CSV Imported successfully! ${result.imported} rows added.`);
+
+            const tbody = document.querySelector('#stockTable tbody');
+            
+            // Append new rows
+            result.data.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.dataset.id = row.id;
+                tr.innerHTML = `
+                    <td>${row.partNumber}</td>
+                    <td>${row.date}</td>
+                    <td>${row.description}</td>
+                    <td>${row.quantity}</td>
+                    <td>${row.unit}</td>
+                    <td>${row.category}</td>
+                    <td><span class='badge ${row.status.replace(/\s+/g,'')}'>${row.status}</span></td>
+                    <td>
+                        <button class='edit'>✏ </button>
+                        <button class='del'>🗑 </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            attachRowEvents(); // Reattach edit/delete events
+        } else {
+            alert('Error importing CSV: ' + result.msg);
+        }
+    } catch(err){
+        alert('Error importing CSV: ' + err.message);
+    }
+
+    // Reset file input
+    e.target.value = '';
+};
+
+// Select All checkbox logic
+const selectAll = document.getElementById('selectAll');
+selectAll.addEventListener('change', () => {
+    document.querySelectorAll('.rowCheckbox').forEach(cb => cb.checked = selectAll.checked);
+});
+
+// Multi-delete button
+document.getElementById('btnDeleteSelected').onclick = () => {
+    const selectedIds = Array.from(document.querySelectorAll('.rowCheckbox:checked'))
+                             .map(cb => cb.closest('tr').dataset.id);
+    if(selectedIds.length === 0) {
+        alert('No parts selected.');
+        return;
+    }
+    if(confirm(`Delete ${selectedIds.length} selected part(s)?`)){
+        const params = new URLSearchParams();
+        params.append('action','delete_multiple');
+        selectedIds.forEach(id => params.append('ids[]', id));
+
+        fetch('stock_crud.php', {method:'POST', body:params})
+            .then(r=>r.json())
+            .then(r=> {
+                if(r.success) location.reload();
+                else alert('Error deleting parts.');
+            });
+    }
+    
+};
+
+
+
+// Reset
 document.getElementById('btnReset').onclick = ()=> location.reload();
 </script>
 

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Sep 01, 2025 at 07:17 PM
+-- Generation Time: Sep 05, 2025 at 08:52 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -34,7 +34,8 @@ CREATE TABLE `stock` (
   `description` varchar(255) NOT NULL,
   `quantity` int(11) DEFAULT 0,
   `category` varchar(100) NOT NULL,
-  `status` enum('In Stock','Low','Out of Stock') DEFAULT 'In Stock'
+  `status` enum('In Stock','Low','Out of Stock') DEFAULT 'In Stock',
+  `unit` varchar(20) NOT NULL DEFAULT 'pcs'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -55,7 +56,7 @@ ALTER TABLE `stock`
 -- AUTO_INCREMENT for table `stock`
 --
 ALTER TABLE `stock`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=38;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
