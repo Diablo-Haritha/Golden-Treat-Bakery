@@ -1,0 +1,20 @@
+-- Create Database
+CREATE DATABASE IF NOT EXISTS gt;
+USE gt;
+
+-- Sales Table
+CREATE TABLE sales (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    date DATE NOT NULL,
+    customer VARCHAR(255) NOT NULL,
+    quantity INT DEFAULT 0,         -- ✅ New column for quantity
+    total DECIMAL(10,2) NOT NULL,
+    status ENUM('Pending','Paid','Completed','Cancelled') DEFAULT 'Pending'
+);
+
+-- Example Data Insert
+INSERT INTO sales (date, customer, quantity, total, status) VALUES
+('2025-09-01', 'Kasun Perera', 2, 4500.00, 'Completed'),
+('2025-09-02', 'Nimal Silva', 1, 1500.00, 'Pending'),
+('2025-09-03', 'Ruwan Jayasuriya', 3, 9000.00, 'Paid'),
+('2025-09-04', 'Amali Fernando', 5, 12500.00, 'Cancelled');
