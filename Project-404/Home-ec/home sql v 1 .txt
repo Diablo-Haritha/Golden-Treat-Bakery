@@ -1,0 +1,60 @@
+-- Create Database
+CREATE DATABASE IF NOT EXISTS golden_treat;
+USE golden_treat;
+
+-- Create Products Table (Regular Products with Stock)
+CREATE TABLE IF NOT EXISTS products (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    price DECIMAL(10,2) NOT NULL,
+    description TEXT,
+    image VARCHAR(500),
+    quantity INT DEFAULT 0,
+    slug VARCHAR(255) UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create Special Products Table (Daily Specials/Featured, no stock needed)
+CREATE TABLE IF NOT EXISTS s_products (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    price DECIMAL(10,2) NOT NULL,
+    description TEXT,
+    image VARCHAR(500),
+    is_active TINYINT(1) DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insert Sample Regular Products
+INSERT INTO products (name, price, description, image, quantity, slug) VALUES
+('Chocolate Cake', 25.99, 'Rich chocolate cake with layers of ganache and fresh berries.', 'https://example.com/images/chocolate-cake.jpg', 50, 'chocolate-cake'),
+('Vanilla Cupcakes', 3.50, 'Fluffy vanilla cupcakes topped with buttercream frosting.', 'https://example.com/images/vanilla-cupcakes.jpg', 100, 'vanilla-cupcakes'),
+('Red Velvet Cake', 35.00, 'Classic red velvet with cream cheese frosting.', 'https://example.com/images/red-velvet.jpg', 30, 'red-velvet-cake'),
+('Croissants', 2.75, 'Buttery French croissants, baked fresh daily.', 'https://example.com/images/croissants.jpg', 75, 'croissants'),
+('Macarons', 1.50, 'Colorful French macarons in assorted flavors.', 'https://example.com/images/macarons.jpg', 200, 'macarons');
+
+-- Insert Sample Daily Specials (Featured Products)
+INSERT INTO s_products (name, price, description, image) VALUES
+('Daily Special: Tiramisu', 18.99, 'Creamy tiramisu with coffee-soaked ladyfingers and mascarpone.', 'https://example.com/images/tiramisu.jpg'),
+('Limited Edition: Matcha Cake', 28.50, "Today's special: Green tea-infused sponge cake with white chocolate.", 'https://example.com/images/matcha-cake.jpg'),
+('Weekend Special: Fruit Tart', 22.00, 'Fresh fruit tart with custard filling and seasonal berries.', 'https://example.com/images/fruit-tart.jpg');
+
+-- Query to Fetch All Regular Products (Used in PHP)
+-- SELECT * FROM products WHERE quantity > 0 ORDER BY created_at DESC;
+
+-- Query to Fetch Active Daily Specials (Used in PHP)
+-- SELECT * FROM s_products WHERE is_active = 1 ORDER BY created_at DESC;
+
+-- Query for Custom Orders (We'll add a table for this if needed, but for now, assume form submission inserts into a orders table)
+-- CREATE TABLE IF NOT EXISTS custom_orders (
+--     id INT AUTO_INCREMENT PRIMARY KEY,
+--     customer_name VARCHAR(255),
+--     email VARCHAR(255),
+--     custom_description TEXT,
+--     price_estimate DECIMAL(10,2),
+--     status ENUM('pending', 'confirmed', 'completed') DEFAULT 'pending',
+--     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+
+
+
+
