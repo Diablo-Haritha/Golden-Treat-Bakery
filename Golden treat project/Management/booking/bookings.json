@@ -1,0 +1,11 @@
+[
+    {
+        "bookingId": "BID1001",
+        "customerName": "gwgs",
+        "date": "2025-02-03",
+        "time": "18:00",
+        "tableNumber": 5,
+        "status": "Confirmed",
+        "id": "68bf1fd752750"
+    }
+]
