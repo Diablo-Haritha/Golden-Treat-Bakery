@@ -111,10 +111,10 @@ if ($action === 'return') {
                         $flash_error = "Failed to record return: " . $errIns;
                     }
                 } else {
-                    // table may not exist, ignore and continue to update order status
+                    
                 }
 
-                // Update order status to Returned (or 'Refunded' depending on your workflow)
+                
                 $newStatus = 'Returned';
                 $upd = $conn->prepare("UPDATE orders SET status = ? WHERE id = ?");
                 $upd->bind_param("si", $newStatus, $id);
@@ -184,8 +184,6 @@ $totalOrders = (int)$row2['total_orders'];
       display: flex;
       flex-direction: column
     }
-
-    /* Header */
     .header {
       display: flex;
       align-items: center;
