@@ -32,6 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
 
 
         $stmt = $conn->prepare("INSERT INTO orders (order_date, customer, product, quantity, price, status) VALUES (?, ?, ?, ?, ?, ?)");
+        if($stmt){
         $stmt->bind_param("sssids", $order_date, $customer, $product, $quantity, $price, $status);
         $ok = $stmt->execute();
         $err = $stmt->error;
@@ -39,6 +40,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
 
         if (!$ok) $flash_error = "Insert failed: " . $err;
         else { header("Location: " . $_SERVER['PHP_SELF']); exit; }
+        } else{
+            $flash_error = "Insert failed: " . $conn->error;
+        }
     }
 
     if ($action === 'edit') {
@@ -714,62 +718,68 @@ $totalOrders = (int)$row2['total_orders'];
       }
     }
     /* Common button style */
-.btnview, .btnupdate, .btndelete {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  margin: 0 4px;
-  color: white;
-}
-/* View button (blue) */
-.btnview {
-  background-color: #1a73e8;
-}
-.btnview:hover {
-  background-color: #155bb5;
-}
+  .btnview, .btnupdate, .btndelete, .btnreturn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    margin: 0 4px;
+    color: white;
+  }
+  /* View button (blue) */
+  .btnview {
+    background-color: #1a73e8;
+  }
+  .btnview:hover {
+    background-color: #155bb5;
+  }
 
-/* Update button (orange) */
-.btnupdate {
-  background-color: #f39c12;
-}
-.btnupdate:hover {
-  background-color: #d98200;
-}
+  /* Update button (orange) */
+  .btnupdate {
+    background-color: #28a745;
+  }
+  .btnupdate:hover {
+    background-color: #28a745;
+  }
+  .btnreturn {
+    background-color: #f39c12;
+  }
+  .btnreturn:hover {
+    background-color: #d98200;
+  }
 
-/* Delete button (red) */
-.btndelete {
-  background-color: #e74c3c;
-}
-.btndelete:hover {
-  background-color: #c0392b;
-}
-  /* quick overlay: show sales-export as a panel inside the free-area visually */
-#sales-export {
-  position: relative;            /* ensure positioned */
-  margin-top: 0;
-  padding-top: 0;
-  /* optionally visually match other .content */
-  display: none;                 /* keep hidden by default, show only when .active is present */
-}
-#sales-export.active {
-  display: block;
-}
+  /* Delete button (red) */
+  .btndelete {
+    background-color: #e74c3c;
+  }
+  .btndelete:hover {
+    background-color: #c0392b;
+  }
+    /* quick overlay: show sales-export as a panel inside the free-area visually */
+  #sales-export {
+    position: relative;            /* ensure positioned */
+    margin-top: 0;
+    padding-top: 0;
+    /* optionally visually match other .content */
+    display: none;                 /* keep hidden by default, show only when .active is present */
+  }
+  #sales-export.active {
+    display: block;
+  }
 
-/* ensure it appears above footer/other content */
-#sales-export .content {
-  background: var(--brand);
-  border-radius: 14px;
-  padding: 18px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  max-width: calc(100% - 48px);
-  margin: 0 auto 24px;
-}
-
+  /* ensure it appears above footer/other content */
+  #sales-export .content {
+    background: var(--brand);
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    max-width: calc(100% - 48px);
+    margin: 0 auto 24px;
+  }
 </style>
+
 </head>
 
 <body>
@@ -795,15 +805,15 @@ $totalOrders = (int)$row2['total_orders'];
         <button class="salesbtn" disabled>Order</button>
         <div class="otherbtn">
      <button class="Sbtn" onclick="window.location.href='stoke.html'">Stock</button>
-<button class="Ubtn" onclick="window.location.href='sales.html'">Sales</button>
-<button class="Bbtn" onclick="window.location.href='booking.html'">Booking</button>
+    <button class="Ubtn" onclick="window.location.href='sales.html'">Sales</button>
+    <button class="Bbtn" onclick="window.location.href='booking.html'">Booking</button>
 
         </div>
         <hr />
         <p>Order Management</p>
         <div class="salebtn">
           <button class="tab-btn active" data-page="sales-dashboard">Order Dashboard</button>
-          <button class="tab-btn" data-page="sales-analysis">Return Order</button>
+          <!--<button class="tab-btn" data-page="sales-analysis">Return Order</button>-->
           <button class="tab-btn" data-page="sales-export">Export Report</button>
         </div>
       </nav>
@@ -880,6 +890,16 @@ $totalOrders = (int)$row2['total_orders'];
                     <i class="fa-regular fa-pen-to-square"></i>
                   </button>
 
+                  <!-- Return -->
+                  <button class="btnreturn"
+                    type="button"
+                    data-id="<?= htmlspecialchars($o['id']) ?>"
+                    data-quantity="<?= (int)$o['quantity'] ?>"
+                    data-price="<?= htmlspecialchars($o['price']) ?>"
+                    title="Process return for order #<?= htmlspecialchars($o['id']) ?>">
+                    <i class="fa-solid fa-rotate-left"></i>
+                  </button>
+
                   <!-- Delete -->
                   <form method="post" style="display:inline" onsubmit="return confirm('Delete order #<?= $o['id'] ?>?')">
                     <input type="hidden" name="action" value="delete">
@@ -894,10 +914,6 @@ $totalOrders = (int)$row2['total_orders'];
         </div>
       </section>
 
-      <!-- Other Panels -->
-      <section id="dashboard" class="panel"><h2>Dashboard</h2></section>
-      <section id="products" class="panel"><h2>Product Management</h2></section>
-      <section id="users" class="panel"><h2>User Management</h2></section>
        <!-- Export -->
       <section id="sales-export" class="panel">
         <div class="content">
@@ -923,14 +939,11 @@ $totalOrders = (int)$row2['total_orders'];
           </div>
         </div>
       </section>
-    </div>
+    
     </main>
   </div>
 
    
-    
-  </main>
-</div>
   <!-- Modal Add/Edit for ORDERS (uses your .modal-backdrop/.modal styles) -->
   <div class="modal-backdrop" id="orderModalBackdrop">
     <div class="modal">
@@ -1067,51 +1080,74 @@ function parseAndCallOpen(btn, fn) {
 })();
 
 
-// ---------- Return modal wiring ----------
+// ---------- Return modal wiring (fixed) ----------
 (function(){
   const returnModalBackdrop = document.getElementById('returnModalBackdrop');
   const returnForm = document.getElementById('returnForm');
+  const inputReturnQty = document.getElementById('return_quantity');
+  const inputRefund = document.getElementById('return_refund_amount');
+  const inputReturnDate = document.getElementById('return_date');
 
   function openReturnModal(id, origQty, price){
     document.getElementById('returnModalTitle').textContent = 'Return Order #' + id;
     document.getElementById('return_order_id').value = String(id);
-    document.getElementById('return_quantity').value = Math.min(1, origQty) ? '1' : '1';
-    document.getElementById('return_refund_amount').value = (Number(price) || 0).toFixed(2);
+
+    // set min and max properly
+    const maxQty = Math.max(1, Number(origQty) || 1);
+    if (inputReturnQty) {
+      inputReturnQty.setAttribute('min', '1');
+      inputReturnQty.setAttribute('max', String(maxQty));
+      inputReturnQty.value = '1';
+    }
+
+    if (inputRefund) inputRefund.value = (Number(price) || 0).toFixed(2);
+    if (inputReturnDate) inputReturnDate.value = inputReturnDate.value || new Date().toISOString().slice(0,10);
+
     document.getElementById('return_reason').value = '';
     returnModalBackdrop.style.display = 'flex';
+    // focus quantity for convenience
+    if (inputReturnQty) inputReturnQty.focus();
   }
+
   window.closeReturnModal = function(){ returnModalBackdrop.style.display = 'none'; };
 
-  // attach handlers to dynamic buttons
-  document.querySelectorAll('.btnreturn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const ds = btn.dataset;
-      const id = ds.id || ds['id'] || btn.getAttribute('data-id');
-      const qty = Number(ds.quantity || btn.getAttribute('data-quantity') || 1);
-      const price = Number(ds.price || btn.getAttribute('data-price') || 0);
-      openReturnModal(id, qty, price);
-    });
+  // Use event delegation in case buttons are dynamic
+  document.addEventListener('click', function(e){
+    const btn = e.target.closest && e.target.closest('.btnreturn');
+    if (!btn) return;
+    const ds = btn.dataset || {};
+    const id = ds.id || btn.getAttribute('data-id');
+    const qty = Number(ds.quantity || btn.getAttribute('data-quantity') || 1);
+    const price = Number(ds.price || btn.getAttribute('data-price') || 0);
+    openReturnModal(id, qty, price);
   });
 
-  // prevent accidental GET of the page on view or other modes
+  // client-side validation before submit
   if (returnForm) {
     returnForm.addEventListener('submit', (e) => {
-      // allow normal post to server. (action=return is supplied)
-      // you could add client-side validation here:
-      const q = Number(document.getElementById('return_quantity').value);
+      const qEl = document.getElementById('return_quantity');
+      const q = Number(qEl?.value || 0);
+      const max = Number(qEl?.getAttribute('max') || Infinity);
       if (!q || q < 1) {
         e.preventDefault();
-        alert('Return quantity must be at least 1');
+        alert('Return quantity must be at least 1.');
+        return;
       }
-      // otherwise form submits to order.php (server handles it)
+      if (q > max) {
+        e.preventDefault();
+        alert('Return quantity cannot exceed original quantity (' + max + ').');
+        return;
+      }
+      // allow normal form POST to server
     });
   }
 
-  // close when clicking backdrop
+  // close when clicking backdrop (only when click the backdrop itself)
   if (returnModalBackdrop) {
     returnModalBackdrop.addEventListener('click', (ev) => { if (ev.target === returnModalBackdrop) closeReturnModal(); });
   }
 })();
+
 
 // ---------- Export utilities (works on the orders table DOM) ----------
 (function(){

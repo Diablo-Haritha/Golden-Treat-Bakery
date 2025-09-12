@@ -716,62 +716,63 @@ $totalOrders = (int)$row2['total_orders'];
       }
     }
     /* Common button style */
-.btnview, .btnupdate, .btndelete {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  margin: 0 4px;
-  color: white;
-}
-/* View button (blue) */
-.btnview {
-  background-color: #1a73e8;
-}
-.btnview:hover {
-  background-color: #155bb5;
-}
+  .btnview, .btnupdate, .btndelete {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    margin: 0 4px;
+    color: white;
+  }
+  /* View button (blue) */
+  .btnview {
+    background-color: #1a73e8;
+  }
+  .btnview:hover {
+    background-color: #155bb5;
+  }
 
-/* Update button (orange) */
-.btnupdate {
-  background-color: #f39c12;
-}
-.btnupdate:hover {
-  background-color: #d98200;
-}
+  /* Update button (orange) */
+  .btnupdate {
+    background-color: #f39c12;
+  }
+  .btnupdate:hover {
+    background-color: #d98200;
+  }
 
-/* Delete button (red) */
-.btndelete {
-  background-color: #e74c3c;
-}
-.btndelete:hover {
-  background-color: #c0392b;
-}
-  /* quick overlay: show sales-export as a panel inside the free-area visually */
-#sales-export {
-  position: relative;            /* ensure positioned */
-  margin-top: 0;
-  padding-top: 0;
-  /* optionally visually match other .content */
-  display: none;                 /* keep hidden by default, show only when .active is present */
-}
-#sales-export.active {
-  display: block;
-}
+  /* Delete button (red) */
+  .btndelete {
+    background-color: #e74c3c;
+  }
+  .btndelete:hover {
+    background-color: #c0392b;
+  }
+    /* quick overlay: show sales-export as a panel inside the free-area visually */
+  #sales-export {
+    position: relative;            /* ensure positioned */
+    margin-top: 0;
+    padding-top: 0;
+    /* optionally visually match other .content */
+    display: none;                 /* keep hidden by default, show only when .active is present */
+  }
+  #sales-export.active {
+    display: block;
+  }
 
-/* ensure it appears above footer/other content */
-#sales-export .content {
-  background: var(--brand);
-  border-radius: 14px;
-  padding: 18px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  max-width: calc(100% - 48px);
-  margin: 0 auto 24px;
-}
+  /* ensure it appears above footer/other content */
+  #sales-export .content {
+    background: var(--brand);
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    max-width: calc(100% - 48px);
+    margin: 0 auto 24px;
+  }
 
 </style>
+
 </head>
 
 <body>
