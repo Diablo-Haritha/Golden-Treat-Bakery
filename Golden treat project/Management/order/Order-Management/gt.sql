@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Sep 13, 2025 at 09:52 AM
+-- Generation Time: Sep 13, 2025 at 03:06 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -75,8 +75,10 @@ CREATE TABLE `orders` (
   `customer` varchar(100) NOT NULL,
   `product` varchar(100) NOT NULL,
   `quantity` int(11) NOT NULL DEFAULT 1,
+  `original_quantity` int(11) NOT NULL DEFAULT 0,
   `price` decimal(10,2) NOT NULL DEFAULT 0.00,
-  `status` enum('Order Received','Payment Confirmed','Queued for Baking','In Preparation','Decorating','Ready for Pickup','Out for Delivery','Completed','Cancelled','Refunded','Returned','Pending') NOT NULL DEFAULT 'Order Received',
+  `original_price` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `status` enum('Order Received','Payment Confirmed','Queued for Baking','In Preparation','Decorating','Ready for Pickup','Out for Delivery','Completed','Cancelled','Refunded','Returned','Pending','Partially Returned') NOT NULL DEFAULT 'Order Received',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -85,17 +87,17 @@ CREATE TABLE `orders` (
 -- Dumping data for table `orders`
 --
 
-INSERT INTO `orders` (`id`, `order_date`, `customer`, `product`, `quantity`, `price`, `status`, `created_at`, `updated_at`) VALUES
-(1, '2025-09-01', 'Alice Fernando', 'Chocolate Cake', 1, 2500.00, 'Order Received', '2025-09-04 16:08:03', '2025-09-04 16:08:03'),
-(2, '2025-09-02', 'Brian Silva', 'Blueberry Muffins (6 pack)', 2, 1800.00, 'Payment Confirmed', '2025-09-04 16:08:03', '2025-09-04 16:08:03'),
-(3, '2025-09-02', 'Chathuri Perera', 'Butter Croissant', 12, 2400.00, 'Queued for Baking', '2025-09-04 16:08:03', '2025-09-04 16:08:03'),
-(4, '2025-09-03', 'Dilshan Jayawardena', 'Vanilla Cupcakes (12 pack)', 1, 2200.00, 'In Preparation', '2025-09-04 16:08:03', '2025-09-04 16:08:03'),
-(5, '2025-09-03', 'Erandi Rathnayake', 'Wedding Cake', 1, 12000.00, 'Decorating', '2025-09-04 16:08:03', '2025-09-04 16:08:03'),
-(6, '2025-09-03', 'Fathima Rahman', 'Strawberry Tart', 2, 3000.00, 'Ready for Pickup', '2025-09-04 16:08:03', '2025-09-04 16:08:03'),
-(7, '2025-09-04', 'Gihan Abeysekera', 'Fruit Loaf', 1, 1500.00, 'Out for Delivery', '2025-09-04 16:08:03', '2025-09-04 16:08:03'),
-(8, '2025-09-04', 'Hansika Karunaratne', 'Cinnamon Rolls', 6, 1200.00, 'Completed', '2025-09-04 16:08:03', '2025-09-04 16:18:52'),
-(9, '2025-09-04', 'Ishan Bandara', 'Cheese Cake', 1, 3200.00, 'Cancelled', '2025-09-04 16:08:03', '2025-09-04 16:08:03'),
-(10, '2025-09-04', 'Janani De Silva', 'Brownies', 8, 1600.00, 'Refunded', '2025-09-04 16:08:03', '2025-09-04 16:18:42');
+INSERT INTO `orders` (`id`, `order_date`, `customer`, `product`, `quantity`, `original_quantity`, `price`, `original_price`, `status`, `created_at`, `updated_at`) VALUES
+(1, '2025-09-01', 'Alice Fernando', 'Chocolate Cake', 1, 1, 2500.00, 2500.00, 'Order Received', '2025-09-04 16:08:03', '2025-09-13 12:24:07'),
+(2, '2025-09-02', 'Brian Silva', 'Blueberry Muffins (6 pack)', 2, 2, 1800.00, 1800.00, 'Payment Confirmed', '2025-09-04 16:08:03', '2025-09-13 12:24:07'),
+(3, '2025-09-02', 'Chathuri Perera', 'Butter Croissant', 12, 12, 2400.00, 2400.00, 'Queued for Baking', '2025-09-04 16:08:03', '2025-09-13 12:24:07'),
+(4, '2025-09-03', 'Dilshan Jayawardena', 'Vanilla Cupcakes (12 pack)', 1, 1, 2200.00, 2200.00, 'In Preparation', '2025-09-04 16:08:03', '2025-09-13 12:24:07'),
+(5, '2025-09-03', 'Erandi Rathnayake', 'Wedding Cake', 1, 1, 12000.00, 12000.00, 'Decorating', '2025-09-04 16:08:03', '2025-09-13 12:24:07'),
+(6, '2025-09-03', 'Fathima Rahman', 'Strawberry Tart', 2, 2, 3000.00, 3000.00, 'Ready for Pickup', '2025-09-04 16:08:03', '2025-09-13 12:24:07'),
+(7, '2025-09-04', 'Gihan Abeysekera', 'Fruit Loaf', 1, 1, 1500.00, 1500.00, 'Out for Delivery', '2025-09-04 16:08:03', '2025-09-13 12:24:07'),
+(8, '2025-09-04', 'Hansika Karunaratne', 'Cinnamon Rolls', 6, 6, 1200.00, 1200.00, 'Completed', '2025-09-04 16:08:03', '2025-09-13 12:24:07'),
+(9, '2025-09-04', 'Ishan Bandara', 'Cheese Cake', 1, 1, 3200.00, 3200.00, 'Cancelled', '2025-09-04 16:08:03', '2025-09-13 12:24:07'),
+(10, '2025-09-04', 'Janani De Silva', 'Brownies', 8, 8, 1600.00, 1600.00, 'Returned', '2025-09-04 16:08:03', '2025-09-13 12:30:46');
 
 -- --------------------------------------------------------
 
@@ -129,6 +131,13 @@ CREATE TABLE `returns` (
   `processed_by` int(11) DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `returns`
+--
+
+INSERT INTO `returns` (`id`, `order_id`, `return_date`, `quantity`, `reason`, `refund_amount`, `processed_by`, `created_at`) VALUES
+(1, 10, '2025-09-13', 1, 'wrong sugar level', 1600.00, NULL, '2025-09-13 18:00:46');
 
 -- --------------------------------------------------------
 
@@ -270,7 +279,7 @@ ALTER TABLE `order_status_history`
 -- AUTO_INCREMENT for table `returns`
 --
 ALTER TABLE `returns`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `sales`
