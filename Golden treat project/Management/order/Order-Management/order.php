@@ -11,6 +11,8 @@ if ($conn->connect_error) {
 }
 $conn->set_charset('utf8mb4');
 
+if (session_status() === PHP_SESSION_NONE) session_start();
+$action = $_POST['action'] ?? $_GET['action'] ?? null;
 // Helper for bind_param dynamic refs (used if needed)
 function refValues($arr){
     $refs = [];
@@ -45,51 +47,129 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
         }
     }
 
+    require_once __DIR__ . '/sms_helpers.php';
+
     if ($action === 'edit') {
-        $id         = (int)($_POST['id'] ?? 0);          
-        $order_date = $_POST['order_date'] ?: null;
-        $customer   = trim($_POST['customer'] ?? '');
-        $product    = trim($_POST['product'] ?? '');
-        $quantity   = (int)($_POST['quantity'] ?? 1);
-        $price      = (float)($_POST['price'] ?? 0.00);
-        $status     = $_POST['status'] ?? 'Pending';
+    $id = (int)($_POST['id'] ?? 0);
 
-        $stmt = $conn->prepare("UPDATE orders SET order_date = ?, customer = ?, product = ?, quantity = ?, price = ?, status = ? WHERE id = ?");
-        $stmt->bind_param("sssidsi", $order_date, $customer, $product, $quantity, $price, $status, $id);
-        $ok = $stmt->execute();
-        $err = $stmt->error;
-        $stmt->close();
+    // --- IMPORTANT: collect fields from POST (same as add) ---
+    $order_date = $_POST['order_date'] ?: null;
+    $customer   = trim($_POST['customer'] ?? '');
+    $product    = trim($_POST['product'] ?? '');
+    $quantity   = (int)($_POST['quantity'] ?? 1);
+    $price      = (float)($_POST['price'] ?? 0.00);
+    $new_status = $_POST['status'] ?? 'Pending';
 
-        if (!$ok) $flash_error = "Update failed: " . $err;
-        else { header("Location: " . $_SERVER['PHP_SELF']); exit; }
+    // fetch old status
+    $sel = $conn->prepare("SELECT status, customer, deleted_at FROM orders WHERE id = ? LIMIT 1");
+$sel->bind_param("i", $id);
+$sel->execute();
+$resOld = $sel->get_result();
+$oldRow = $resOld->fetch_assoc();
+$sel->close();
+
+if (!$oldRow || !empty($oldRow['deleted_at'])) {
+    $flash_error = "Order not found or has been deleted.";
+    // optionally redirect or halt
+}
+$old_status = $oldRow['status'] ?? null;
+$customerName = $oldRow['customer'] ?? '';
+
+    // perform update (existing code)
+    $stmt = $conn->prepare("UPDATE orders SET order_date = ?, customer = ?, product = ?, quantity = ?, price = ?, status = ? WHERE id = ?");
+    $stmt->bind_param("sssidsi", $order_date, $customer, $product, $quantity, $price, $new_status, $id);
+    $ok = $stmt->execute();
+    $err = $stmt->error;
+    $stmt->close();
+
+    if (!$ok) $flash_error = "Update failed: " . $err;
+    else {
+        // if status changed, add history and send SMS
+        if ($old_status !== null && $old_status !== $new_status) {
+            $changed_by = /* put current user id here if you have session */ null;
+            $note = "Updated through admin UI";
+            $ins = $conn->prepare("INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+            $ins->bind_param("issis", $id, $old_status, $new_status, $changed_by, $note);
+            $ins->execute();
+            $ins->close();
+
+            // find mobile and send SMS
+            $mobile = sms_get_mobile_for_order($conn, $id, $customerName);
+            if ($mobile) {
+                $message = "Order #{$id} status changed: {$old_status} → {$new_status}";
+                // choose Twilio or generic based on your config
+                $smsRes = sms_send_twilio($mobile, $message);
+                sms_log($conn, $id, $mobile, $message, ($smsRes['ok'] ?? false) ? 'sent' : 'failed', json_encode($smsRes));
+            }
+        }
+        header("Location: " . $_SERVER['PHP_SELF']);
+        exit;
     }
-
+}
 
     if ($action === 'delete') {
-        $id = (int)($_POST['id'] ?? 0);
-        $stmt = $conn->prepare("DELETE FROM orders WHERE id = ?");
-        $stmt->bind_param("i", $id);
-        $ok = $stmt->execute();
-        $err = $stmt->error;
-        $stmt->close();
+    $id = (int)($_POST['id'] ?? 0);
+    if ($id <= 0) {
+        $flash_error = "Invalid order id.";
+    } else {
+        // get current user id if you have sessions; else use NULL
+        $deleted_by = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
 
-        if (!$ok) $flash_error = "Delete failed: " . $err;
-        else { header("Location: " . $_SERVER['PHP_SELF']); exit; }
+        $conn->begin_transaction();
+        try {
+            // mark order as deleted
+            if ($deleted_by === null) {
+                $upd = $conn->prepare("UPDATE orders SET deleted_at = NOW(), deleted_by = NULL WHERE id = ? AND deleted_at IS NULL");
+                $upd->bind_param("i", $id);
+            } else {
+                $upd = $conn->prepare("UPDATE orders SET deleted_at = NOW(), deleted_by = ? WHERE id = ? AND deleted_at IS NULL");
+                $upd->bind_param("ii", $deleted_by, $id);
+            }
+            $upd->execute();
+            if ($upd->affected_rows <= 0) {
+                throw new Exception("Order not found or already deleted.");
+            }
+            $upd->close();
+
+            // add audit history row (store old_status -> Deleted)
+            $ins = $conn->prepare("INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+            $old_status = null;
+            // try to fetch old status for a useful note
+            $s2 = $conn->prepare("SELECT status FROM orders WHERE id = ?");
+            $s2->bind_param("i", $id); $s2->execute();
+            $r2 = $s2->get_result()->fetch_assoc(); $s2->close();
+            $old_status = $r2['status'] ?? null;
+            $note = "Order soft-deleted via admin UI";
+            if ($deleted_by === null) {
+                $ins->bind_param("issis", $id, $old_status, $new_status = 'Deleted', $deleted_by, $note);
+            } else {
+                $ins->bind_param("issis", $id, $old_status, $new_status = 'Deleted', $deleted_by, $note);
+            }
+            $ins->execute();
+            $ins->close();
+
+            $conn->commit();
+            header("Location: " . $_SERVER['PHP_SELF']); exit;
+        } catch (Exception $e) {
+            $conn->rollback();
+            $flash_error = "Delete failed: " . $e->getMessage();
+        }
     }
+}
 
     // ---------- Return order handler ----------
-if ($action === 'return') {
-    $id = (int)($_POST['id'] ?? 0);
-    $return_qty = (int)($_POST['return_quantity'] ?? 1);
-    $reason = trim($_POST['return_reason'] ?? '');
-    $refund_amount = (float)($_POST['refund_amount'] ?? 0.00);
-    $return_date = $_POST['return_date'] ?: date('Y-m-d');
-
-    if ($id <= 0) {
-        $flash_error = "Invalid order id for return.";
-    } else {
-        // check order exists
-        $sel = $conn->prepare("SELECT id, quantity, status FROM orders WHERE id = ?");
+    if ($action === 'return') {
+      $id = (int)($_POST['id'] ?? 0);
+        $return_qty = (int)($_POST['return_quantity'] ?? 1);
+            $reason = trim($_POST['return_reason'] ?? '');
+            $refund_amount = (float)($_POST['refund_amount'] ?? 0.00);
+            $return_date = $_POST['return_date'] ?: date('Y-m-d');
+    
+            if ($id <= 0) {
+                $flash_error = "Invalid order id for return.";
+            } else {
+                // check order exists
+        $sel = $conn->prepare("SELECT id, quantity, status, deleted_at FROM orders WHERE id = ?");
         $sel->bind_param("i", $id);
         $sel->execute();
         $res = $sel->get_result();
@@ -98,27 +178,12 @@ if ($action === 'return') {
 
         if (!$row) {
             $flash_error = "Order not found (id: $id)";
+        } else if (!empty($row['deleted_at'])) {
+            $flash_error = "Operation denied: this order has been deleted.";
         } else {
-            // optional: ensure return_qty <= original quantity
-            $origQty = (int)$row['quantity'];
-            if ($return_qty <= 0 || $return_qty > $origQty) {
-                $flash_error = "Invalid return quantity (must be between 1 and $origQty).";
-            } else {
-                // Insert into returns table if exists
-                $ins = $conn->prepare("INSERT INTO returns (order_id, return_date, quantity, reason, refund_amount) VALUES (?, ?, ?, ?, ?)");
-                if ($ins) {
-                    $ins->bind_param("isisd", $id, $return_date, $return_qty, $reason, $refund_amount);
-                    $ins->execute();
-                    $errIns = $ins->error;
-                    $ins->close();
-                    if ($errIns) {
-                        $flash_error = "Failed to record return: " . $errIns;
-                    }
-                } else {
-                    
-                }
-
-                
+          // proceed...
+        }
+       
                 $newStatus = 'Returned';
                 $upd = $conn->prepare("UPDATE orders SET status = ? WHERE id = ?");
                 $upd->bind_param("si", $newStatus, $id);
@@ -131,20 +196,43 @@ if ($action === 'return') {
             }
         }
     }
-}
-
+if ($action === 'restore') {
+    $id = (int)($_POST['id'] ?? 0);
+    $restored_by = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+    $stmt = $conn->prepare("UPDATE orders SET deleted_at = NULL, deleted_by = NULL WHERE id = ? AND deleted_at IS NOT NULL");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    if ($stmt->affected_rows > 0) {
+        // insert history
+        $ins = $conn->prepare("INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+        $note = "Order restored by admin";
+        $old_status = 'Deleted';
+        $new_status = 'Restored';
+        $ins->bind_param("issis", $id, $old_status, $new_status, $restored_by, $note);
+        $ins->execute();
+        $ins->close();
+    }
+    $stmt->close();
+    header("Location: " . $_SERVER['PHP_SELF']); exit;
 }
 
 // Fetch orders for display
-$sql = "SELECT id, order_date, customer, product, quantity, price, status FROM orders ORDER BY id DESC";
+$sql = "SELECT id, order_date, customer, product, quantity, price, status
+        FROM orders
+        WHERE deleted_at IS NULL
+        ORDER BY id DESC";
 $stmt = $conn->prepare($sql);
+if ($stmt === false) {
+    // Helpful debug message — remove or log in production
+    die("SQL prepare failed (orders fetch): " . $conn->error . " -- SQL: " . substr($sql, 0, 200));
+}
 $stmt->execute();
 $result = $stmt->get_result();
 $orders = $result->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
 // Count total orders
-$res2 = $conn->query("SELECT COUNT(*) AS total_orders FROM orders");
+$res2 = $conn->query("SELECT COUNT(*) AS total_orders FROM orders WHERE deleted_at IS NULL");
 $row2 = $res2->fetch_assoc();
 $totalOrders = (int)$row2['total_orders'];
 ?>

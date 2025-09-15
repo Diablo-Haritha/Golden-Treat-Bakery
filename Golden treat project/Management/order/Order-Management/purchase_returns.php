@@ -26,6 +26,15 @@ $order_id = isset($_GET['order_id']) && $_GET['order_id'] !== '' ? (int)$_GET['o
 $processed_by = isset($_GET['processed_by']) && $_GET['processed_by'] !== '' ? (int)$_GET['processed_by'] : '';
 $limit = 2000; // safety limit
 
+// Simple date validation (ensure format YYYY-MM-DD and valid calendar date)
+function validate_date($d) {
+    if (!is_string($d) || $d === '') return false;
+    $dt = DateTime::createFromFormat('Y-m-d', $d);
+    return $dt && $dt->format('Y-m-d') === $d;
+}
+if ($from !== '' && !validate_date($from)) $from = '';
+if ($to !== '' && !validate_date($to)) $to = '';
+
 $where = [];
 $types = '';
 $values = [];
@@ -101,11 +110,13 @@ $stmt->close();
 $totalQty = 0;
 $totalRefund = 0.0;
 foreach ($rows as $r) {
-    $totalQty += (int)$r['returned_quantity'];
-    $totalRefund += (float)$r['refund_amount'];
+    $retQty = (int)($r['returned_quantity'] ?? 0);
+    $refund = (float)($r['refund_amount'] ?? 0.0);
+    $totalQty += $retQty;
+    $totalRefund += $refund;
 }
-
-// quick stat: total returns amount (card)
+// optionally round display when outputting:
+// Rs. <?= number_format(round($totalRefund, 2), 2) 
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -768,6 +779,7 @@ foreach ($rows as $r) {
 
   
 </style>
+
 </head>
 <body>
   <div class="header">

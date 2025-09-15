@@ -24,31 +24,13 @@ $to   = !empty($_GET['to'])   ? $_GET['to']   : '';
 $customer = !empty($_GET['customer']) ? trim($_GET['customer']) : '';
 $status   = !empty($_GET['status']) ? trim($_GET['status']) : '';
 
-// Build WHERE parts dynamically and bind types/values
-$where = [];
-$types = '';
-$values = [];
-
-if ($from !== '') {
-    $where[] = "o.order_date >= ?";
-    $types .= 's';
-    $values[] = $from;
+// Simple date validation (ensure YYYY-MM-DD), otherwise clear the param
+function validate_date($d) {
+    $dt = DateTime::createFromFormat('Y-m-d', $d);
+    return $dt && $dt->format('Y-m-d') === $d;
 }
-if ($to !== '') {
-    $where[] = "o.order_date <= ?";
-    $types .= 's';
-    $values[] = $to;
-}
-if ($customer !== '') {
-    $where[] = "o.customer LIKE ?";
-    $types .= 's';
-    $values[] = '%' . $customer . '%';
-}
-if ($status !== '') {
-    $where[] = "o.status = ?";
-    $types .= 's';
-    $values[] = $status;
-}
+if ($from !== '' && !validate_date($from)) $from = '';
+if ($to !== '' && !validate_date($to)) $to = '';
 
 $whereSql = '';
 if (!empty($where)) $whereSql = 'WHERE ' . implode(' AND ', $where);
@@ -58,8 +40,8 @@ $sql = "
 SELECT 
   o.id, o.order_date, o.customer, o.product, o.quantity, o.price, o.status,
   COALESCE(r.sum_qty,0) AS returned_qty,
-  (o.quantity - COALESCE(r.sum_qty,0)) AS net_quantity,
-  (o.price * (o.quantity - COALESCE(r.sum_qty,0))) AS net_value
+  GREATEST(o.quantity - COALESCE(r.sum_qty,0), 0) AS net_quantity,
+  (o.price * GREATEST(o.quantity - COALESCE(r.sum_qty,0), 0)) AS net_value
 FROM orders o
 LEFT JOIN (
   SELECT order_id, SUM(quantity) AS sum_qty
@@ -84,15 +66,22 @@ $res = $stmt->get_result();
 $rows = $res->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
-// Totals for visible rows
+// Totals for visible rows (use SQL-provided net_value which is already clamped)
 $totalGross = 0.0;
 $totalNet = 0.0;
 $totalReturnedQty = 0;
 foreach ($rows as $r) {
-    $totalGross += (float)$r['price'] * (int)$r['quantity'];
-    $totalReturnedQty += (int)$r['returned_qty'];
-    $totalNet += (float)$r['net_value'];
+    $qty = (int)($r['quantity'] ?? 0);
+    $ret = (int)($r['returned_qty'] ?? 0);
+    $netQty = max(0, (int)($r['net_quantity'] ?? 0));
+    $price = (float)($r['price'] ?? 0.0);
+    $netValue = (float)($r['net_value'] ?? ($price * $netQty));
+
+    $totalGross += $price * $qty;
+    $totalReturnedQty += $ret;
+    $totalNet += $netValue;
 }
+
 ?>
 <!doctype html>
 <html>
@@ -100,22 +89,24 @@ foreach ($rows as $r) {
 <meta charset="utf-8">
 <title>Purchase History</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"/>
+
 <style>
-/* Minimal styles to align with order.php */
-body{font-family:Arial,Helvetica,sans-serif;background:#f4f6f9;color:#0f172a;padding:18px}
-.container{max-width:1100px;margin:0 auto}
-.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-.filter{background:#fff;padding:12px;border-radius:8px;box-shadow:0 1px 6px rgba(0,0,0,.06);margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap}
-.filter input, .filter select {padding:8px;border:1px solid #d1d5db;border-radius:6px}
-.btn{padding:8px 12px;border:none;border-radius:8px;background:#007bff;color:#fff;cursor:pointer}
-.table-wrap{background:#fff;border-radius:12px;box-shadow:0 1px 6px rgba(0,0,0,.06);overflow:auto;padding:12px}
-table{width:100%;border-collapse:collapse}
-th,td{padding:10px;border-bottom:1px solid #e5e7eb;text-align:left}
-th{background:#f9fafb;position:sticky;top:0}
-.summary{display:flex;gap:12px;margin:12px 0}
-.summary .card{background:#fff;padding:12px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
-.muted{color:#6b7280;font-size:13px}
+ /* Minimal styles to align with order.php */
+  body{font-family:Arial,Helvetica,sans-serif;background:#f4f6f9;color:#0f172a;padding:18px}
+  .container{max-width:1100px;margin:0 auto}
+  .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .filter{background:#fff;padding:12px;border-radius:8px;box-shadow:0 1px 6px rgba(0,0,0,.06);margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap}
+  .filter input, .filter select {padding:8px;border:1px solid #d1d5db;border-radius:6px}
+  .btn{padding:8px 12px;border:none;border-radius:8px;background:#007bff;color:#fff;cursor:pointer}
+  .table-wrap{background:#fff;border-radius:12px;box-shadow:0 1px 6px rgba(0,0,0,.06);overflow:auto;padding:12px}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:10px;border-bottom:1px solid #e5e7eb;text-align:left}
+  th{background:#f9fafb;position:sticky;top:0}
+  .summary{display:flex;gap:12px;margin:12px 0}
+  .summary .card{background:#fff;padding:12px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+  .muted{color:#6b7280;font-size:13px}
 </style>
+
 </head>
 <body>
 <div class="container">
@@ -216,9 +207,13 @@ function toCSV(rows){
 document.getElementById('exportCsv').addEventListener('click', () => {
   const rows = Array.from(document.querySelectorAll('#historyTable tbody tr')).map(tr => {
     const tds = tr.querySelectorAll('td');
-    if (!tds.length) return null;
+    if (!tds.length || tds.length < 10) return null; // skip "no rows" placeholder or malformed rows
     return Array.from(tds).map(td => td.textContent.trim());
   }).filter(Boolean);
+  if (!rows.length) {
+    alert('No rows to export');
+    return;
+  }
   const csv = toCSV(rows);
   const blob = new Blob([csv], {type:'text/csv'});
   const a = document.createElement('a');
@@ -227,6 +222,7 @@ document.getElementById('exportCsv').addEventListener('click', () => {
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 });
+
 </script>
 </body>
 </html>
