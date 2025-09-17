@@ -80,7 +80,7 @@ CREATE TABLE bill_items (
 -- ==============================
 -- Orders Table
 -- ==============================
-CREATE TABLE orders haritha (
+CREATE TABLE orders(
   id INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
   order_date DATE DEFAULT NULL,
   customer VARCHAR(255) NOT NULL,
@@ -93,24 +93,8 @@ CREATE TABLE orders haritha (
   KEY idx_orders_order_date (order_date),
   KEY idx_orders_customer (customer),
   KEY idx_orders_status (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+)
 
--- ==============================
--- Sales Table (First Version)
--- ==============================
-CREATE TABLE sales_v2 (
-  id INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
-  date DATE DEFAULT NULL,
-  customer VARCHAR(255) NOT NULL,
-  total DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-  status ENUM('Completed','Pending','Cancelled','Paid') NOT NULL DEFAULT 'Pending',
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP(),
-  updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(),
-  PRIMARY KEY (id),
-  KEY idx_sales_date (date),
-  KEY idx_sales_customer (customer),
-  KEY idx_sales_status (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ==============================
 -- Stock Table

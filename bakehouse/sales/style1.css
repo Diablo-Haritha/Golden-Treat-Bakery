@@ -427,6 +427,7 @@ tr:hover td {
   border: none;
   border-radius: 8px;
   cursor: pointer;
+  gap:30px;
 }
 
 .row-actions .edit {

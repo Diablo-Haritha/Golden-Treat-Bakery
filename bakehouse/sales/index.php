@@ -334,8 +334,8 @@ if (isset($_GET['export'])) {
                   <td>$
                     <?= number_format($s['total'],2) ?>
                   </td>
-                  <td>
-                    <?= $s['status'] ?>
+                  <td><span class="badge <?= $s['status'] ?>"><?= $s['status'] ?></span>
+                    
                   </td>
                   <td>
                     <div class="row-actions">
@@ -344,10 +344,10 @@ if (isset($_GET['export'])) {
                                           document.getElementById('edit_customer').value='<?= $s['customer'] ?>';
                                           document.getElementById('edit_total').value='<?= $s['total'] ?>';
                                           document.getElementById('edit_status').value='<?= $s['status'] ?>';
-                                          openModal('editModal');">✏️</button>
+                                          openModal('editModal');">✏</button>
 
                       <button class="del"
-                        onclick="document.getElementById('delete_id').value='<?= $s['id'] ?>'; openModal('deleteModal');">🗑️</button>
+                        onclick="document.getElementById('delete_id').value='<?= $s['id'] ?>'; openModal('deleteModal');">🗑</button>
                   </td>
           </div>
           </tr>
