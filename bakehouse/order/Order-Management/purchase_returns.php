@@ -124,661 +124,12 @@ foreach ($rows as $r) {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Purchase Returns - Admin</title>
-
+  <link rel="stylesheet" href="css/purchase_returns.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"/>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
-
- <style>
-    :root {
-      --brand: #9c0dc7;
-      --ink: #111827;
-      --paper: #fff;
-      --muted: #6b7280;
-      --soft: #e5e7eb;
-      --warn: #ffc107;
-      --danger: #dc3545;
-      --primary: #007bff;
-    }
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box
-    }
-
-    body {
-      font-family: Arial, Helvetica, sans-serif;
-      background: #f4f6f9;
-      color: #0f172a;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column
-    }
-    .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: #fff;
-      padding: 12px 16px;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, .08)
-    }
-
-    .header-left img {
-      width: 56px;
-      height: auto;
-      border-radius: 8px;
-      display: block;
-      box-shadow: 2px 2px 5px rgba(0, 0, 0, .15)
-    }
-
-    .header-middle {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex: 1;
-      margin: 0 16px;
-      max-width: 720px
-    }
-
-    .header-middle-title {
-      font-weight: 800;
-      font-size: 26px;
-      color: var(--brand);
-      white-space: nowrap
-    }
-
-    .search-bar {
-      flex: 1;
-      display: flex
-    }
-
-    .search-bar input {
-      width: 100%;
-      padding: 8px 10px;
-      border: 1px solid #d1d5db;
-      border-radius: 8px
-    }
-
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 12px
-    }
-
-    .role-btn {
-      background: #111827;
-      color: #fff;
-      padding: 8px 14px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer
-    }
-
-    .role-btn:hover {
-      opacity: .9
-    }
-
-    .user-icon {
-      width: 28px;
-      height: 28px;
-      background: linear-gradient(135deg, #bbb, #888);
-      border-radius: 50%
-    }
-
-    /* Layout */
-    .layout {
-      flex: 1;
-      display: flex;
-      min-height: 0
-    }
-
-    .sidebar {
-      width: 260px;
-      background: #fff;
-      padding: 18px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      border-right: 1px solid #e5e7eb;
-      
-    }
-
-    .sidebar h1 {
-      text-align: center;
-      font-size: 20px;
-      margin-bottom: 8px;
-      color: #0f172a
-    }
-
-    .sidebar nav {
-      display: flex;
-      flex-direction: column;
-      gap: 10px
-    }
-
-    /* Sidebar groups */
-    .salesbtn {
-      background: var(--brand);
-      border: none;
-      border-radius: 10px;
-      color: #fff;
-      font-weight: 800;
-      font-size: 22px;
-      padding: 12px;
-      text-align: center
-    }
-
-    .otherbtn button {
-      border: none;
-      border-radius: 10px;
-      color: #fff;
-      cursor: pointer;
-      padding: 10px 12px;
-      font-weight: 700;
-      gap: 10px;
-    }
-
-    .salebtn button {
-      background: #9c0dc7;
-      border: none;
-      text-align: left;
-      padding: 10px;
-      margin: 10px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      color: #fff;
-    }
-
-    .Sbtn {
-      background: #e37200;
-      margin-left: 10px;
-    }
-
-    .Ubtn {
-      background: #30b6a2
-    }
-
-    .Bbtn {
-      background: #edcd00
-    }
-
-    .otherbtn button:hover {
-      filter: brightness(1.1)
-    }
-
-    .sidebar hr {
-      margin: 8px 0
-    }
-
-    .sidebar p {
-      font-size: 12px;
-      color: #6b7280;
-      font-weight: 700
-    }
-
-    .salebtn button {
-      background: var(--brand);
-      text-align: left
-    }
-
-    .salebtn button.active {
-      outline: 3px solid rgba(146, 48, 182, 0.35)
-    }
-
-    .sidebar hr {
-      margin: 8px 0
-    }
-
-    .sidebar p {
-      font-size: 12px;
-      color: #6b7280;
-      font-weight: 700
-    }
-
-    /* Sales Management sub-tabs */
-    .salebtn {
-      display: flex;
-      flex-direction: column
-    }
-
-    .salebtn .tab-btn {
-      background: var(--brand);
-      border: none;
-      border-radius: 10px;
-      color: #fff;
-      cursor: pointer;
-      padding: 10px 12px;
-      font-weight: 700;
-      text-align: left
-    }
-
-    .salebtn .tab-btn+.tab-btn {
-      margin-top: 8px
-    }
-
-    .salebtn .tab-btn.active {
-      outline: 3px solid rgba(48, 182, 162, .35)
-    }
-
-    /* Main area */
-    .free-area {
-      flex: 1;
-      background: #f3f4f6;
-      padding: 24px;
-      overflow: auto
-    }
-
-    .panel {
-      display: none
-    }
-
-    .panel.active {
-      display: block
-    }
-
-    .content {
-      background: #9c0dc7;
-      border-radius: 14px;
-      padding: 18px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
-      display: flex;
-      flex-direction: column;
-      gap: 16px
-    }
-
-    .cards {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px
-    }
-
-    .card {
-      background: #fff;
-      border-radius: 12px;
-      padding: 16px;
-      box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
-      text-align: center
-    }
-
-    .card h3 {
-      font-size: 14px;
-      color: #374151
-    }
-
-    .card p {
-      font-size: 22px;
-      font-weight: 800;
-      margin-top: 6px;
-      color: #0f172a
-    }
-
-    .toolbar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center
-    }
-
-    .filter-bar {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap
-    }
-
-    .filter-bar input,
-    .filter-bar select,
-    .filter-bar button {
-      padding: 8px;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      background: #fff
-    }
-
-    .btn {
-      padding: 9px 12px;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      color: #fff;
-      background: var(--primary)
-    }
-
-    .btn.secondary {
-      background: #10b981
-    }
-
-    .btn.warn {
-      background: var(--warn);
-      color: #000
-    }
-
-    .btn.danger {
-      background: var(--danger)
-    }
-
-    .btn.light {
-      background: #e5e7eb;
-      color: #111827;
-      border: 1px solid #d1d5db
-    }
-
-    .table-wrap {
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
-      overflow: auto
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse
-    }
-
-    th,
-    td {
-      padding: 12px;
-      border-bottom: 1px solid #e5e7eb;
-      text-align: left;
-      white-space: nowrap
-    }
-
-    th {
-      background: #f9fafb;
-      font-size: 13px;
-      color: #374151;
-      cursor: pointer;
-      position: sticky;
-      top: 0
-    }
-
-    tr:hover td {
-      background: #fcfcfd
-    }
-
-    .badge {
-      padding: 4px 8px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 700
-    }
-
-    .Completed {
-      background: #d1fae5;
-      color: #065f46
-    }
-
-    .Pending {
-      background: #fef3c7;
-      color: #92400e
-    }
-
-    .Cancelled {
-      background: #fee2e2;
-      color: #991b1b
-    }
-
-    .row-actions button {
-      padding: 6px 10px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer
-    }
-
-    .row-actions .edit {
-      background: var(--warn)
-    }
-
-    .row-actions .del {
-      background: var(--danger);
-      color: #fff
-    }
-
-    /* Modal */
-    .modal-backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, .35);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 50
-    }
-
-    .modal {
-      width: 100%;
-      max-width: 520px;
-      background: #fff;
-      border-radius: 14px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
-      padding: 18px
-    }
-
-    .modal h2 {
-      margin-bottom: 10px
-    }
-
-    .form-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px
-    }
-
-    .form-grid .full {
-      grid-column: 1/-1
-    }
-
-    .modal input,
-    .modal select {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid #d1d5db;
-      border-radius: 10px
-    }
-
-    .modal .footer {
-      display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-      margin-top: 12px
-    }
-
-    /* Analysis */
-    .chart-card {
-      background: #fff;
-      border-radius: 14px;
-      padding: 16px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, .08)
-    }
-
-    .analysis-controls {
-      background: #fff;
-      border-radius: 14px;
-      padding: 12px;
-      box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
-      margin-bottom: 12px
-    }
-
-    .analysis-controls .filter-row {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      align-items: center
-    }
-
-    .analysis-controls label {
-      font-size: 12px;
-      color: #374151
-    }
-
-    .mini-cards {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-      margin: 12px 0
-    }
-
-    .mini-card {
-      background: #fff;
-      border-radius: 12px;
-      padding: 14px;
-      text-align: center;
-      box-shadow: 0 1px 6px rgba(0, 0, 0, .06)
-    }
-
-    .mini-card h4 {
-      margin-bottom: 6px;
-      font-size: 12px;
-      color: #374151
-    }
-
-    .mini-card p {
-      font-size: 20px;
-      font-weight: 800;
-      color: #0f172a
-    }
-
-    .charts-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px
-    }
-
-    .chart-wrap {
-      position: relative;
-      height: 320px
-    }
-
-    /* Export panel */
-    .export-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 12px
-    }
-
-    .export-grid .row {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap
-    }
-
-    .muted {
-      color: var(--muted);
-      font-size: 13px
-    }
-
-    @media (max-width:1000px) {
-      .cards {
-        grid-template-columns: 1fr
-      }
-
-      .charts-grid {
-        grid-template-columns: 1fr
-      }
-
-      .sidebar {
-        width: 220px
-      }
-    }
-    /* Common button style */
-  .btnview, .btnupdate, .btndelete, .btnreturn {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 6px;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.2s ease-in-out;
-    margin: 0 4px;
-    color: white;
-  }
-  /* View button (blue) */
-  .btnview {
-    background-color: #1a73e8;
-  }
-  .btnview:hover {
-    background-color: #155bb5;
-  }
-
-  /* Update button (orange) */
-  .btnupdate {
-    background-color: #28a745;
-  }
-  .btnupdate:hover {
-    background-color: #28a745;
-  }
-  .btnreturn {
-    background-color: #f39c12;
-  }
-  .btnreturn:hover {
-    background-color: #d98200;
-  }
-
-  /* Delete button (red) */
-  .btndelete {
-    background-color: #e74c3c;
-  }
-  .btndelete:hover {
-    background-color: #c0392b;
-  }
-    /* quick overlay: show sales-export as a panel inside the free-area visually */
-  #sales-export {
-    position: relative;            /* ensure positioned */
-    margin-top: 0;
-    padding-top: 0;
-    /* optionally visually match other .content */
-    display: none;                 /* keep hidden by default, show only when .active is present */
-  }
-  #sales-export.active {
-    display: block;
-  }
-
-  /* ensure it appears above footer/other content */
-  #sales-export .content {
-    background: var(--brand);
-    border-radius: 14px;
-    padding: 18px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    max-width: calc(100% - 48px);
-    margin: 0 auto 24px;
-  }
-  /* Order History button — matches .salebtn buttons */
-  .orderhistory {
-    background: var(--brand);
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    padding: 10px 12px;
-    margin: 10px 0;
-    font-weight: 700;
-    font-size: 14px;
-    text-align: left;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: calc(100% - 20px); 
-    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-  }
-
-  /* hover / focus */
-  .orderhistory:hover,
-  .orderhistory:focus {
-    filter: brightness(1.06);
-    outline: none;
-  }
-
-  .orderhistory.active {
-    outline: 3px solid rgba(146, 48, 182, 0.35);
-  }
-
-  
-</style>
 
 </head>
 <body>
@@ -817,8 +168,8 @@ foreach ($rows as $r) {
 
     <main class="free-area">
       <section id="returns-panel" class="panel active">
-        <div class="content" style="background: #fff;"> <!-- keep content white for clarity -->
-          <h2 style="color:var(--brand);">Purchase Returns</h2>
+        <div class="content"> <!-- keep content white for clarity -->
+          <h2>Purchase Returns</h2>
 
           <div class="cards" style="grid-template-columns: repeat(3, 1fr);">
             <div class="card">
@@ -835,14 +186,14 @@ foreach ($rows as $r) {
             </div>
           </div>
 
-          <div class="toolbar" style="align-items:flex-start;">
-            <form method="get" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <div class="toolbar" >
+            <form method="get" class="filter-bar">
               <input type="date" name="from" value="<?= htmlspecialchars($from) ?>" />
               <input type="date" name="to" value="<?= htmlspecialchars($to) ?>" />
               <input type="text" name="customer" placeholder="Customer" value="<?= htmlspecialchars($customer) ?>" />
               <input type="number" name="order_id" placeholder="Order ID" value="<?= ($order_id ? (int)$order_id : '') ?>" />
               <input type="number" name="processed_by" placeholder="Processed by (admin id)" value="<?= ($processed_by ? (int)$processed_by : '') ?>" />
-              <button class="btn" type="submit"><i class="fa-solid fa-filter"></i> Filter</button>
+              <button class="btn primary" type="submit"><i class="fa-solid fa-filter"></i> Filter</button>
               <button class="btn secondary" id="exportCsv" type="button"><i class="fa-solid fa-file-csv"></i> Export CSV</button>
               <div class="muted" style="margin-left:auto;align-self:center">Showing up to <?= $limit ?> rows</div>
             </form>
@@ -853,7 +204,7 @@ foreach ($rows as $r) {
               <thead>
                 <tr>
                   <th>Return ID</th>
-                  <th>Order ID</th>
+                  <th> ID</th>
                   <th>Order Date</th>
                   <th>Return Date</th>
                   <th>Customer</th>
@@ -861,13 +212,12 @@ foreach ($rows as $r) {
                   <th>Returned Qty</th>
                   <th>Refund (Rs.)</th>
                   <th>Processed By</th>
-                  <th>Reason</th>
-                  <th>Recorded At</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody id="ordersTable">
                 <?php if (empty($rows)): ?>
-                  <tr><td colspan="11" style="text-align:center;padding:18px">No returns found for these filters</td></tr>
+                  <tr><td colspan="10" style="text-align:center;padding:18px">No returns found for these filters</td></tr>
                 <?php else: foreach($rows as $r): ?>
                   <tr>
                     <td><?= htmlspecialchars($r['return_id']) ?></td>
@@ -879,8 +229,24 @@ foreach ($rows as $r) {
                     <td><?= (int)$r['returned_quantity'] ?></td>
                     <td><?= number_format((float)$r['refund_amount'],2) ?></td>
                     <td><?= htmlspecialchars($r['processed_by_name'] ?: $r['processed_by']) ?></td>
-                    <td><?= htmlspecialchars($r['reason']) ?></td>
-                    <td><?= htmlspecialchars($r['recorded_at']) ?></td>
+                    <td>
+                      <!-- view button inside last cell; data-* attributes used to populate modal -->
+                      <button class="btnview" type="button"
+                        data-return-id="<?= htmlspecialchars($r['return_id']) ?>"
+                        data-order-id="<?= htmlspecialchars($r['order_id']) ?>"
+                        data-order-date="<?= htmlspecialchars($r['order_date']) ?>"
+                        data-return-date="<?= htmlspecialchars($r['return_date']) ?>"
+                        data-customer="<?= htmlspecialchars($r['customer']) ?>"
+                        data-product="<?= htmlspecialchars($r['product']) ?>"
+                        data-returned-quantity="<?= htmlspecialchars($r['returned_quantity']) ?>"
+                        data-refund-amount="<?= htmlspecialchars(number_format((float)$r['refund_amount'],2)) ?>"
+                        data-processed-by-name="<?= htmlspecialchars($r['processed_by_name'] ?: $r['processed_by']) ?>"
+                        data-recorded-at="<?= htmlspecialchars($r['recorded_at']) ?>"
+                        data-reason="<?= htmlspecialchars($r['reason']) ?>"
+                        aria-label="View return <?= htmlspecialchars($r['return_id']) ?>">
+                        <i class="fa-solid fa-eye"></i>
+                      </button>
+                    </td>
                   </tr>
                 <?php endforeach; endif; ?>
               </tbody>
@@ -892,8 +258,33 @@ foreach ($rows as $r) {
     </main>
   </div>
 
+  <!-- View modal -->
+  <div class="modal-backdrop" id="viewModal" role="dialog" aria-modal="true" style="display:none;">
+    <div class="modal" id="viewModalInner">
+      <h2 id="viewTitle">Purchase</h2>
+      <div style="margin-top:8px" id="viewBody">
+        <div class="form-grid">
+          <div><strong>return ID</strong><div id="v_id"></div></div>
+          <div><strong>order id</strong><div id="v_order_id"></div></div>
+          <div><strong>order_date</strong><div id="v_order_date"></div></div>
+          <div><strong>return_date</strong><div id="v_return_date"></div></div>
+          <div class="full"><strong>Customer</strong><div id="v_customer"></div></div>
+          <div class="full"><strong>Product</strong><div id="v_product"></div></div>
+          <div><strong>Returned Quantity</strong><div id="v_returned_quantity"></div></div>
+          <div><strong>refuned amount</strong><div id="v_refund_amount"></div></div>
+          <div><strong>processed_by_name</strong><div id="v_processed_by_name"></div></div>
+          <div><strong>Price</strong><div id="v_price"></div></div>
+          <div class="full"><strong>recorded_at</strong><div id="v_recorded_at"></div></div>
+          <div class="full"><strong>reason</strong><div id="v_reason" style="white-space:pre-wrap;"></div></div>
+                  <!-- close / invoice buttons — won't break your CSS, just standard HTML -->
+      <div class="footer" style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+        <button id ="closeViewBtn" class="btn primary">Close</button>
+      </div>
+    </div>
+  </div>
+
   <script>
-    // CSV export that mirrors order.php export style (exports visible table rows)
+    // CSV export (exports visible table rows)
     function quoteCSV(s){
       const str = String(s ?? '');
       return /[",\n]/.test(str) ? `"${str.replace(/"/g,'""')}"` : str;
@@ -911,7 +302,7 @@ foreach ($rows as $r) {
       const rows = Array.from(document.querySelectorAll('#returnsTable tbody tr')).map(tr => {
         const tds = tr.querySelectorAll('td');
         if (!tds.length) return null;
-        return Array.from(tds).map(td => td.textContent.trim());
+        return Array.from(tds).slice(0,10).map(td => td.textContent.trim()); // ignore Actions cell
       }).filter(Boolean);
       if (!rows.length) {
         alert('No rows to export');
@@ -926,7 +317,7 @@ foreach ($rows as $r) {
       setTimeout(()=>URL.revokeObjectURL(a.href),1000);
     });
 
-    // wire global quick-search (like order.php)
+    // global quick-search
     (function(){
       const globalSearch = document.getElementById('globalSearch');
       const tbody = document.querySelector('#returnsTable tbody');
@@ -943,6 +334,64 @@ foreach ($rows as $r) {
         });
       }
       globalSearch.addEventListener('input', filterTable);
+    })();
+
+    // Modal wiring (populate and show) — no invoice
+    (function(){
+      const modal = document.getElementById('viewModal');
+      const modalInner = document.getElementById('viewModalInner');
+
+      function openModalWithData(data) {
+        document.getElementById('v_id').textContent = data.returnId || '';
+        document.getElementById('v_order_id').textContent = data.orderId || '';
+        document.getElementById('v_order_date').textContent = data.orderDate || '';
+        document.getElementById('v_return_date').textContent = data.returnDate || '';
+        document.getElementById('v_customer').textContent = data.customer || '';
+        document.getElementById('v_product').textContent = data.product || '';
+        document.getElementById('v_returned_quantity').textContent = data.returnedQuantity || '';
+        document.getElementById('v_refund_amount').textContent = data.refundAmount || '';
+        document.getElementById('v_processed_by_name').textContent = data.processedByName || '';
+        document.getElementById('v_price').textContent = data.refundAmount || '';
+        document.getElementById('v_recorded_at').textContent = data.recordedAt || '';
+        document.getElementById('v_reason').innerText = data.reason || '';
+
+        modal.style.display = 'flex';
+        modalInner.focus && modalInner.focus();
+      }
+
+      function closeModal() {
+        modal.style.display = 'none';
+      }
+
+      document.querySelectorAll('.btnview').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const d = btn.dataset;
+          openModalWithData({
+            returnId: d.returnId,
+            orderId: d.orderId,
+            orderDate: d.orderDate,
+            returnDate: d.returnDate,
+            customer: d.customer,
+            product: d.product,
+            returnedQuantity: d.returnedQuantity,
+            refundAmount: d.refundAmount,
+            processedByName: d.processedByName,
+            recordedAt: d.recordedAt,
+            reason: d.reason
+          });
+        });
+      });
+
+      document.getElementById('closeViewBtn').addEventListener('click', closeModal);
+
+      // close on backdrop click
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+      });
+      // close on Escape
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeModal();
+      });
     })();
   </script>
 </body>
