@@ -74,7 +74,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     if ($conn->query($sql) === TRUE) {
        echo "<script>
-        alert('✅ Sale record added successfully!')
+        
         window.location.href = window.location.href.split('?')[0]; // Remove query parameters
       </script>";
     } else {
