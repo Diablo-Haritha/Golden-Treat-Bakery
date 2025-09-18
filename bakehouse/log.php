@@ -924,7 +924,6 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
           <button class="tab-btn" onclick="window.location.href='../sales/index3.php'">User Logs Management</button>
           <button class="tab-btn active" onclick="window.location.href='logs.php'">sales Logs Management</button>
           <!-- Button to open popup -->
-<button id="btnSumDashboard" class="btn">View Sales Summary</button>
 
         </div>
       </nav>
@@ -990,6 +989,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
               </form>
               <div class="header-right">
                 <a class="btn" href="?<?= http_build_query(array_merge($_GET, [" export"=> "csv"])) ?>">⬇CSV</a>
+                <button id="btnSumDashboard" class="btn">View Sales Summary</button>
+
               </div>
 
 
@@ -1022,7 +1023,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
                                             <td><?php echo htmlspecialchars($row['date'] ?? 'N/A'); ?></td>
                                             <td><?php echo htmlspecialchars($row['customer'] ?? 'N/A'); ?></td>
                                             <td><?php echo htmlspecialchars($row['quantity'] ?? 'N/A'); ?></td>
-                                            <td>$<?php echo number_format($row['total'] ?? 0, 2); ?></td>
+                                            <td>Rs.<?php echo number_format($row['total'] ?? 0, 2); ?></td>
                                             <td><?php echo htmlspecialchars($row['status'] ?? 'N/A'); ?></td>
                                             <td><?php echo htmlspecialchars($row['user'] ?? 'N/A'); ?></td>
                                             <td><?php echo date('Y-m-d H:i:s', strtotime($row['log_timestamp'])); ?></td>

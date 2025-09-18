@@ -219,6 +219,7 @@ if (isset($_GET['export'])) {
     <div class="header-right">
       
         <a class="btn" href="?<?= http_build_query(array_merge($_GET,[" export"=>"csv"])) ?>">⬇CSV</a>
+        <button class="role-btn" onclick="window.location.href='../log.php'">Log </button>
       <button class="role-btn" onclick="window.location.href='../index.html'">Dashboard</button>
       <div class="user-icon"></div>
     </div>
