@@ -11,6 +11,3 @@ CREATE TABLE IF NOT EXISTS products (
 INSERT INTO products (name, price, description, image_path, quantity)
 VALUES (?, ?, ?, ?, ?);
 
--- Insert a new product into the products table
-INSERT INTO products (name, price, description, image_path, quantity)
-VALUES (?, ?, ?, ?, ?);
