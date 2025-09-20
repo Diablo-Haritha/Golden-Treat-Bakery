@@ -111,9 +111,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <hr />
         <p>Sales Management</p>
         <div class="salebtn">
-          <button class="tab-btn active" onclick="window.location.href='index.php'">Sales Dashboard</button>
+          <button class="tab-btn active" onclick="window.location.href='index.php'">Bill🧾</button>
           <button class="tab-btn" onclick="window.location.href='save_bill.php'">All Bills</button>
-          <button class="tab-btn " onclick="window.location.href='bill_edit.php'">Sales Analysis</button>
+          <button class="tab-btn " onclick="window.location.href='setting.php'">⚙️Setting</button>
 
         </div>
       </nav>
