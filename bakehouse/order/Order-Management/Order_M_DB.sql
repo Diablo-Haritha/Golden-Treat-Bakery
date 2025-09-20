@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Sep 15, 2025 at 02:39 PM
+-- Generation Time: Sep 20, 2025 at 11:16 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -122,31 +122,6 @@ INSERT INTO `returns` (`id`, `order_id`, `return_date`, `quantity`, `reason`, `r
 -- --------------------------------------------------------
 
 --
--- Table structure for table `sales`
---
-
-CREATE TABLE `sales` (
-  `id` int(11) NOT NULL,
-  `date` date NOT NULL,
-  `customer` varchar(255) NOT NULL,
-  `quantity` int(11) DEFAULT 0,
-  `total` decimal(10,2) NOT NULL,
-  `status` enum('Pending','Paid','Completed','Cancelled') DEFAULT 'Pending'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `sales`
---
-
-INSERT INTO `sales` (`id`, `date`, `customer`, `quantity`, `total`, `status`) VALUES
-(1, '2025-09-01', 'Kasun Perera', 2, 4500.00, 'Completed'),
-(2, '2025-09-02', 'Nimal Silva', 1, 1500.00, 'Pending'),
-(3, '2025-09-03', 'Ruwan Jayasuriya', 3, 9000.00, 'Paid'),
-(4, '2025-09-04', 'Amali Fernando', 5, 12500.00, 'Cancelled');
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `sms_logs`
 --
 
@@ -174,26 +149,6 @@ CREATE TABLE `sms_queue` (
   `attempts` int(11) DEFAULT 0,
   `next_try` datetime DEFAULT current_timestamp(),
   `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `users`
---
-
-CREATE TABLE `users` (
-  `id` int(11) NOT NULL,
-  `full_name` varchar(255) NOT NULL,
-  `email` varchar(255) NOT NULL,
-  `mobile` varchar(20) NOT NULL,
-  `address` text NOT NULL,
-  `district` varchar(100) NOT NULL,
-  `password` varchar(255) NOT NULL,
-  `role` enum('user','admin','manager') NOT NULL DEFAULT 'user',
-  `status` enum('Active','Inactive') NOT NULL DEFAULT 'Active',
-  `date_joined` date NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -230,12 +185,6 @@ ALTER TABLE `returns`
   ADD KEY `idx_returns_order_id` (`order_id`);
 
 --
--- Indexes for table `sales`
---
-ALTER TABLE `sales`
-  ADD PRIMARY KEY (`id`);
-
---
 -- Indexes for table `sms_logs`
 --
 ALTER TABLE `sms_logs`
@@ -247,13 +196,6 @@ ALTER TABLE `sms_logs`
 --
 ALTER TABLE `sms_queue`
   ADD PRIMARY KEY (`id`);
-
---
--- Indexes for table `users`
---
-ALTER TABLE `users`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `email` (`email`);
 
 --
 -- AUTO_INCREMENT for dumped tables
@@ -284,12 +226,6 @@ ALTER TABLE `returns`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
--- AUTO_INCREMENT for table `sales`
---
-ALTER TABLE `sales`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
-
---
 -- AUTO_INCREMENT for table `sms_logs`
 --
 ALTER TABLE `sms_logs`
@@ -299,12 +235,6 @@ ALTER TABLE `sms_logs`
 -- AUTO_INCREMENT for table `sms_queue`
 --
 ALTER TABLE `sms_queue`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `users`
---
-ALTER TABLE `users`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
