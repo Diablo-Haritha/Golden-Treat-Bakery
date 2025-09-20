@@ -43,7 +43,7 @@ if ($order_id <= 0 || $new_status === '') {
 $host = 'localhost';
 $user = 'root';
 $pass = '';
-$db   = 'gt';
+$db   = 'Order';
 $conn = new mysqli($host, $user, $pass, $db);
 if ($conn->connect_error) {
     http_response_code(500);

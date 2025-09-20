@@ -406,6 +406,7 @@ if (isset($_GET['export'])) {
           <select name="status" id="edit_status" required>
             <option value="Pending">Pending</option>
             <option value="Paid">Paid</option>
+            <option value="Cancelled">Cancelled</option>
           </select>
           <div class="row-actions">
             <br>
@@ -603,10 +604,6 @@ if (isset($_GET['export'])) {
         </div>
       </div>
     </section>
-
-
-
-
 
     </main>
     </div>
