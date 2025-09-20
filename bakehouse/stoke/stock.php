@@ -10,6 +10,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
 <style>
+  
   :root {
       --brand: #e37200;
       --ink: #111827;
@@ -609,17 +610,15 @@
         width: 220px
       }
     }
-
 </style>
-</head>
-<body>
+<head>
 
 <div class="header">
   <div class="header-left"><img src="logo.jpg" alt="Logo" /></div>
   <div class="header-middle">
     <div class="header-middle-title">Stock Management</div>
   </div>
-  <button class="role-btn" onclick="window.location.href='../index.html'">Dashboard</button>
+  <button class="role-btn" onclick="window.location.href='index.html'">Dashboard</button>
   <div class="user-icon"></div>
 </div>
 
@@ -629,9 +628,9 @@
   <nav>
     <button class="salesbtn" disabled>Stock</button>
     <div class="otherbtn">
-      <button class="Sbtn" onclick="window.location.href='../sales/index.php'">Sales</button>
-      <button class="Ubtn" onclick="window.location.href='../order/order.php'">Order</button>
-      <button class="Bbtn" onclick="window.location.href='../booking/index.html'">Booking</button>
+      <button class="Sbtn" onclick="window.location.href='sales.html'">Sales</button>
+      <button class="Ubtn" onclick="window.location.href='order.html'">Order</button>
+      <button class="Bbtn" onclick="window.location.href='booking.html'">Booking</button>
     </div>
     <hr />
     <p>Sales Management</p>
@@ -809,19 +808,20 @@ if(!/^[A-Za-z]+$/.test(unit)){
 function attachRowEvents(){
     document.querySelectorAll('.edit').forEach(btn=>{
         btn.onclick = e=>{
-            const tr = e.target.closest('tr');
-            editingId = tr.dataset.id;
-            document.getElementById('modalTitle').textContent = 'Edit Part';
-            document.getElementById('fId').value = editingId;
-            document.getElementById('fPartNumber').value = tr.children[0].textContent;
-            document.getElementById('fDate').value = tr.children[1].textContent;
-            document.getElementById('fDescription').value = tr.children[2].textContent;
-            document.getElementById('fQuantity').value = tr.children[3].textContent;
-            document.getElementById('fUnit').value = tr.children[4].textContent;
-            document.getElementById('fCategory').value = tr.children[5].textContent;
-            document.getElementById('fStatus').value = tr.children[6].textContent.trim();
-            backdrop.style.display = 'flex';
-        };
+    const tr = e.target.closest('tr');
+    editingId = tr.dataset.id;
+    document.getElementById('modalTitle').textContent = 'Edit Part';
+    document.getElementById('fId').value = editingId;
+    document.getElementById('fPartNumber').value = tr.children[1].textContent; 
+    document.getElementById('fDate').value = tr.children[2].textContent;       
+    document.getElementById('fDescription').value = tr.children[3].textContent;
+    document.getElementById('fQuantity').value = tr.children[4].textContent;   
+    document.getElementById('fUnit').value = tr.children[5].textContent;       
+    document.getElementById('fCategory').value = tr.children[6].textContent;   
+    document.getElementById('fStatus').value = tr.children[7].textContent.trim(); 
+    backdrop.style.display = 'flex';
+};
+
     });
 
     document.querySelectorAll('.del').forEach(btn=>{
@@ -845,6 +845,7 @@ document.getElementById('btnFilter').onclick = () => {
     const category = document.getElementById('filterCategory').value;
     const status = document.getElementById('filterStatus').value;
     const params = new URLSearchParams({action:'filter', date, category, status});
+
     fetch('stock_crud.php',{method:'POST', body:params})
     .then(r=>r.json()).then(r=>{
         if(r.success){
@@ -854,6 +855,7 @@ document.getElementById('btnFilter').onclick = () => {
                 const tr = document.createElement('tr');
                 tr.dataset.id = row.id;
                 tr.innerHTML = `
+                    <td><input type="checkbox" class="rowCheckbox"></td>
                     <td>${row.partNumber}</td>
                     <td>${row.date}</td>
                     <td>${row.description}</td>
@@ -862,8 +864,8 @@ document.getElementById('btnFilter').onclick = () => {
                     <td>${row.category}</td>
                     <td><span class='badge ${row.status.replace(/\s+/g,'')}'>${row.status}</span></td>
                     <td>
-                        <button class='edit'>✏ Edit</button>
-                        <button class='del'>🗑 Delete</button>
+                        <button class='edit'>✏ </button>
+                        <button class='del'>🗑 </button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -872,6 +874,7 @@ document.getElementById('btnFilter').onclick = () => {
         }
     });
 };
+
 
 // CSV Import
 document.getElementById('btnImportCsv').onclick = () => document.getElementById('csvFileInput').click();
