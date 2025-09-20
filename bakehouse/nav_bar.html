@@ -1,0 +1,280 @@
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Golden Treat Bakery</title>
+    <link rel="stylesheet" href="./css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Righteous&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --accent: #d97706; /* golden brown */
+            --accent-dark: #b45309;
+            --muted: #fff8f0; /* light cream background */
+            --text: #3b2f2f;
+            --glass: rgba(255, 255, 255, 0.06);
+            --radius: 14px;
+            --break-sm: 760px;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Open Sans', Arial, sans-serif;
+            background: #fff;
+            color: var(--text);
+        }
+
+        /* NAV BAR */
+        .nav_bar {
+            position:sticky;
+            z-index: 40;
+            display: flex;
+            left:0;            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px 18px;
+            background: linear-gradient(90deg, var(--muted), #fff);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+            border-radius: 20px;
+            margin: 12px;
+            height: 70px;
+        }
+
+
+        .nav_brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: var(--text);
+            margin-right: 100px;
+        }
+
+        .nav_logo {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+            display: grid;
+            place-items: center;
+            color: white;
+            font-weight: 700;
+            font-size: 18px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18)
+        }
+
+        .nav_title {
+            font-size: 16px;
+            font-weight: 700
+        }
+
+        .nav_subtitle {
+            font-size: 12px;
+            opacity: 0.85
+        }
+
+        /* menu */
+        .nav_menu {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            margin-left: 8px
+        }
+
+        .nav_menu ul {
+            display: flex;
+            gap: 6px;
+            margin: 0;
+            padding: 0;
+            list-style: none
+        }
+
+        .nav_menu a {
+            display: inline-block;
+            padding: 10px 12px;
+            border-radius: 10px;
+            text-decoration: none;
+            color: var(--text);
+            font-weight: 600
+        }
+
+        .nav_menu a:hover {
+            background: var(--glass);
+        }
+
+        /* dropdown */
+        .nav_dropdown {
+            position: relative
+        }
+
+        .nav_dropdown button {
+            background: none;
+            border: none;
+            padding: 10px 12px;
+            font-weight: 600;
+            border-radius: 10px;
+            cursor: pointer
+        }
+
+        .nav_dropdown_panel {
+            position: absolute;
+            top: 48px;
+            left: 0;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 12px 30px rgba(12, 30, 12, 0.08);
+            min-width: 180px;
+            padding: 8px;
+            display: none
+        }
+
+        .nav_dropdown_panel a {
+            display: block;
+            padding: 8px 10px;
+            border-radius: 8px
+        }
+
+        .nav_dropdown.open .nav_dropdown_panel {
+            display: block
+        }
+
+        /* controls */
+        .nav_controls {
+            display: flex;
+            align-items: center;
+            gap: 8px
+        }
+
+        .nav_search {
+            display: flex;
+            align-items: center;
+            background: #ffffff;
+            border: 1px solid #e6efe7;
+            padding: 6px 8px;
+            border-radius: 10px
+        }
+
+        .nav_search input {
+            border: 0;
+            outline: 0;
+            background: transparent;
+            padding: 6px 8px;
+            font-size: 14px
+        }
+
+        .nav_btn {
+            display: inline-grid;
+            place-items: center;
+            padding: 8px 10px;
+            border-radius: 10px;
+            border: 0;
+            background: var(--accent);
+            color: white;
+            font-weight: 700;
+            cursor: pointer
+        }
+
+        .nav_icon_btn {
+            background: transparent;
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid transparent;
+            cursor: pointer
+        }
+
+        .nav_hamburger {
+            display: none
+        }
+
+        @media (max-width:760px) {
+            .nav_menu {
+                display: none
+            }
+
+            .nav_hamburger {
+                display: inline-flex
+            }
+
+            .nav_mobile_panel {
+                position: absolute;
+                left: 12px;
+                right: 12px;
+                top: 70px;
+                background: white;
+                border-radius: 12px;
+                padding: 12px;
+                box-shadow: 0 14px 40px rgba(0, 0, 0, 0.12);
+                display: none;
+                flex-direction: column;
+                gap: 8px
+            }
+
+            .nav_mobile_panel.open {
+                display: flex
+            }
+        }
+
+        .nav_pill {
+            background: #fff8f0;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-weight: 700;
+            border: 1px solid rgba(217, 119, 6, 0.2)
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- NAV BAR -->
+    <nav class="nav_bar">
+        <a href="index.php" class="nav_brand">
+            <div class="nav_logo">GT</div>
+            <div>
+                <div class="nav_title">Golden Treat</div>
+                <div class="nav_subtitle">Bakery</div>
+            </div>
+        </a>
+
+        <!-- Menu -->
+        <div class="nav_menu">
+            <ul>
+                <li><a href="index.php">Home</a></li>
+                <li><a href="menu.php">Menu</a></li>
+                <li><a href="offers.php">Special Offers</a></li>
+                <li><a href="about.php">About Us</a></li>
+                <li class="nav_dropdown" id="moreDropdown">
+                    <button>More ▾</button>
+                    <div class="nav_dropdown_panel">
+                        <a href="gallery.php">Gallery</a>
+                        <a href="contact.php">Contact</a>
+                    </div>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Controls -->
+        <div class="nav_controls">
+            <form class="nav_search" onsubmit="event.preventDefault(); quickSearch();">
+                <input type="search" id="navSearch" placeholder="Search cakes, breads..." />
+            </form>
+            <button class="nav_btn" onclick="location.href='order.php'">Order Now</button>
+        </div>
+    </nav>
+
+    <script>
+        // dropdown
+        const moreDropdown = document.getElementById('moreDropdown');
+        moreDropdown.addEventListener('click', () => {
+            moreDropdown.classList.toggle('open');
+        });
+
+        function quickSearch() {
+            const q = document.getElementById('navSearch').value.trim();
+            if (!q) return;
+            alert("Search for: " + q); // replace with search logic
+        }
+    </script>
+
+</body>
+</html>
