@@ -978,6 +978,47 @@ if(isset($_POST['add_featured'])){
         table th {
             background: var(--light);
         }
+
+                .loginbtn {
+            position: fixed;
+            top: 10px;
+            right: 30px;
+            width: 70px;
+            
+            background: var(--gradient-1);
+            
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow);
+            cursor: pointer;
+            z-index: 1000;
+            transition: all 0.3s ease;
+            animation: pulse 2s infinite;
+        }.myButton {
+	box-shadow:inset 0px 1px 0px 0px #a6827e;
+	background:linear-gradient(to bottom, #7d5d3b 5%, #634b30 100%);
+	background-color:#7d5d3b;
+	border-radius:27px;
+	border:5px solid #54381e;
+	display:inline-block;
+	cursor:pointer;
+	color:#ffffff;
+	font-family:Verdana;
+	font-size:17px;
+	font-weight:bold;
+	padding:10px 20px;
+	text-decoration:none;
+	text-shadow:0px 5px 13px #4d3534;
+}
+.myButton:hover {
+	background:linear-gradient(to bottom, #634b30 5%, #7d5d3b 100%);
+	background-color:#634b30;
+}
+.myButton:active {
+	position:relative;
+	top:1px;
+}
     </style>
 </head>
 
@@ -1014,7 +1055,16 @@ if(isset($_POST['add_featured'])){
     <!-- Floating cart -->
     <div class="floating-cart" id="floatingCart">
         <span class="cart-badge" id="cartCount" style="display:none">0</span>
+       
     </div>
+        <!-- Floating cart -->
+ <div class="loginbtn" id="floatingCart">
+  <a href="login.php" class="myButton">Login</a>
+
+
+
+</div>
+
 
     <!-- Hero Section -->
     <section class="hero" id="home">
