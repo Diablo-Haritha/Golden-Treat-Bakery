@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stock Management Admin UI</title>
+  <!-- Charts & export -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
+    <style>
+    :root {
+      --brand: #edcd00;
+      --ink: #111827;
+      --paper: #fff;
+      --muted: #6b7280;
+      --soft: #e5e7eb;
+      --warn: #ffc107;
+      --danger: #dc3545;
+      --primary: #007bff;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box
+    }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: #f4f6f9;
+      color: #0f172a;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #fff;
+      padding: 12px 16px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, .08)
+    }
+
+    .header-left img {
+      width: 56px;
+      height: auto;
+      border-radius: 8px;
+      display: block;
+      box-shadow: 2px 2px 5px rgba(0, 0, 0, .15)
+    }
+
+    .header-middle {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+      margin: 0 16px;
+      max-width: 720px
+    }
+
+    .header-middle-title {
+      font-weight: 800;
+      font-size: 26px;
+      color: var(--brand);
+      white-space: nowrap
+    }
+
+    .search-bar {
+      flex: 1;
+      display: flex
+    }
+
+    .search-bar input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px
+    }
+
+    .role-btn {
+      background: #111827;
+      color: #fff;
+      padding: 8px 14px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer
+    }
+
+    .role-btn:hover {
+      opacity: .9
+    }
+
+    .user-icon {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, #bbb, #888);
+      border-radius: 50%
+    }
+
+    /* Layout */
+    .layout {
+      flex: 1;
+      display: flex;
+      min-height: 0
+    }
+
+    .sidebar {
+      width: 260px;
+      background: #fff;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border-right: 1px solid #e5e7eb
+    }
+
+    .sidebar h1 {
+      text-align: center;
+      font-size: 20px;
+      margin-bottom: 8px;
+      color: #0f172a
+    }
+
+    .sidebar nav {
+      display: flex;
+      flex-direction: column;
+      gap: 10px
+    }
+
+    /* Sidebar groups */
+    .salesbtn {
+      background: var(--brand);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-weight: 800;
+      font-size: 22px;
+      padding: 12px;
+      text-align: center
+    }
+
+    .otherbtn button {
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      cursor: pointer;
+      padding: 10px 12px;
+      font-weight: 700;
+      gap: 10px;
+    }
+      .otherbtn2 button {
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      cursor: pointer;
+      padding: 10px 12px;
+      font-weight: 700;
+      gap: 10px;
+      margin: 20px;
+    }
+
+    .salebtn button {
+      background: #00a619;
+      border: none;
+      text-align: left;
+      padding: 10px;
+      margin: 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      color: #fff;
+    }
+
+    .Sbtn {
+      background: #30b6a2;
+      margin-left: 10px;
+    }
+
+    .Ubtn {
+      background: #9c0dc7
+    }
+
+    .Bbtn {
+      background: #017612
+    }
+
+    .otherbtn button:hover {
+      filter: brightness(1.1)
+    }
+
+    .sidebar hr {
+      margin: 8px 0
+    }
+
+    .sidebar p {
+      font-size: 12px;
+      color: #6b7280;
+      font-weight: 700
+    }
+
+    .salebtn button {
+      background: var(--brand);
+      text-align: left
+    }
+
+    .salebtn button.active {
+      outline: 3px solid rgba(48, 182, 162, .35)
+    }
+
+    .sidebar hr {
+      margin: 8px 0
+    }
+
+    .sidebar p {
+      font-size: 12px;
+      color: #6b7280;
+      font-weight: 700
+    }
+
+    /* Sales Management sub-tabs */
+    .salebtn {
+      display: flex;
+      flex-direction: column
+    }
+
+    .salebtn .tab-btn {
+      background: var(--brand);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      cursor: pointer;
+      padding: 10px 12px;
+      font-weight: 700;
+      text-align: left
+    }
+
+    .salebtn .tab-btn+.tab-btn {
+      margin-top: 8px
+    }
+
+    .salebtn .tab-btn.active {
+      outline: 3px solid rgba(48, 182, 162, .35)
+    }
+
+    /* Main area */
+    .free-area {
+      flex: 1;
+      background: #f3f4f6;
+      padding: 24px;
+      overflow: auto
+    }
+
+    .panel {
+      display: none
+    }
+
+    .panel.active {
+      display: block
+    }
+
+    .content {
+      background: #edcd00;
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+      display: flex;
+      flex-direction: column;
+      gap: 16px
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
+      text-align: center
+    }
+
+    .card h3 {
+      font-size: 14px;
+      color: #374151
+    }
+
+    .card p {
+      font-size: 22px;
+      font-weight: 800;
+      margin-top: 6px;
+      color: #0f172a
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center
+    }
+
+    .filter-bar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap
+    }
+
+    .filter-bar input,
+    .filter-bar select,
+    .filter-bar button {
+      padding: 8px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      background: #fff
+    }
+
+    .btn {
+      padding: 9px 12px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      color: #fff;
+      background: var(--primary)
+    }
+
+    .btn.secondary {
+      background: #000000
+    }
+
+    .btn.warn {
+      background: var(--warn);
+      color: #000
+    }
+
+    .btn.danger {
+      background: var(--danger)
+    }
+
+    .btn.light {
+      background: #e5e7eb;
+      color: #111827;
+      border: 1px solid #d1d5db
+    }
+
+    .table-wrap {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
+      overflow: auto
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse
+    }
+
+    th,
+    td {
+      padding: 12px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: left;
+      white-space: nowrap
+    }
+
+    th {
+      background: #f9fafb;
+      font-size: 13px;
+      color: #374151;
+      cursor: pointer;
+      position: sticky;
+      top: 0
+    }
+
+    tr:hover td {
+      background: #fcfcfd
+    }
+
+    .badge {
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700
+    }
+
+    .Completed {
+      background: #d1fae5;
+      color: #065f46
+    }
+
+    .Pending {
+      background: #fef3c7;
+      color: #92400e
+    }
+
+    .Cancelled {
+      background: #fee2e2;
+      color: #991b1b
+    }
+
+    .row-actions button {
+      padding: 6px 10px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer
+    }
+
+    .row-actions .edit {
+      background: var(--warn)
+    }
+
+    .row-actions .del {
+      background: var(--danger);
+      color: #fff
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .35);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 50
+    }
+
+    .modal {
+      width: 100%;
+      max-width: 520px;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
+      padding: 18px
+    }
+
+    .modal h2 {
+      margin-bottom: 10px
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px
+    }
+
+    .form-grid .full {
+      grid-column: 1/-1
+    }
+
+    .modal input,
+    .modal select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px
+    }
+
+    .modal .footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 12px
+    }
+
+    /* Analysis */
+    .chart-card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .08)
+    }
+
+    .analysis-controls {
+      background: #fff;
+      border-radius: 14px;
+      padding: 12px;
+      box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
+      margin-bottom: 12px
+    }
+
+    .analysis-controls .filter-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center
+    }
+
+    .analysis-controls label {
+      font-size: 12px;
+      color: #374151
+    }
+
+    .mini-cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin: 12px 0
+    }
+
+    .mini-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+      box-shadow: 0 1px 6px rgba(0, 0, 0, .06)
+    }
+
+    .mini-card h4 {
+      margin-bottom: 6px;
+      font-size: 12px;
+      color: #374151
+    }
+
+    .mini-card p {
+      font-size: 20px;
+      font-weight: 800;
+      color: #0f172a
+    }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px
+    }
+
+    .chart-wrap {
+      position: relative;
+      height: 320px
+    }
+
+    /* Export panel */
+    .export-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px
+    }
+
+    .export-grid .row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 13px
+    }
+
+    @media (max-width:1000px) {
+      .cards {
+        grid-template-columns: 1fr
+      }
+
+      .charts-grid {
+        grid-template-columns: 1fr
+      }
+
+      .sidebar {
+        width: 220px
+      }
+    }
+  </style>
+
+</head>
+
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left"><img src="logo.jpg" alt="Logo" /></div>
+    <div class="header-middle">
+      <div class="header-middle-title">Table Booking Management</div>
+      <div class="search-bar"><input id="globalSearch" type="text" placeholder="Search by customer, table, or status..." /></div>
+    </div>
+    <div class="header-right">
+     <button class="role-btn" onclick="window.location.href='../index.html'">Dashboard</button>
+      <div class="user-icon"></div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <h1>Booking Dashboard</h1>
+      <nav>
+        <button class="salesbtn" disabled>Booking</button>
+        <div class="otherbtn">
+          <button class="Sbtn" onclick="window.location.href='../sales/index.php'">Sales</button>
+          <button class="Ubtn" onclick="window.location.href='../order/order.php'">Order</button>
+          <button class="Bbtn" onclick="window.location.href='../user/index.php'">User</button>
+        </div>
+        <hr />
+        <p>Sales Management</p>
+        <div class="salebtn">
+          <button class="tab-btn active" data-page="booking-dashboard">Booking Dashboard</button>
+          <button class="tab-btn" data-page="booking-export">Export Report</button>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- Main -->
+    <main class="free-area">
+      <!-- Dashboard -->
+      <section id="booking-dashboard" class="panel active">
+        <div class="content">
+          <h1>Table Booking Management</h1>
+          <div class="cards">
+            <div class="card">
+              <h3>Total Bookings</h3>
+              <p id="cardTotalBookings">0</p>
+            </div>
+            <div class="card">
+              <h3>Confirmed Bookings</h3>
+              <p id="cardConfirmedBookings">0</p>
+            </div>
+            <div class="card">
+              <h3>Available Tables</h3>
+              <p id="cardAvailableTables">0</p>
+            </div>
+          </div>
+          <div class="toolbar">
+            <div class="filter-bar">
+              <input type="date" id="filterDate" />
+              <input type="text" id="filterTable" placeholder="Table Number" />
+              <select id="filterStatus">
+                <option value="">All Status</option>
+                <option>Pending</option>
+                <option>Confirmed</option>
+                <option>Rejected</option>
+              </select>
+              <button class="btn light" id="btnFilter">Filter</button>
+              <button class="btn light" id="btnReset">Reset</button>
+            </div>
+            <div style="flex:1"></div>
+            <button class="btn secondary" id="btnAdd">➕ Add Booking</button>
+            <button class="btn" id="btnExportCsv">⬇ CSV</button>
+          </div>
+          <div class="table-wrap">
+            <table id="bookingTable">
+              <thead>
+                <tr>
+                  <th data-sort="bookingId">Booking ID ▲▼</th>
+                  <th data-sort="customerName">Customer ▲▼</th>
+                  <th data-sort="date">Date ▲▼</th>
+                  <th data-sort="time">Time ▲▼</th>
+                  <th data-sort="tableNumber">Table ▲▼</th>
+                  <th data-sort="status">Status ▲▼</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Export -->
+      <section id="booking-export" class="panel">
+        <div class="content">
+          <h2>Export Booking Reports</h2>
+          <div class="export-grid">
+            <div class="row">
+              <input type="date" id="expFrom" />
+              <input type="date" id="expTo" />
+              <select id="expStatus">
+                <option value="">All Status</option>
+                <option>Pending</option>
+                <option>Confirmed</option>
+                <option>Rejected</option>
+              </select>
+              <input type="text" id="expTable" placeholder="Table Number" />
+            </div>
+            <div class="row">
+              <button class="btn" id="expCsv">Export CSV</button>
+              <button class="btn secondary" id="expXlsx">Export Excel</button>
+              <button class="btn warn" id="expPdf">Export PDF</button>
+              <span class="muted">Exports use live, filtered data.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal Add/Edit -->
+  <div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal">
+      <h2 id="modalTitle">Add Booking</h2>
+      <div class="form-grid">
+        <div><label>Booking ID</label><input id="fBookingId" type="text" placeholder="e.g. BID1001"></div>
+        <div><label>Customer Name</label><input id="fCustomerName" type="text" placeholder="Customer name"></div>
+        <div><label>Date</label><input id="fDate" type="date"></div>
+        <div><label>Time</label><input id="fTime" type="time"></div>
+        <div><label>Table Number</label><input id="fTableNumber" type="number" min="1" max="10" placeholder="1-10"></div>
+        <div>
+          <label>Status</label>
+          <select id="fStatus">
+            <option>Pending</option>
+            <option>Confirmed</option>
+            <option>Rejected</option>
+          </select>
+        </div>
+      </div>
+      <div class="footer">
+        <button class="btn light" id="btnCancel">Cancel</button>
+        <button class="btn" id="btnSave">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ---------- UTIL & STATE ---------- */
+    const $ = (s, root = document) => root.querySelector(s);
+    const $$ = (s, root = document) => [...root.querySelectorAll(s)];
+    const TOTAL_TABLES = 10; 
+    let bookings = [];
+    let sortState = { key: 'date', dir: 'desc' };
+    let editingIndex = null;
+
+    /* ---------- API FUNCTIONS ---------- */
+    async function getBookings() { return await (await fetch("api.php")).json(); }
+    async function addBooking(data) { await fetch("api.php", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(data)}); }
+    async function updateBooking(id, data) { await fetch("api.php?id="+id, {method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify(data)}); }
+    async function deleteBooking(id) { await fetch("api.php?id="+id, {method:"DELETE"}); }
+
+    function getAvailableTables(date, time) {
+      const booked = bookings.filter(b => b.date===date && b.time===time && b.status!=="Rejected").map(b => +b.tableNumber);
+      return TOTAL_TABLES - new Set(booked).size;
+    }
+
+    function renderCards(data = bookings) {
+      const totalBookings = data.length;
+      const confirmedBookings = data.filter(b => b.status==="Confirmed").length;
+      const filterDate = $('#filterDate').value;
+      const filterTime = data.length>0 ? data[0].time : "18:00";
+      const availableTables = filterDate ? getAvailableTables(filterDate, filterTime) : TOTAL_TABLES;
+      $('#cardTotalBookings').textContent = totalBookings;
+      $('#cardConfirmedBookings').textContent = confirmedBookings;
+      $('#cardAvailableTables').textContent = availableTables;
+    }
+
+    function rowHTML(r, idx) {
+      return `<tr data-idx="${idx}">
+        <td>${r.bookingId}</td>
+        <td>${r.customerName}</td>
+        <td>${r.date}</td>
+        <td>${r.time}</td>
+        <td>${r.tableNumber}</td>
+        <td><span class="badge ${r.status}">${r.status}</span></td>
+        <td class="row-actions">
+          <button class="edit">✏ Edit</button>
+          <button class="del">🗑 Delete</button>
+          ${r.status==="Pending"?`<button class="accept">✔ Accept</button><button class="reject">✖ Reject</button>`:''}
+        </td>
+      </tr>`;
+    }
+
+    function getFilters() {
+      return {
+        date: $('#filterDate').value.trim(),
+        tableNumber: $('#filterTable').value.trim(),
+        status: $('#filterStatus').value.trim(),
+        search: $('#globalSearch').value.trim().toLowerCase()
+      };
+    }
+
+    function applyFilters(data) {
+      const {date, tableNumber, status, search} = getFilters();
+      return data.filter(r => (!date||r.date===date)&&(!tableNumber||String(r.tableNumber)===tableNumber)&&(!status||r.status===status)&&(!search||(r.bookingId.toLowerCase().includes(search)||r.customerName.toLowerCase().includes(search)||String(r.tableNumber).includes(search)||r.status.toLowerCase().includes(search))));
+    }
+
+    function applySort(data) {
+      const {key, dir} = sortState, mult = dir==='asc'?1:-1;
+      return data.slice().sort((a,b)=>{
+        let va=a[key], vb=b[key];
+        if(key==='tableNumber'){va=+va; vb=+vb;}
+        if(key==='date'||key==='time'){return (new Date(`${va}${key==='time'?'':''}`)-new Date(`${vb}${key==='time'?'':''}`))*mult;}
+        if(va<vb) return -1*mult;
+        if(va>vb) return 1*mult;
+        return 0;
+      });
+    }
+
+    async function renderTable() {
+      bookings = await getBookings();
+      const filtered = applyFilters(bookings);
+      const sorted = applySort(filtered);
+      const tbody = $('#bookingTable tbody');
+      tbody.innerHTML = sorted.map(r=>rowHTML(r, bookings.indexOf(r))).join('');
+      renderCards(filtered);
+      wireRowButtons();
+    }
+
+    function wireRowButtons() {
+      $$('#bookingTable .edit').forEach(btn=>btn.onclick=(e)=>{
+        const idx=+e.target.closest('tr').dataset.idx;
+        openModal('Edit Booking', bookings[idx], idx);
+      });
+      $$('#bookingTable .del').forEach(btn=>btn.onclick=async(e)=>{
+        const idx=+e.target.closest('tr').dataset.idx;
+        if(confirm('Delete booking #'+bookings[idx].bookingId+'?')) {await deleteBooking(bookings[idx].id); renderTable();}
+      });
+      $$('#bookingTable .accept').forEach(btn=>btn.onclick=async(e)=>{
+        const idx=+e.target.closest('tr').dataset.idx;
+        bookings[idx].status='Confirmed';
+        await updateBooking(bookings[idx].id, bookings[idx]);
+        renderTable();
+      });
+      $$('#bookingTable .reject').forEach(btn=>btn.onclick=async(e)=>{
+        const idx=+e.target.closest('tr').dataset.idx;
+        bookings[idx].status='Rejected';
+        await updateBooking(bookings[idx].id, bookings[idx]);
+        renderTable();
+      });
+    }
+
+    $$('#bookingTable thead th').forEach(th=>{
+      const key=th.dataset.sort;
+      if(!key) return;
+      th.onclick=()=>{sortState.key===key?sortState.dir=sortState.dir==='asc'?'desc':'asc':sortState.key=key, sortState.dir='asc'; renderTable();};
+    });
+
+    const backdrop=$('#modalBackdrop');
+    function openModal(title, record=null, idx=null){
+      $('#modalTitle').textContent=title;
+      editingIndex=idx;
+      $('#fBookingId').value=record?.bookingId??`BID${nextId()}`;
+      $('#fCustomerName').value=record?.customerName??'';
+      $('#fDate').value=record?.date??new Date().toISOString().slice(0,10);
+      $('#fTime').value=record?.time??'18:00';
+      $('#fTableNumber').value=record?.tableNumber??'';
+      $('#fStatus').value=record?.status??'Pending';
+      backdrop.style.display='flex';
+    }
+    function closeModal(){backdrop.style.display='none';}
+    function nextId(){return (bookings.reduce((m,r)=>Math.max(m,parseInt(r.bookingId.replace('BID','')||0)),0)||1000)+1;}
+
+    $('#btnAdd').onclick=()=>openModal('Add Booking');
+    $('#btnCancel').onclick=closeModal;
+    $('#btnSave').onclick=async()=>{
+      const tableNum=+$('#fTableNumber').value;
+      const rec={
+        bookingId:($('#fBookingId').value||'').trim()||`BID${nextId()}`,
+        customerName:($('#fCustomerName').value||'').trim()||'Unknown',
+        date:$('#fDate').value,
+        time:$('#fTime').value,
+        tableNumber:tableNum,
+        status:$('#fStatus').value
+      };
+      if(!rec.date){alert('Please select a date'); return;}
+      if(!rec.time){alert('Please select a time'); return;}
+      if(!rec.tableNumber || rec.tableNumber<1 || rec.tableNumber>TOTAL_TABLES){alert(`Please enter a valid table number (1-${TOTAL_TABLES})`); return;}
+      if(editingIndex==null){await addBooking(rec);}else{await updateBooking(bookings[editingIndex].id, rec);}
+      closeModal(); renderTable();
+    };
+
+    $('#btnFilter').onclick=renderTable;
+    $('#btnReset').onclick=()=>{$('#filterDate').value='';$('#filterTable').value='';$('#filterStatus').value=''; renderTable();};
+    $('#globalSearch').addEventListener('input', renderTable);
+
+    function activatePanel(id){
+      $$('.panel').forEach(p=>p.classList.remove('active'));
+      $('#'+id).classList.add('active');
+      $$('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.page===id));
+    }
+    $$('.tab-btn').forEach(btn=>btn.onclick=()=>activatePanel(btn.dataset.page));
+
+    let currentRole='Manager';
+    const roleBtn=$('#roleBtn');
+    if(roleBtn) roleBtn.onclick=()=>{currentRole=currentRole==='Manager'?'Admin':'Manager'; roleBtn.textContent=currentRole;};
+
+    renderTable();
+  </script>
+</body>
+</html>
