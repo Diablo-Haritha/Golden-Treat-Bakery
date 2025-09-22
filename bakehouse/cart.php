@@ -1,670 +1,544 @@
 <?php
+// cart.php - Unified cart backend + simple frontend UI
+// Drop-in replacement for your existing cart.php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 session_start();
-// For guest users, use a temporary user_id stored in session
+
+// Ensure guest temp id
 if (!isset($_SESSION['temp_user_id'])) {
     $_SESSION['temp_user_id'] = uniqid('guest_', true);
 }
 $user_id = $_SESSION['temp_user_id'];
 
+// DB connection (adjust creds if needed)
 $servername = "localhost";
 $username = "root";
 $password = "";
 $dbname = "golden_treat";
 
-// Create connection
 $conn = new mysqli($servername, $username, $password, $dbname);
-
-// Check connection
 if ($conn->connect_error) {
-    header('Content-Type: application/json');
-    echo json_encode(['ok' => false, 'msg' => 'Database connection failed: ' . $conn->connect_error]);
-    exit;
+    // If AJAX request, return JSON; otherwise show minimal HTML error
+    if (isset($_GET['action'])) {
+        header('Content-Type: application/json');
+        echo json_encode(['ok' => false, 'msg' => 'DB connection failed: ' . $conn->connect_error]);
+        exit;
+    } else {
+        die('DB connection failed: ' . $conn->connect_error);
+    }
+}
+$conn->set_charset("utf8mb4");
+
+// Helper: fetch raw input JSON or fallback to $_POST
+function get_json_input() {
+    $input = file_get_contents('php://input');
+    $data = json_decode($input, true);
+    if (is_array($data)) return $data;
+    // fallback to form-encoded
+    return $_POST ?: [];
 }
 
-// Handle AJAX actions
+// Helper: cart summary
+function getCartSummary($conn, $user_id) {
+    $items = [];
+    $total = 0;
+    $item_count = 0;
+
+    $sql = "SELECT c.product_id, c.quantity AS qty, p.name, p.price, p.image_path, p.quantity AS stock
+            FROM cart c
+            JOIN products p ON c.product_id = p.id
+            WHERE c.user_id = ?
+            ORDER BY c.id DESC";
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) return ['items'=>[], 'total'=>0, 'item_count'=>0];
+    $stmt->bind_param('s', $user_id);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    while ($row = $res->fetch_assoc()) {
+        $line_total = floatval($row['price']) * intval($row['qty']);
+        $items[] = [
+            'id' => intval($row['product_id']),
+            'name' => $row['name'],
+            'qty' => intval($row['qty']),
+            'price' => floatval($row['price']),
+            'line_total' => $line_total,
+            'stock' => intval($row['stock']),
+            'image' => $row['image_path'] ?: null,
+            'emoji' => '🍰'
+        ];
+        $total += $line_total;
+        $item_count += intval($row['qty']);
+    }
+    $stmt->close();
+
+    return [
+        'items' => $items,
+        'total' => round($total, 2),
+        'item_count' => $item_count,
+        'user_id' => $user_id
+    ];
+}
+
+// If AJAX action requested, handle and return JSON
 if (isset($_GET['action'])) {
-    header('Content-Type: application/json');
+    header('Content-Type: application/json; charset=utf-8');
     $action = $_GET['action'];
 
-    if ($action == 'get_cart') {
-        $items = [];
-        $total = 0;
-        $sql = "SELECT c.product_id, c.quantity, p.name, p.price, p.image_path
-                FROM cart c
-                JOIN products p ON c.product_id = p.id
-                WHERE c.user_id = ?";
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) {
-            echo json_encode(['ok' => false, 'msg' => 'Prepare failed: ' . $conn->error]);
-            exit;
-        }
-        $stmt->bind_param("s", $user_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        if ($result->num_rows === 0) {
-            echo json_encode(['ok' => true, 'items' => [], 'total' => 0, 'debug' => ['user_id' => $user_id, 'item_count' => 0]]);
-            $stmt->close();
-            exit;
-        }
-        while ($row = $result->fetch_assoc()) {
-            $line_total = $row['price'] * $row['quantity'];
-            $items[] = [
-                'id' => $row['product_id'],
-                'name' => $row['name'],
-                'qty' => $row['quantity'],
-                'line_total' => $line_total,
-                'emoji' => '🍰',
-                'image' => $row['image_path'],
-                'price' => $row['price']
-            ];
-            $total += $line_total;
-        }
-        $stmt->close();
-        echo json_encode(['ok' => true, 'items' => $items, 'total' => $total, 'debug' => ['user_id' => $user_id, 'item_count' => count($items)]]);
-        exit;
-    } elseif ($action == 'set_cart_qty') {
-        $data = json_decode(file_get_contents('php://input'), true);
-        $product_id = isset($data['id']) ? intval($data['id']) : 0;
-        $qty = isset($data['qty']) ? intval($data['qty']) : 0;
-
-        // Validate inputs
-        if ($product_id <= 0) {
-            echo json_encode(['ok' => false, 'msg' => 'Invalid product ID']);
-            exit;
-        }
-        if ($qty < 0) {
-            echo json_encode(['ok' => false, 'msg' => 'Quantity cannot be negative']);
-            exit;
-        }
-
-        // Check stock
-        $sql = "SELECT quantity FROM products WHERE id = ?";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("i", $product_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        if ($result->num_rows === 0) {
-            $stmt->close();
-            echo json_encode(['ok' => false, 'msg' => 'Product not found']);
-            exit;
-        }
-        $stock = $result->fetch_assoc()['quantity'];
-        $stmt->close();
-
-        if ($qty > $stock) {
-            echo json_encode(['ok' => false, 'msg' => 'Out of stock']);
-            exit;
-        }
-
-        if ($qty == 0) {
-            $sql = "DELETE FROM cart WHERE user_id = ? AND product_id = ?";
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param("si", $user_id, $product_id);
-        } else {
-            $sql = "UPDATE cart SET quantity = ? WHERE user_id = ? AND product_id = ?";
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param("isi", $qty, $user_id, $product_id);
-            $stmt->execute();
-            if ($stmt->affected_rows == 0 && $qty > 0) {
-                // If no rows updated, insert new record
-                $sql = "INSERT INTO cart (user_id, product_id, quantity) VALUES (?, ?, ?)";
-                $stmt = $conn->prepare($sql);
-                $stmt->bind_param("sii", $user_id, $product_id, $qty);
+    try {
+        if ($action === 'list_products') {
+            $sql = "SELECT id, name, description, price, quantity, image_path FROM products ORDER BY name";
+            $res = $conn->query($sql);
+            $products = [];
+            if ($res) {
+                while ($r = $res->fetch_assoc()) $products[] = $r;
             }
-        }
-        $success = $stmt->execute();
-        $stmt->close();
-        echo json_encode(['ok' => $success, 'msg' => $success ? 'Cart updated' : 'Error updating cart', 'debug' => ['product_id' => $product_id, 'qty' => $qty]]);
-        exit;
-    } elseif ($action == 'clear_cart') {
-        $sql = "DELETE FROM cart WHERE user_id = ?";
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) {
-            echo json_encode(['ok' => false, 'msg' => 'Prepare failed: ' . $conn->error]);
+            echo json_encode(['ok' => true, 'products' => $products]);
             exit;
         }
-        $stmt->bind_param("s", $user_id);
-        $success = $stmt->execute();
-        $stmt->close();
-        echo json_encode(['ok' => $success, 'msg' => $success ? 'Cart cleared' : 'Error clearing cart']);
+
+        if ($action === 'add_to_cart') {
+            $data = get_json_input();
+            $product_id = isset($data['product_id']) ? intval($data['product_id']) : (isset($data['id']) ? intval($data['id']) : 0);
+            // accept 'qty' or 'quantity'
+            $qty = isset($data['qty']) ? intval($data['qty']) : (isset($data['quantity']) ? intval($data['quantity']) : 1);
+            if ($product_id <= 0) {
+                echo json_encode(['ok'=>false, 'msg'=>'Invalid product id']);
+                exit;
+            }
+            if ($qty < 1) {
+                echo json_encode(['ok'=>false, 'msg'=>'Quantity must be at least 1']);
+                exit;
+            }
+
+            // fetch product & stock
+            $stmt = $conn->prepare("SELECT id, name, price, quantity FROM products WHERE id = ?");
+            if (!$stmt) { echo json_encode(['ok'=>false,'msg'=>'DB error: '.$conn->error]); exit; }
+            $stmt->bind_param('i', $product_id);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            if ($res->num_rows === 0) { $stmt->close(); echo json_encode(['ok'=>false,'msg'=>'Product not found']); exit; }
+            $product = $res->fetch_assoc();
+            $stock = intval($product['quantity']);
+            $stmt->close();
+
+            if ($stock <= 0) {
+                echo json_encode(['ok'=>false, 'msg'=>'Product is out of stock']);
+                exit;
+            }
+
+            // Check existing cart qty
+            $stmt = $conn->prepare("SELECT quantity FROM cart WHERE user_id = ? AND product_id = ?");
+            if ($stmt) {
+                $stmt->bind_param('si', $user_id, $product_id);
+                $stmt->execute();
+                $r = $stmt->get_result();
+                $current_qty = 0;
+                if ($r && $r->num_rows > 0) {
+                    $current_qty = intval($r->fetch_assoc()['quantity']);
+                }
+                $stmt->close();
+            } else {
+                $current_qty = 0;
+            }
+
+            $new_qty = $current_qty + $qty;
+            if ($new_qty > $stock) {
+                echo json_encode(['ok'=>false, 'msg'=>"Only {$stock} items available. You already have {$current_qty} in cart."]);
+                exit;
+            }
+
+            // Insert / update within transaction
+            $conn->begin_transaction();
+            try {
+                if ($current_qty > 0) {
+                    $stmt = $conn->prepare("UPDATE cart SET quantity = ? WHERE user_id = ? AND product_id = ?");
+                    if (!$stmt) throw new Exception('DB prepare failed: '.$conn->error);
+                    $stmt->bind_param('isi', $new_qty, $user_id, $product_id);
+                    if (!$stmt->execute()) throw new Exception('Failed update cart: '.$stmt->error);
+                    $stmt->close();
+                } else {
+                    $stmt = $conn->prepare("INSERT INTO cart (user_id, product_id, quantity) VALUES (?, ?, ?)");
+                    if (!$stmt) throw new Exception('DB prepare failed: '.$conn->error);
+                    $stmt->bind_param('sii', $user_id, $product_id, $qty);
+                    if (!$stmt->execute()) throw new Exception('Failed insert cart: '.$stmt->error);
+                    $stmt->close();
+                }
+
+                $conn->commit();
+
+                $cart_data = getCartSummary($conn, $user_id);
+                echo json_encode([
+                    'ok' => true,
+                    'msg' => 'Added to cart',
+                    'cart' => $cart_data,
+                    'product' => ['id' => $product['id'], 'name' => $product['name'], 'price' => floatval($product['price'])]
+                ]);
+            } catch (Exception $e) {
+                $conn->rollback();
+                echo json_encode(['ok'=>false, 'msg'=>'Transaction failed: '.$e->getMessage()]);
+            }
+            exit;
+        }
+
+        if ($action === 'get_cart') {
+            $cart_data = getCartSummary($conn, $user_id);
+            echo json_encode(['ok'=>true, 'cart' => $cart_data, 'user_id' => $user_id]);
+            exit;
+        }
+
+        if ($action === 'set_cart_qty') {
+            $data = get_json_input();
+            $product_id = isset($data['id']) ? intval($data['id']) : (isset($data['product_id']) ? intval($data['product_id']) : 0);
+            $qty = isset($data['qty']) ? intval($data['qty']) : (isset($data['quantity']) ? intval($data['quantity']) : null);
+            if ($product_id <= 0 || $qty === null) {
+                echo json_encode(['ok'=>false,'msg'=>'Invalid input']);
+                exit;
+            }
+            if ($qty < 0) {
+                echo json_encode(['ok'=>false,'msg'=>'Quantity cannot be negative']);
+                exit;
+            }
+
+            // Check stock for product
+            $stmt = $conn->prepare("SELECT quantity FROM products WHERE id = ?");
+            if (!$stmt) { echo json_encode(['ok'=>false,'msg'=>'DB error: '.$conn->error]); exit; }
+            $stmt->bind_param('i', $product_id);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            if ($res->num_rows === 0) { $stmt->close(); echo json_encode(['ok'=>false,'msg'=>'Product not found']); exit; }
+            $stock = intval($res->fetch_assoc()['quantity']);
+            $stmt->close();
+
+            if ($qty > $stock) {
+                echo json_encode(['ok'=>false,'msg'=>"Only {$stock} items available in stock"]);
+                exit;
+            }
+
+            $conn->begin_transaction();
+            try {
+                if ($qty === 0) {
+                    $stmt = $conn->prepare("DELETE FROM cart WHERE user_id = ? AND product_id = ?");
+                    if (!$stmt) throw new Exception('DB prepare failed: '.$conn->error);
+                    $stmt->bind_param('si', $user_id, $product_id);
+                    if (!$stmt->execute()) throw new Exception('Failed delete: '.$stmt->error);
+                    $stmt->close();
+                } else {
+                    // Try update
+                    $stmt = $conn->prepare("UPDATE cart SET quantity = ? WHERE user_id = ? AND product_id = ?");
+                    if (!$stmt) throw new Exception('DB prepare failed: '.$conn->error);
+                    $stmt->bind_param('isi', $qty, $user_id, $product_id);
+                    $stmt->execute();
+                    // If no rows updated, insert new
+                    if ($stmt->affected_rows === 0) {
+                        $stmt->close();
+                        $stmt = $conn->prepare("INSERT INTO cart (user_id, product_id, quantity) VALUES (?, ?, ?)");
+                        if (!$stmt) throw new Exception('DB prepare failed: '.$conn->error);
+                        $stmt->bind_param('sii', $user_id, $product_id, $qty);
+                        if (!$stmt->execute()) throw new Exception('Failed insert: '.$stmt->error);
+                        $stmt->close();
+                    } else {
+                        $stmt->close();
+                    }
+                }
+
+                $conn->commit();
+                $cart_data = getCartSummary($conn, $user_id);
+                echo json_encode(['ok'=>true, 'cart' => $cart_data]);
+            } catch (Exception $e) {
+                $conn->rollback();
+                echo json_encode(['ok'=>false, 'msg'=>'Transaction failed: '.$e->getMessage()]);
+            }
+            exit;
+        }
+
+        if ($action === 'clear_cart') {
+            $conn->begin_transaction();
+            try {
+                $stmt = $conn->prepare("DELETE FROM cart WHERE user_id = ?");
+                if (!$stmt) throw new Exception('DB prepare failed: '.$conn->error);
+                $stmt->bind_param('s', $user_id);
+                if (!$stmt->execute()) throw new Exception('Failed to clear cart: '.$stmt->error);
+                $stmt->close();
+                $conn->commit();
+                $cart_data = getCartSummary($conn, $user_id);
+                echo json_encode(['ok'=>true, 'cart'=>$cart_data, 'msg'=>'Cart cleared']);
+            } catch (Exception $e) {
+                $conn->rollback();
+                echo json_encode(['ok'=>false, 'msg'=>$e->getMessage()]);
+            }
+            exit;
+        }
+
+        // unknown action
+        echo json_encode(['ok'=>false, 'msg'=>'Unknown action']);
+        exit;
+
+    } catch (Exception $e) {
+        echo json_encode(['ok'=>false, 'msg'=>'Server error: '.$e->getMessage()]);
         exit;
     }
 }
-?>
 
-<!DOCTYPE html>
+// If no action provided, render simple cart HTML page (the UI)
+?>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Golden Treat - Cart</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Dancing+Script:wght@400;700&family=Righteous&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg: #FFE8B7;
-            --primary: #D4AF37;
-            --secondary: #8B4513;
-            --accent: #FFE5B4;
-            --dark: #2C1810;
-            --light: #FFF8F0;
-            --white: #FFFFFF;
-            --gradient-1: linear-gradient(135deg, #D4AF37, #FFE5B4);
-            --gradient-2: linear-gradient(135deg, #8B4513, #D2691E);
-            --shadow: 0 10px 30px rgba(212, 175, 55, 0.2);
-            --shadow-hover: 0 15px 40px rgba(212, 175, 55, 0.3);
-        }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cart - Golden Treat</title>
+<style>
+    body{font-family:Arial,Helvetica,sans-serif;background:#fff8e6;color:#2c1810;padding:20px}
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+    .wrap{max-width:980px;margin:0 auto}
+    h1{font-family: 'Poppins', sans-serif;color:#8b4513}
+    .cart-empty{padding:40px;border:2px dashed #ffdca8;border-radius:10px;text-align:center;background:#fffdf7}
+    .cart-items{display:flex;flex-direction:column;gap:12px;margin-top:20px}
+    .cart-item{display:flex;gap:12px;align-items:center;padding:12px;background:#fffaf0;border-radius:8px;border-left:4px solid #d4af37}
+    .cart-item img{width:84px;height:84px;object-fit:cover;border-radius:6px}
+    .cart-item .info{flex:1}
+    .cart-item .controls{display:flex;gap:8px;align-items:center}
+    button{cursor:pointer;padding:8px 12px;border-radius:8px;border:0;background:#d4af37;color:#fff;font-weight:600}
+    button.ghost{background:#8b4513}
+    .cart-summary{margin-top:20px;padding:16px;background:#fffaf0;border-radius:10px;border:1px solid #ffe8c4;text-align:right}
+    input.qty{width:60px;padding:6px;border-radius:6px;border:1px solid #ffdca8}
+    .small{font-size:0.9rem;color:#6b4b3a}
 
-        body {
-            background-color: var(--bg);
-            font-family: 'Righteous', sans-serif;
-            color: var(--dark);
-            overflow-x: hidden;
-            scroll-behavior: smooth;
-        }
+ 
 
-        .particles {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-            pointer-events: none;
-        }
+    /* ✅ Move your nav styles here */
+    nav {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(20px);
+        border-radius: 50px;
+        padding: 10px 30px;
+        box-shadow: var(--shadow);
+        z-index: 1000;
+        transition: all 0.3s ease;
+    }
 
-        .particle {
-            position: absolute;
-            background: var(--primary);
-            border-radius: 50%;
-            opacity: 0.1;
-            animation: float 6s ease-in-out infinite;
-        }
+    nav.scrolled {
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: var(--shadow-hover);
+    }
 
-        @keyframes float {
-            0%, 100% { transform: translateY(0px) rotate(0deg); }
-            50% { transform: translateY(-20px) rotate(180deg); }
-        }
+    nav ul {
+        display: flex;
+        list-style: none;
+        gap: 30px;
+        align-items: center;
+    }
 
-        nav {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(20px);
-            border-radius: 50px;
-            padding: 10px 30px;
-            box-shadow: var(--shadow);
-            z-index: 1000;
-            transition: all 0.3s ease;
-        }
+    nav a {
+        text-decoration: none;
+        color: var(--dark);
+        font-weight: 500;
+        transition: all 0.3s ease;
+        position: relative;
+    }
 
-        nav.scrolled {
-            background: rgba(255, 255, 255, 0.95);
-            box-shadow: var(--shadow-hover);
-        }
+    nav a:hover {
+        color: var(--primary);
+        transform: translateY(-2px);
+    }
 
-        nav ul {
-            display: flex;
-            list-style: none;
-            gap: 30px;
-            align-items: center;
-        }
+    nav a::after {
+        content: '';
+        position: absolute;
+        bottom: -5px;
+        left: 0;
+        width: 0;
+        height: 2px;
+        background: var(--gradient-1);
+        transition: width 0.3s ease;
+    }
 
-        nav a {
-            text-decoration: none;
-            color: var(--dark);
-            font-family: 'Poppins', sans-serif;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            position: relative;
-        }
-
-        nav a:hover {
-            color: var(--primary);
-            transform: translateY(-2px);
-        }
-
-        nav a::after {
-            content: '';
-            position: absolute;
-            bottom: -5px;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: var(--gradient-1);
-            transition: width 0.3s ease;
-        }
-
-        nav a:hover::after {
-            width: 100%;
-        }
-
-        .section {
-            padding: 100px 20px;
-            max-width: 1200px;
-            margin: 0 auto;
-            opacity: 0;
-            transform: translateY(50px);
-            transition: all 0.8s ease;
-        }
-
-        .section.show {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        .section h2 {
-            font-family: 'Dancing Script', cursive;
-            font-size: 3rem;
-            text-align: center;
-            margin-bottom: 60px;
-            color: var(--secondary);
-            position: relative;
-        }
-
-        .section h2::after {
-            content: '';
-            position: absolute;
-            bottom: -10px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 100px;
-            height: 3px;
-            background: var(--gradient-1);
-            border-radius: 2px;
-        }
-
-        .cart-container {
-            background: var(--white);
-            border-radius: 20px;
-            padding: 30px;
-            box-shadow: var(--shadow);
-        }
-
-        .cart-empty {
-            text-align: center;
-            font-family: 'Poppins', sans-serif;
-            font-size: 1.2rem;
-            color: var(--secondary);
-        }
-
-        .cart-items {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .cart-item {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-            padding: 20px;
-            background: var(--light);
-            border-radius: 15px;
-            transition: all 0.3s ease;
-        }
-
-        .cart-item:hover {
-            transform: translateY(-5px);
-            box-shadow: var(--shadow-hover);
-        }
-
-        .cart-item-image {
-            width: 100px;
-            height: 100px;
-            border-radius: 10px;
-            overflow: hidden;
-            background: var(--gradient-1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .cart-item-image img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .cart-item-info {
-            flex: 1;
-            font-family: 'Poppins', sans-serif;
-        }
-
-        .cart-item-info h3 {
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: var(--dark);
-            margin-bottom: 10px;
-        }
-
-        .cart-item-info p {
-            color: var(--secondary);
-            margin-bottom: 10px;
-        }
-
-        .cart-item-price {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--primary);
-        }
-
-        .cart-item-controls {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .cart-item-controls button {
-            background: var(--primary);
-            color: var(--white);
-            border: none;
-            width: 35px;
-            height: 35px;
-            border-radius: 50%;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .cart-item-controls button:hover {
-            background: var(--secondary);
-            transform: scale(1.1);
-        }
-
-        .cart-item-controls input {
-            width: 50px;
-            text-align: center;
-            font-family: 'Poppins', sans-serif;
-            font-size: 1rem;
-            border: 1px solid var(--accent);
-            border-radius: 5px;
-            padding: 5px;
-        }
-
-        .cart-total {
-            margin-top: 30px;
-            text-align: right;
-            font-family: 'Poppins', sans-serif;
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--dark);
-        }
-
-        .cart-actions {
-            margin-top: 20px;
-            display: flex;
-            justify-content: flex-end;
-            gap: 15px;
-        }
-
-        .btn {
-            padding: 12px 25px;
-            background: var(--primary);
-            color: var(--white);
-            text-decoration: none;
-            border-radius: 50px;
-            font-family: 'Poppins', sans-serif;
-            font-weight: 600;
-            box-shadow: var(--shadow);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            border: none;
-            cursor: pointer;
-            text-align: center;
-        }
-
-        .btn:hover {
-            background: var(--secondary);
-            transform: translateY(-3px);
-            box-shadow: var(--shadow-hover);
-        }
-
-        .btn.clear-cart {
-            background: var(--dark);
-        }
-
-        .loading {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: var(--white);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10000;
-            opacity: 1;
-            transition: opacity 0.5s ease;
-        }
-
-        .loading.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 3px solid var(--accent);
-            border-top: 3px solid var(--primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        @media (max-width: 768px) {
-            .section { padding: 60px 20px; }
-            .section h2 { font-size: 2.5rem; }
-            .cart-item { flex-direction: column; align-items: flex-start; }
-            .cart-item-image { width: 80px; height: 80px; }
-            .cart-actions { flex-direction: column; align-items: stretch; }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            * {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
-            }
-        }
-    </style>
+    nav a:hover::after {
+        width: 100%;
+    }
+</style>
 </head>
 <body>
-    <!-- Loading screen -->
-    <div class="loading">
-        <div class="spinner"></div>
-    </div>
 
-    <!-- Animated particles -->
-    <div class="particles"></div>
-
-    <!-- Navigation -->
-    <nav>
+ <nav>
         <ul>
-            <li><a href="index.php">Home</a></li>
-            <li><a href="index.php#products">Products</a></li>
-            <li><a href="login.php">Services</a></li>
-            <li><a href="home.php">About</a></li>
-            <li><a href="profile.php">Contact</a></li>
+            <li><a href="#home">Home</a></li>
+            <li><a href="product2.php">Products</a></li>
+            <li><a href="untitled-1.php">Table booking</a></li>
+            <li><a href="#about">About</a></li>
+            <li><a href="profile.php">Orders</a></li>
         </ul>
     </nav>
+<div class="wrap">
+    <h1>Your Cart</h1>
+    <div id="cartContainer">
+        <div class="cart-empty">Loading cart...</div>
+    </div>
+    <p class="small">Tip: Click "Add to Cart" on the products page to add items here. This cart uses a session-based guest id.</p>
+</div>
 
-    <!-- Cart Section -->
-    <section class="section" id="cart">
-        <h2>Your Cart</h2>
-        <div class="cart-container" id="cartContainer">
-            <div class="cart-empty">Your cart is empty.</div>
-        </div>
-    </section>
+<script>
+const api = async (action, opts = {}) => {
+    const url = `?action=${action}`;
+    const defaultOpts = { credentials: 'same-origin' };
+    try {
+        const res = await fetch(url, { ...defaultOpts, ...opts });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return await res.json();
+    } catch (e) {
+        console.error('API error', e);
+        throw e;
+    }
+};
 
-    <script>
-        // Utility functions
-        const api = (action, options = {}) => fetch(`?action=${action}`, options);
-        const el = sel => document.querySelector(sel);
-        const els = sel => document.querySelectorAll(sel);
+function formatPrice(num) {
+    return Number(num).toFixed(2);
+}
 
-        // Loading screen
-        window.addEventListener('load', () => {
-            setTimeout(() => el('.loading').classList.add('hidden'), 800);
+async function loadCart() {
+    const container = document.getElementById('cartContainer');
+    container.innerHTML = '<div class="cart-empty">Loading cart...</div>';
+    try {
+        const data = await api('get_cart');
+        if (!data.ok) throw new Error(data.msg || 'Failed to load cart');
+        const cart = data.cart;
+        if (!cart.items || cart.items.length === 0) {
+            container.innerHTML = `<div class="cart-empty">
+                <div style="font-size:48px">🛒</div>
+                <p>Your cart is empty.</p>
+                <p><a href="product.php">Continue shopping</a></p>
+            </div>`;
+            return;
+        }
+
+        // build cart UI
+        const itemsDiv = document.createElement('div');
+        itemsDiv.className = 'cart-items';
+        let total = 0;
+        cart.items.forEach(item => {
+            total += item.line_total;
+            const row = document.createElement('div');
+            row.className = 'cart-item';
+
+            const imgWrap = document.createElement('div');
+            if (item.image) {
+                const img = document.createElement('img');
+                img.src = item.image;
+                img.alt = item.name;
+                imgWrap.appendChild(img);
+            } else {
+                imgWrap.textContent = item.emoji || '🍰';
+                imgWrap.style.fontSize = '40px';
+            }
+
+            const info = document.createElement('div');
+            info.className = 'info';
+            info.innerHTML = `<strong>${item.name}</strong><div class="small">Price: Rs ${formatPrice(item.price)}</div>
+                              <div class="small">Stock: ${item.stock}</div>`;
+
+            const controls = document.createElement('div');
+            controls.className = 'controls';
+            const dec = document.createElement('button');
+            dec.textContent = '-';
+            dec.onclick = () => updateQty(item.id, Math.max(0, item.qty - 1));
+            const qtyInput = document.createElement('input');
+            qtyInput.type = 'number';
+            qtyInput.className = 'qty';
+            qtyInput.value = item.qty;
+            qtyInput.min = 0;
+            qtyInput.max = item.stock || 999;
+            qtyInput.onchange = (e) => {
+                let v = parseInt(e.target.value) || 0;
+                if (v < 0) v = 0;
+                if (v > (item.stock || 999)) v = item.stock || 999;
+                updateQty(item.id, v);
+            };
+            const inc = document.createElement('button');
+            inc.textContent = '+';
+            inc.onclick = () => updateQty(item.id, Math.min((item.stock || 999), item.qty + 1));
+            const remove = document.createElement('button');
+            remove.textContent = 'Remove';
+            remove.className = 'ghost';
+            remove.onclick = () => {
+                if (confirm('Remove item from cart?')) updateQty(item.id, 0);
+            };
+
+            const subtotal = document.createElement('div');
+            subtotal.className = 'small';
+            subtotal.style.marginLeft = '12px';
+            subtotal.innerHTML = `<strong>Subtotal:</strong> Rs ${formatPrice(item.line_total)}`;
+
+            controls.appendChild(dec);
+            controls.appendChild(qtyInput);
+            controls.appendChild(inc);
+            controls.appendChild(remove);
+            controls.appendChild(subtotal);
+
+            row.appendChild(imgWrap);
+            row.appendChild(info);
+            row.appendChild(controls);
+
+            itemsDiv.appendChild(row);
         });
 
-        // Particles
-        function createParticles() {
-            const wrap = el('.particles');
-            for (let i = 0; i < 50; i++) {
-                const d = document.createElement('div');
-                d.className = 'particle';
-                d.style.left = Math.random() * 100 + '%';
-                d.style.top = Math.random() * 100 + '%';
-                const size = Math.random() * 10 + 5;
-                d.style.width = size + 'px';
-                d.style.height = size + 'px';
-                d.style.animationDelay = Math.random() * 6 + 's';
-                d.style.animationDuration = (Math.random() * 3 + 3) + 's';
-                wrap.appendChild(d);
-            }
-        }
+        // summary
+        const summary = document.createElement('div');
+        summary.className = 'cart-summary';
+        summary.innerHTML = `<div><strong>Total:</strong> Rs ${formatPrice(cart.total)}</div>
+                             <div style="margin-top:8px">
+                               <button onclick="location.href='product.php'">Continue shopping</button>
+                               <button onclick="checkout()" style="margin-left:8px">Checkout</button>
+                               <button onclick="clearCart()" style="margin-left:8px;background:#8b4513">Clear cart</button>
+                             </div>`;
 
-        // Scroll animations
-        function animateOnScroll() {
-            els('.section').forEach(section => {
-                const rect = section.getBoundingClientRect();
-                if (rect.top < window.innerHeight * 0.8) section.classList.add('show');
-            });
-        }
+        container.innerHTML = '';
+        container.appendChild(itemsDiv);
+        container.appendChild(summary);
 
-        // Nav scroll effect
-        function updateNav() {
-            const nav = el('nav');
-            if (window.scrollY > 100) nav.classList.add('scrolled');
-            else nav.classList.remove('scrolled');
-        }
+    } catch (err) {
+        container.innerHTML = `<div class="cart-empty">Error loading cart: ${err.message || err}</div>`;
+    }
+}
 
-        // Render cart
-        async function loadCart() {
-            try {
-                const response = await api('get_cart');
-                const data = await response.json();
-                console.log('Cart data:', data); // Debug: Log cart data
-                const container = el('#cartContainer');
-                container.innerHTML = '';
-
-                if (!data.ok || !data.items.length) {
-                    container.innerHTML = '<div class="cart-empty">Your cart is empty.</div>';
-                    return;
-                }
-
-                const itemsDiv = document.createElement('div');
-                itemsDiv.className = 'cart-items';
-                data.items.forEach(item => {
-                    const itemDiv = document.createElement('div');
-                    itemDiv.className = 'cart-item';
-                    itemDiv.innerHTML = `
-                        <div class="cart-item-image">${item.image ? `<img src="${item.image}" alt="${item.name}">` : item.emoji}</div>
-                        <div class="cart-item-info">
-                            <h3>${item.name}</h3>
-                            <p>Price: $${Number(item.price).toFixed(2)}</p>
-                            <div class="cart-item-price">Line Total: $${Number(item.line_total).toFixed(2)}</div>
-                        </div>
-                        <div class="cart-item-controls">
-                            <button onclick="updateQty(${item.id}, ${item.qty - 1})">-</button>
-                            <input type="number" value="${item.qty}" min="0" onchange="updateQty(${item.id}, this.value)">
-                            <button onclick="updateQty(${item.id}, ${item.qty + 1})">+</button>
-                        </div>`;
-                    itemsDiv.appendChild(itemDiv);
-                });
-
-                const totalDiv = document.createElement('div');
-                totalDiv.className = 'cart-total';
-                totalDiv.textContent = `Total: $${Number(data.total).toFixed(2)}`;
-
-                const actionsDiv = document.createElement('div');
-                actionsDiv.className = 'cart-actions';
-                actionsDiv.innerHTML = `
-                    <button class="btn clear-cart" onclick="clearCart()">Clear Cart</button>
-                    <button class="btn" onclick="checkout()">Checkout</button>`;
-
-                container.appendChild(itemsDiv);
-                container.appendChild(totalDiv);
-                container.appendChild(actionsDiv);
-            } catch (error) {
-                console.error('Error loading cart:', error);
-                el('#cartContainer').innerHTML = '<div class="cart-empty">Error loading cart: ' + error.message + '</div>';
-            }
-        }
-
-        // Update quantity
-        async function updateQty(id, qty) {
-            try {
-                qty = parseInt(qty);
-                console.log('Updating quantity:', { id, qty }); // Debug: Log update action
-                const response = await api('set_cart_qty', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id, qty })
-                });
-                const data = await response.json();
-                console.log('Update quantity response:', data); // Debug: Log response
-                if (data.ok) {
-                    await loadCart();
-                } else {
-                    alert(data.msg || 'Error updating cart');
-                }
-            } catch (error) {
-                console.error('Error updating quantity:', error);
-                alert('Error updating cart: ' + error.message);
-            }
-        }
-
-        // Clear cart
-        async function clearCart() {
-            if (confirm('Are you sure you want to clear your cart?')) {
-                try {
-                    const response = await api('clear_cart');
-                    const data = await response.json();
-                    console.log('Clear cart response:', data); // Debug: Log response
-                    if (data.ok) {
-                        await loadCart();
-                        alert('Cart cleared!');
-                    } else {
-                        alert(data.msg || 'Error clearing cart');
-                    }
-                } catch (error) {
-                    console.error('Error clearing cart:', error);
-                    alert('Error clearing cart: ' + error.message);
-                }
-            }
-        }
-
-        // Checkout placeholder
-        function checkout() {
-            alert('Proceeding to checkout - This would redirect to a payment page!');
-        }
-
-        // Initialize
-        document.addEventListener('DOMContentLoaded', async () => {
-            createParticles();
-            animateOnScroll();
-            await loadCart();
-
-            window.addEventListener('scroll', () => {
-                animateOnScroll();
-                updateNav();
-            });
+async function updateQty(productId, qty) {
+    try {
+        await api('set_cart_qty', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ id: productId, qty: qty })
         });
-    </script>
+        await loadCart();
+    } catch (e) {
+        alert('Update failed: ' + (e.message || e));
+    }
+}
+
+async function clearCart() {
+    if (!confirm('Clear entire cart?')) return;
+    try {
+        await api('clear_cart');
+        await loadCart();
+    } catch (e) {
+        alert('Clear failed: ' + (e.message || e));
+    }
+}
+
+function checkout() {
+    alert('Proceed to checkout (not implemented).');
+    // implement checkout flow here
+}
+
+// Load on DOM ready
+document.addEventListener('DOMContentLoaded', () => {
+    loadCart();
+});
+</script>
 </body>
 </html>
 <?php

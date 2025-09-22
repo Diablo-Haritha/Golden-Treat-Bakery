@@ -1,7 +1,13 @@
-
 <?php
+ini_set('display_errors', 1); // Debug: Enable errors
+error_reporting(E_ALL);
+
 session_start();
-if (!isset($_SESSION['cart'])) $_SESSION['cart'] = [];
+// For guest users, use a temporary user_id stored in session
+if (!isset($_SESSION['temp_user_id'])) {
+    $_SESSION['temp_user_id'] = uniqid('guest_', true);
+}
+$user_id = $_SESSION['temp_user_id'];
 
 $servername = "localhost";
 $username = "root";
@@ -28,7 +34,7 @@ if ($result) {
     die("Error fetching products: " . $conn->error);
 }
 
-// Handle actions for JS API
+// Handle actions for JS API (fallback - most will go to cart.php)
 if (isset($_GET['action'])) {
     header('Content-Type: application/json');
     $action = $_GET['action'];
@@ -36,87 +42,34 @@ if (isset($_GET['action'])) {
     if ($action == 'list_products') {
         echo json_encode(['products' => $products]);
         exit;
-    } elseif ($action == 'add_to_cart') {
-        $data = json_decode(file_get_contents('php://input'), true);
-        $id = isset($data['product_id']) ? intval($data['product_id']) : 0;
-        $qty = isset($data['qty']) ? intval($data['qty']) : 1;
-
-        if ($id <= 0) {
-            echo json_encode(['ok' => false, 'msg' => 'Invalid product ID']);
-            exit;
-        }
-
-        // Find stock
-        $stock = 0;
-        foreach ($products as $p) {
-            if ($p['id'] == $id) {
-                $stock = intval($p['quantity']);
-                break;
-            }
-        }
-
-        $current = isset($_SESSION['cart'][$id]) ? $_SESSION['cart'][$id] : 0;
-        $new_qty = $current + $qty;
-
-        if ($new_qty > $stock) {
-            echo json_encode(['ok' => false, 'msg' => 'Out of stock']);
-            exit;
-        }
-
-        $_SESSION['cart'][$id] = $new_qty;
-        echo json_encode(['ok' => true, 'cart' => $_SESSION['cart']]);
-        exit;
-    } elseif ($action == 'set_cart_qty') {
-        $data = json_decode(file_get_contents('php://input'), true);
-        $id = isset($data['id']) ? intval($data['id']) : 0;
-        $qty = isset($data['qty']) ? intval($data['qty']) : 0;
-
-        if ($id <= 0) {
-            echo json_encode(['ok' => false, 'msg' => 'Invalid product ID']);
-            exit;
-        }
-
-        // Find stock
-        $stock = 0;
-        foreach ($products as $p) {
-            if ($p['id'] == $id) {
-                $stock = intval($p['quantity']);
-                break;
-            }
-        }
-
-        if ($qty > $stock) {
-            echo json_encode(['ok' => false, 'msg' => 'Out of stock']);
-            exit;
-        }
-
-        if ($qty <= 0) {
-            unset($_SESSION['cart'][$id]);
+    }
+    
+    // Redirect other cart actions to cart.php
+    $redirect_actions = ['add_to_cart', 'get_cart', 'set_cart_qty', 'clear_cart'];
+    if (in_array($action, $redirect_actions)) {
+        $query = http_build_query(['action' => $action]);
+        $redirect_url = "cart.php?$query";
+        
+        // Handle POST data
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $post_data = file_get_contents('php://input');
+            $context = stream_context_create([
+                'http' => [
+                    'method' => 'POST',
+                    'header' => 'Content-Type: application/json',
+                    'content' => $post_data
+                ]
+            ]);
+            $response = file_get_contents($redirect_url, false, $context);
         } else {
-            $_SESSION['cart'][$id] = $qty;
+            $response = file_get_contents($redirect_url);
         }
-        echo json_encode(['ok' => true, 'cart' => $_SESSION['cart']]);
-        exit;
-    } elseif ($action == 'get_cart') {
-        $items = [];
-        $total = 0;
-        foreach ($_SESSION['cart'] as $id => $qty) {
-            foreach ($products as $p) {
-                if ($p['id'] == $id) {
-                    $line_total = $p['price'] * $qty;
-                    $items[] = [
-                        'id' => $id,
-                        'name' => $p['name'],
-                        'qty' => $qty,
-                        'line_total' => $line_total,
-                        'emoji' => '🍰'
-                    ];
-                    $total += $line_total;
-                    break;
-                }
-            }
+        
+        if ($response !== false) {
+            echo $response;
+        } else {
+            echo json_encode(['ok' => false, 'msg' => 'Failed to process request']);
         }
-        echo json_encode(['ok' => true, 'items' => $items, 'total' => $total, 'cart' => $_SESSION['cart']]);
         exit;
     }
 }
@@ -139,6 +92,8 @@ $conn->close();
             --dark: #2C1810;
             --light: #FFF8F0;
             --white: #FFFFFF;
+            --success: #4CAF50;
+            --error: #f44336;
             --gradient-1: linear-gradient(135deg, #D4AF37, #FFE5B4);
             --gradient-2: linear-gradient(135deg, #8B4513, #D2691E);
             --shadow: 0 10px 30px rgba(212, 175, 55, 0.2);
@@ -215,6 +170,7 @@ $conn->close();
             font-weight: 500;
             transition: all 0.3s ease;
             position: relative;
+            font-family: 'Poppins', sans-serif;
         }
 
         nav a:hover {
@@ -286,6 +242,7 @@ $conn->close();
             box-shadow: var(--shadow);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             cursor: pointer;
+            position: relative;
         }
 
         .product-card:hover {
@@ -326,6 +283,23 @@ $conn->close();
 
         .product-card:hover .product-image::before {
             transform: translateX(100%);
+        }
+
+        .stock-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: var(--success);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-family: 'Poppins', sans-serif;
+            font-weight: 600;
+        }
+
+        .stock-badge.out-of-stock {
+            background: var(--error);
         }
 
         .product-info {
@@ -369,12 +343,50 @@ $conn->close();
             border: none;
             cursor: pointer;
             text-align: center;
+            width: 100%;
         }
 
-        .btn:hover {
+        .btn:hover:not(:disabled) {
             background: var(--secondary);
             transform: translateY(-3px);
             box-shadow: var(--shadow-hover);
+        }
+
+        .btn:disabled {
+            background: var(--accent);
+            cursor: not-allowed;
+            transform: none;
+            opacity: 0.6;
+        }
+
+        .btn.added {
+            background: var(--success) !important;
+            animation: pulse 0.6s ease;
+        }
+
+        .btn.loading {
+            position: relative;
+            color: transparent;
+        }
+
+        .btn.loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 16px;
+            height: 16px;
+            margin: -8px 0 0 -8px;
+            border: 2px solid transparent;
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
         }
 
         .floating-cart {
@@ -417,12 +429,7 @@ $conn->close();
             border-radius: 15px;
             min-width: 20px;
             text-align: center;
-        }
-
-        @keyframes pulse {
-            0% { box-shadow: var(--shadow); }
-            50% { box-shadow: var(--shadow-hover); }
-            100% { box-shadow: var(--shadow); }
+            transition: all 0.3s ease;
         }
 
         .quick-actions {
@@ -448,6 +455,7 @@ $conn->close();
             cursor: pointer;
             transition: all 0.3s ease;
             font-size: 1.2rem;
+            border: none;
         }
 
         .quick-btn:hover {
@@ -501,22 +509,6 @@ $conn->close();
             100% { transform: rotate(360deg); }
         }
 
-        @media (max-width: 768px) {
-            nav ul { gap: 15px; }
-            .products-grid { grid-template-columns: 1fr; }
-            .quick-actions { display: none; }
-            .section { padding: 60px 20px; }
-            .section h2 { font-size: 2.5rem; }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            * {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
-            }
-        }
-
         .modal {
             display: none;
             position: fixed;
@@ -528,17 +520,35 @@ $conn->close();
             z-index: 2000;
             align-items: center;
             justify-content: center;
+            backdrop-filter: blur(5px);
         }
 
         .modal-content {
             background: var(--white);
-            padding: 20px;
-            border-radius: 15px;
+            padding: 30px;
+            border-radius: 20px;
             width: 90%;
-            max-width: 400px;
+            max-width: 450px;
             text-align: center;
-            box-shadow: var(--shadow);
+            box-shadow: var(--shadow-hover);
             animation: slideIn 0.3s ease;
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--secondary);
+            transition: color 0.3s ease;
+        }
+
+        .modal-close:hover {
+            color: var(--primary);
         }
 
         @keyframes slideIn {
@@ -548,44 +558,101 @@ $conn->close();
 
         .modal-content h3 {
             font-family: 'Dancing Script', cursive;
-            font-size: 1.8rem;
+            font-size: 2rem;
             color: var(--secondary);
+            margin-bottom: 10px;
+        }
+
+        .modal-product-name {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.1rem;
+            color: var(--dark);
             margin-bottom: 20px;
+            font-weight: 500;
         }
 
         .quantity-selector {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 10px;
+            gap: 15px;
             margin-bottom: 20px;
+            padding: 20px;
+            background: var(--light);
+            border-radius: 15px;
         }
 
         .quantity-selector button {
             background: var(--primary);
             color: var(--white);
             border: none;
-            width: 40px;
-            height: 40px;
+            width: 45px;
+            height: 45px;
             border-radius: 50%;
-            font-size: 1.2rem;
+            font-size: 1.3rem;
             cursor: pointer;
             transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .quantity-selector button:hover {
+        .quantity-selector button:hover:not(:disabled) {
             background: var(--secondary);
             transform: scale(1.1);
         }
 
+        .quantity-selector button:disabled {
+            background: var(--accent);
+            cursor: not-allowed;
+            transform: none;
+        }
+
         .quantity-selector input {
-            width: 60px;
+            width: 70px;
             text-align: center;
             font-family: 'Poppins', sans-serif;
-            font-size: 1.2rem;
-            border: 1px solid var(--accent);
-            border-radius: 5px;
-            padding: 5px;
+            font-size: 1.4rem;
+            border: 2px solid var(--accent);
+            border-radius: 10px;
+            padding: 8px;
+            -moz-appearance: textfield;
+        }
+
+        .quantity-selector input::-webkit-outer-spin-button,
+        .quantity-selector input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .quantity-selector input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+        }
+
+        .stock-info {
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+            padding: 10px;
+            border-radius: 8px;
+            background: var(--light);
+        }
+
+        .stock-info.available {
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+
+        .stock-info.low {
+            color: #ff9800;
+            border: 1px solid #ff9800;
+        }
+
+        .stock-info.out-of-stock {
+            color: var(--error);
+            border: 1px solid var(--error);
         }
 
         .modal-actions {
@@ -595,16 +662,65 @@ $conn->close();
         }
 
         .modal-actions .btn {
-            padding: 10px 20px;
+            padding: 12px 25px;
+            min-width: 120px;
+            flex: 1;
         }
 
         .modal-actions .btn.cancel {
             background: var(--dark);
         }
+
+        .modal-actions .btn.cancel:hover:not(:disabled) {
+            background: var(--secondary);
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--success);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            z-index: 3000;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-family: 'Poppins', sans-serif;
+            font-weight: 500;
+        }
+
+        .toast.error {
+            background: var(--error);
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        @media (max-width: 768px) {
+            nav ul { gap: 15px; }
+            .products-grid { grid-template-columns: 1fr; }
+            .quick-actions { display: none; }
+            .section { padding: 60px 20px; }
+            .section h2 { font-size: 2.5rem; }
+            .modal-content { margin: 20px; padding: 20px; }
+            .quantity-selector { gap: 10px; }
+            .quantity-selector button { width: 40px; height: 40px; }
+            .quantity-selector input { width: 60px; font-size: 1.2rem; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
     </style>
 </head>
 <body>
-   
     <div class="progress-bar"></div>
     <div class="particles"></div>
 
@@ -612,10 +728,9 @@ $conn->close();
         <ul>
             <li><a href="index.php">Home</a></li>
             <li><a href="#products">Products</a></li>
-            <li><a href="login2formanage.php">Login</a></li>
             <li><a href="untitled-1.php">Table booking</a></li>
             <li><a href="home.php">About</a></li>
-            <li><a href="profile.php">Contact</a></li>
+            <li><a href="profile.php">Orders</a></li>
             <?php if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true): ?>
             <li><a href="admin.php">Admin</a></li>
             <?php endif; ?>
@@ -623,48 +738,76 @@ $conn->close();
     </nav>
 
     <div class="quick-actions">
-        <div class="quick-btn" title="Call Us">Login</div>
-        <div class="quick-btn" title="Location">👤</div>
-        <div class="quick-btn" title="Reviews">⭐</div>
-        <div class="quick-btn" title="Share">📤</div>
+        <button class="quick-btn" title="Login">👤</button>
+        <button class="quick-btn" title="Profile">👤</button>
+        <button class="quick-btn" title="Reviews">⭐</button>
+        <button class="quick-btn" title="Share">📤</button>
     </div>
 
     <div class="floating-cart" id="floatingCart">
         <span class="cart-badge" id="cartCount" style="display:none">0</span>
     </div>
 
+    <!-- Quantity Modal -->
     <div class="modal" id="quantityModal">
         <div class="modal-content">
-            <h3>Select Quantity</h3>
+            <button class="modal-close" onclick="closeModal()">×</button>
+            <h3>Add to Cart</h3>
+            <div class="modal-product-name" id="modalProductName">Product Name</div>
+            
             <div class="quantity-selector">
-                <button onclick="changeQty(-1)">-</button>
-                <input type="number" id="quantityInput" value="1" min="1">
-                <button onclick="changeQty(1)">+</button>
+                <button type="button" onclick="changeQty(-1)" id="qtyMinus">-</button>
+                <input type="number" id="quantityInput" value="1" min="1" max="99">
+                <button type="button" onclick="changeQty(1)" id="qtyPlus">+</button>
             </div>
+            
+            <div class="stock-info" id="stockInfo"></div>
+            
             <div class="modal-actions">
                 <button class="btn cancel" onclick="closeModal()">Cancel</button>
-                <button class="btn" onclick="confirmQty()">Add to Cart</button>
+                <button class="btn" id="confirmBtn" onclick="confirmQty()">Add to Cart</button>
             </div>
         </div>
     </div>
 
+    <!-- Toast notification -->
+    <div class="toast" id="toast"></div>
+
     <section class="section" id="products">
-        <h2>Our Products</h2>
+        <h2>Our Delicious Products</h2>
         <div class="products-grid" id="productsGrid">
-            <?php foreach ($products as $product): ?>
-            <div class="product-card">
+            <?php foreach ($products as $product): 
+                $stock = intval($product['quantity']);
+                $stockClass = $stock > 10 ? 'available' : ($stock > 0 ? 'low' : 'out-of-stock');
+                $stockText = $stock > 0 ? "{$stock} in stock" : 'Out of stock';
+            ?>
+            <div class="product-card" data-product-id="<?php echo $product['id']; ?>">
                 <div class="product-image">
                     <?php if (!empty($product['image_path'])): ?>
-                    <img src="<?php echo htmlspecialchars($product['image_path']); ?>" alt="<?php echo htmlspecialchars($product['name']); ?>">
+                    <img src="<?php echo htmlspecialchars($product['image_path']); ?>" alt="<?php echo htmlspecialchars($product['name']); ?>" 
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div style="display:none; align-items:center; justify-content:center; width:100%; height:100%;">
+                        🍰
+                    </div>
                     <?php else: ?>
                     🍰
                     <?php endif; ?>
+                    <div class="stock-badge <?php echo $stockClass; ?>">
+                        <?php echo $stockText; ?>
+                    </div>
                 </div>
                 <div class="product-info">
                     <h3><?php echo htmlspecialchars($product['name']); ?></h3>
                     <p><?php echo htmlspecialchars($product['description']); ?></p>
                     <div class="product-price">Rs<?php echo number_format($product['price'], 2); ?></div>
-                    <button class="btn add-to-cart" data-id="<?php echo $product['id']; ?>">Add to Cart</button>
+                    <button class="btn add-to-cart" 
+                            data-id="<?php echo $product['id']; ?>" 
+                            data-name="<?php echo htmlspecialchars($product['name']); ?>" 
+                            data-stock="<?php echo $stock; ?>"
+                            data-price="<?php echo $product['price']; ?>"
+                            <?php echo $stock <= 0 ? 'disabled' : ''; ?>>
+                        <?php echo $stock > 0 ? 'Add to Cart' : 'Out of Stock'; ?>
+                    </button>
                 </div>
             </div>
             <?php endforeach; ?>
@@ -672,15 +815,36 @@ $conn->close();
     </section>
 
     <script>
-        const api = (a, opt) => fetch(`?action=${a}`, opt);
+        // Utility functions
+        const api = (action, options = {}) => {
+            const url = `cart.php?action=${action}`;
+            console.log('API Call:', url, options.body ? JSON.parse(options.body) : 'GET'); // Debug: Log full request
+            return fetch(url, options)
+                .catch(error => {
+                    console.error('Fetch error:', error); // Debug: Log network errors
+                    throw error;
+                });
+        };
+        
         const el = sel => document.querySelector(sel);
+        const els = sel => document.querySelectorAll(sel);
 
+        let currentProduct = null;
+        let isAddingToCart = false;
+
+        // Loading screen
         window.addEventListener('load', () => {
-            setTimeout(() => el('.loading').classList.add('hidden'), 800);
+            setTimeout(() => {
+                const loading = el('.loading');
+                if (loading) loading.classList.add('hidden');
+            }, 800);
         });
 
+        // Particles animation
         function createParticles() {
             const wrap = el('.particles');
+            if (!wrap) return;
+            
             for (let i = 0; i < 50; i++) {
                 const d = document.createElement('div');
                 d.className = 'particle';
@@ -695,6 +859,7 @@ $conn->close();
             }
         }
 
+        // Progress bar
         function updateProgressBar() {
             const scrolled = window.pageYOffset;
             const maxHeight = document.documentElement.scrollHeight - window.innerHeight;
@@ -702,141 +867,409 @@ $conn->close();
             el('.progress-bar').style.width = progress + '%';
         }
 
+        // Scroll animations
         function animateOnScroll() {
-            document.querySelectorAll('.section').forEach(section => {
+            els('.section').forEach(section => {
                 const rect = section.getBoundingClientRect();
-                if (rect.top < window.innerHeight * 0.8) section.classList.add('show');
+                if (rect.top < window.innerHeight * 0.8) {
+                    section.classList.add('show');
+                }
             });
         }
 
+        // Navigation scroll effect
         function updateNav() {
-            const nav = document.querySelector('nav');
-            if (window.scrollY > 100) nav.classList.add('scrolled'); else nav.classList.remove('scrolled');
-        }
-
-        document.querySelectorAll('nav a[href^="#"]').forEach(a => {
-            a.addEventListener('click', e => {
-                e.preventDefault();
-                const target = document.querySelector(a.getAttribute('href'));
-                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            });
-        });
-
-        async function loadProducts() {
-            const r = await api('list_products');
-            const data = await r.json();
-            const grid = el('#productsGrid');
-            grid.innerHTML = '';
-            (data.products || []).forEach(p => {
-                const card = document.createElement('div');
-                card.className = 'product-card';
-                card.innerHTML = `
-                    <div class="product-image">${p.image_path ? `<img src="${p.image_path}" alt="${p.name}">` : '🍰'}</div>
-                    <div class="product-info">
-                        <h3>${p.name}</h3>
-                        <p>${p.description}</p>
-                        <div class="product-price">Rs.${Number(p.price).toFixed(2)}</div>
-                        <button class="btn add-to-cart" data-id="${p.id}">Add to Cart</button>
-                    </div>`;
-                card.addEventListener('click', () => viewProduct(p.id));
-                const addBtn = card.querySelector('.add-to-cart');
-                addBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    openQuantityModal(p.id);
-                });
-                grid.appendChild(card);
-            });
-        }
-
-        function pulseCart() {
-            const cart = el('#floatingCart');
-            cart.style.animation = 'none'; cart.offsetHeight; cart.style.animation = 'pulse .5s ease';
-        }
-
-        async function addToCart(id, qty = 1) {
-            const r = await api('add_to_cart', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ product_id: id, qty })
-            });
-            const data = await r.json();
-            if (data.ok) {
-                updateCartCount(data.cart);
-                return true;
-            } else {
-                alert(data.msg || 'Error adding to cart');
-                return false;
+            const nav = el('nav');
+            if (nav && window.scrollY > 100) {
+                nav.classList.add('scrolled');
+            } else if (nav) {
+                nav.classList.remove('scrolled');
             }
         }
 
-        function updateCartCount(cartObj) {
-            let count = 0;
-            Object.values(cartObj || {}).forEach(n => count += Number(n || 0));
-            const b = el('#cartCount');
-            if (count > 0) { b.style.display = 'inline-block'; b.textContent = count; } else { b.style.display = 'none'; }
+        // Load initial cart count
+        async function loadInitialCartCount() {
+            try {
+                const response = await api('get_cart');
+                const data = await response.json();
+                console.log('Initial cart load:', data); // Debug
+                if (data.ok && data.cart) {
+                    updateCartCount(data.cart);
+                } else {
+                    console.warn('Initial cart load failed:', data.msg); // Debug
+                }
+            } catch (error) {
+                console.error('Error loading initial cart:', error);
+            }
         }
 
-        function viewProduct(productId) { alert(`Viewing product ID ${productId} details - This would open a product modal!`); }
-
-       document.querySelectorAll('.quick-btn').forEach((btn, index) => {
-    btn.addEventListener('click', () => {
-        const paths = ['login.php', 'profile.php', 'reviews.php', 'share.php'];
-        window.location.href = paths[index];
-    });
-});
-        let currentProductId = null;
-
-        function openQuantityModal(productId) {
-            currentProductId = productId;
-            el('#quantityModal').style.display = 'flex';
-            el('#quantityInput').value = 1;
-        }
-
-        function closeModal() {
-            el('#quantityModal').style.display = 'none';
-            currentProductId = null;
-        }
-
-        function changeQty(delta) {
-            const input = el('#quantityInput');
-            let value = parseInt(input.value) + delta;
-            if (value < 1) value = 1;
-            input.value = value;
-        }
-
-        async function confirmQty() {
-            const qty = parseInt(el('#quantityInput').value);
-            if (currentProductId && qty > 0) {
-                const success = await addToCart(currentProductId, qty);
-                if (success) {
-                    closeModal();
-                    pulseCart();
-                    const btn = document.querySelector(`.add-to-cart[data-id="${currentProductId}"]`);
-                    if (btn) {
-                        const oldText = btn.textContent;
-                        btn.textContent = 'Added! ✓';
-                        btn.style.background = '#4CAF50';
-                        setTimeout(() => {
-                            btn.textContent = oldText;
-                            btn.style.background = '';
-                        }, 1200);
-                    }
+        // Update cart badge
+        function updateCartCount(cartData) {
+            const count = cartData?.item_count || 0;
+            const badge = el('#cartCount');
+            if (badge) {
+                if (count > 0) {
+                    badge.style.display = 'inline-block';
+                    badge.textContent = count;
+                } else {
+                    badge.style.display = 'none';
                 }
             }
         }
 
-        document.addEventListener('DOMContentLoaded', async () => {
-            createParticles();
-            animateOnScroll();
-            await loadProducts();
-            const r = await api('get_cart');
-            const d = await r.json();
-            if (d.ok) updateCartCount(d.cart || {});
-            window.addEventListener('scroll', () => { updateProgressBar(); animateOnScroll(); updateNav(); });
-            el('#floatingCart').addEventListener('click', () => {
-                window.location.href = 'cart.php';
+        // Add to cart function
+        async function addToCart(productId, qty) {
+            if (isAddingToCart) return false;
+            
+            try {
+                isAddingToCart = true;
+                console.log('Adding to cart:', { productId, qty }); // Debug
+                
+                const response = await api('add_to_cart', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ product_id: productId, qty })
+                });
+                
+                const data = await response.json();
+                console.log('Add to cart response:', data); // Debug
+                
+                if (data.ok) {
+                    updateCartCount(data.cart);
+                    showToast(`Added ${data.product?.name || 'item'} to cart!`, 'success');
+                    return { success: true, data };
+                } else {
+                    console.warn('Add to cart failed:', data.msg); // Debug
+                    showToast(data.msg || 'Error adding to cart. Check console for details.', 'error');
+                    return { success: false, msg: data.msg };
+                }
+            } catch (error) {
+                console.error('Error adding to cart:', error); // Debug
+                showToast('Network error: Could not connect to cart.php. Check server.', 'error');
+                return { success: false, msg: 'Network error' };
+            } finally {
+                isAddingToCart = false;
+            }
+        }
+
+        // View product details
+        function viewProduct(productId) {
+            const product = currentProduct || { id: productId, name: 'Product' };
+            alert(`Viewing details for ${product.name}\nProduct ID: ${productId}\n\nThis would open a detailed product modal!`);
+        }
+
+        // Quick action buttons
+        document.addEventListener('DOMContentLoaded', () => {
+            els('.quick-btn').forEach((btn, index) => {
+                btn.addEventListener('click', () => {
+                    const actions = [
+                        () => window.location.href = 'login.php',
+                        () => window.location.href = 'profile.php',
+                        () => alert('Reviews coming soon! ⭐'),
+                        () => alert('Share this page! 📤')
+                    ];
+                    actions[index % actions.length]?.();
+                });
             });
         });
+
+        // Modal functions
+        function openQuantityModal(productId, productName, stock, price) {
+            currentProduct = { id: productId, name: productName, stock, price };
+            
+            const modal = el('#quantityModal');
+            const productNameEl = el('#modalProductName');
+            const qtyInput = el('#quantityInput');
+            const stockInfo = el('#stockInfo');
+            const confirmBtn = el('#confirmBtn');
+            const qtyMinus = el('#qtyMinus');
+            const qtyPlus = el('#qtyPlus');
+            
+            // Update modal content
+            productNameEl.textContent = productName;
+            qtyInput.value = 1;
+            qtyInput.max = stock;
+            
+            // Update stock info
+            if (stock > 10) {
+                stockInfo.textContent = `📦 ${stock} items available`;
+                stockInfo.className = 'stock-info available';
+                confirmBtn.disabled = false;
+                qtyInput.disabled = false;
+                qtyMinus.disabled = false;
+                qtyPlus.disabled = false;
+            } else if (stock > 0) {
+                stockInfo.textContent = `⚠️ Only ${stock} items left!`;
+                stockInfo.className = 'stock-info low';
+                confirmBtn.disabled = false;
+                qtyInput.disabled = false;
+                qtyMinus.disabled = false;
+                qtyPlus.disabled = false;
+            } else {
+                stockInfo.textContent = '❌ Out of stock';
+                stockInfo.className = 'stock-info out-of-stock';
+                confirmBtn.disabled = true;
+                qtyInput.disabled = true;
+                qtyMinus.disabled = true;
+                qtyPlus.disabled = true;
+            }
+            
+            modal.style.display = 'flex';
+            qtyInput.focus();
+        }
+
+        function closeModal() {
+            const modal = el('#quantityModal');
+            modal.style.display = 'none';
+            currentProduct = null;
+            isAddingToCart = false;
+            
+            // Reset button states
+            const confirmBtn = el('#confirmBtn');
+            const qtyInput = el('#quantityInput');
+            const qtyMinus = el('#qtyMinus');
+            const qtyPlus = el('#qtyPlus');
+            
+            confirmBtn.textContent = 'Add to Cart';
+            confirmBtn.disabled = false;
+            confirmBtn.classList.remove('loading');
+            qtyInput.disabled = false;
+            qtyMinus.disabled = false;
+            qtyPlus.disabled = false;
+            qtyInput.value = 1;
+        }
+
+        function changeQty(delta) {
+            if (!currentProduct) return;
+            
+            const input = el('#quantityInput');
+            if (input.disabled) return;
+            
+            let value = parseInt(input.value) || 1;
+            value += delta;
+            
+            if (value < 1) value = 1;
+            if (value > currentProduct.stock) {
+                showToast(`Only ${currentProduct.stock} items available`, 'error');
+                value = currentProduct.stock;
+            }
+            
+            input.value = value;
+        }
+
+        async function confirmQty() {
+            if (!currentProduct || isAddingToCart) return;
+            
+            const qty = parseInt(el('#quantityInput').value);
+            if (qty < 1 || qty > currentProduct.stock) {
+                showToast('Invalid quantity', 'error');
+                return;
+            }
+            
+            const confirmBtn = el('#confirmBtn');
+            const originalText = confirmBtn.textContent;
+            confirmBtn.textContent = 'Adding...';
+            confirmBtn.classList.add('loading');
+            confirmBtn.disabled = true;
+            
+            const result = await addToCart(currentProduct.id, qty);
+            
+            if (result.success) {
+                closeModal();
+                pulseCart();
+                
+                // Update the add to cart button
+                const addBtn = document.querySelector(`.add-to-cart[data-id="${currentProduct.id}"]`);
+                if (addBtn) {
+                    const originalBtnText = addBtn.textContent;
+                    addBtn.textContent = `Added! ✓`;
+                    addBtn.classList.add('added');
+                    addBtn.disabled = true;
+                    
+                    setTimeout(() => {
+                        addBtn.textContent = originalBtnText;
+                        addBtn.classList.remove('added');
+                        addBtn.disabled = currentProduct.stock <= 0;
+                    }, 2000);
+                }
+            } else {
+                confirmBtn.textContent = 'Retry';
+                setTimeout(() => {
+                    confirmBtn.textContent = originalText;
+                    confirmBtn.disabled = false;
+                    confirmBtn.classList.remove('loading');
+                }, 2000);
+            }
+        }
+
+        // Cart pulse animation
+        function pulseCart() {
+            const cart = el('#floatingCart');
+            if (cart) {
+                cart.style.animation = 'none';
+                cart.offsetHeight;
+                cart.style.animation = 'pulse 0.5s ease';
+            }
+        }
+
+        // Toast notification
+        function showToast(message, type = 'info') {
+            const toast = el('#toast');
+            toast.textContent = message;
+            toast.className = `toast ${type}`;
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('Product page loaded'); // Debug
+            
+            // Initialize
+            createParticles();
+            animateOnScroll();
+            loadInitialCartCount();
+            
+            // Add to cart button listeners
+            els('.add-to-cart').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const productId = parseInt(btn.dataset.id);
+                    const productName = btn.dataset.name;
+                    const stock = parseInt(btn.dataset.stock);
+                    const price = parseFloat(btn.dataset.price);
+                    
+                    if (stock <= 0) {
+                        showToast('This product is out of stock', 'error');
+                        return;
+                    }
+                    
+                    openQuantityModal(productId, productName, stock, price);
+                });
+            });
+            
+            // Product card click (view details)
+            els('.product-card').forEach(card => {
+                card.addEventListener('click', (e) => {
+                    if (e.target.closest('.add-to-cart')) return;
+                    const productId = card.dataset.productId;
+                    viewProduct(productId);
+                });
+            });
+            
+            // Floating cart click
+            const floatingCart = el('#floatingCart');
+            if (floatingCart) {
+                floatingCart.addEventListener('click', () => {
+                    window.location.href = 'cart.php';
+                });
+            }
+            
+            // Modal backdrop click
+            const modal = el('#quantityModal');
+            if (modal) {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        closeModal();
+                    }
+                });
+            }
+            
+            // Keyboard support
+            document.addEventListener('keydown', (e) => {
+                if (el('#quantityModal').style.display === 'flex') {
+                    switch(e.key) {
+                        case 'Escape':
+                            closeModal();
+                            break;
+                        case 'Enter':
+                            if (!e.target.closest('.quantity-selector input')) {
+                                confirmQty();
+                            }
+                            break;
+                        case 'ArrowUp':
+                            changeQty(1);
+                            e.preventDefault();
+                            break;
+                        case 'ArrowDown':
+                            changeQty(-1);
+                            e.preventDefault();
+                            break;
+                    }
+                }
+            });
+            
+            // Scroll listeners
+            window.addEventListener('scroll', () => {
+                updateProgressBar();
+                animateOnScroll();
+                updateNav();
+            });
+        });
+
+        // Dynamic product loading (for AJAX refresh)
+        async function loadProducts() {
+            try {
+                const response = await fetch('?action=list_products');
+                const data = await response.json();
+                const grid = el('#productsGrid');
+                
+                if (data.products && data.products.length > 0) {
+                    grid.innerHTML = '';
+                    data.products.forEach(p => {
+                        const stock = parseInt(p.quantity);
+                        const stockClass = stock > 10 ? 'available' : (stock > 0 ? 'low' : 'out-of-stock');
+                        const stockText = stock > 0 ? `${stock} in stock` : 'Out of stock';
+                        
+                        const card = document.createElement('div');
+                        card.className = 'product-card';
+                        card.dataset.productId = p.id;
+                        card.innerHTML = `
+                            <div class="product-image">
+                                ${p.image_path ? 
+                                    `<img src="${p.image_path}" alt="${p.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                    <div style="display:none; align-items:center; justify-content:center; width:100%; height:100%;">🍰</div>` : 
+                                    '🍰'
+                                }
+                                <div class="stock-badge ${stockClass}">${stockText}</div>
+                            </div>
+                            <div class="product-info">
+                                <h3>${p.name}</h3>
+                                <p>${p.description || 'Delicious treat made with love'}</p>
+                                <div class="product-price">Rs${Number(p.price).toFixed(2)}</div>
+                                <button class="btn add-to-cart" 
+                                        data-id="${p.id}" 
+                                        data-name="${p.name}" 
+                                        data-stock="${stock}" 
+                                        data-price="${p.price}"
+                                        ${stock <= 0 ? 'disabled' : ''}>
+                                    ${stock > 0 ? 'Add to Cart' : 'Out of Stock'}
+                                </button>
+                            </div>`;
+                        
+                        // Add event listeners
+                        card.addEventListener('click', (e) => {
+                            if (e.target.closest('.add-to-cart')) return;
+                            viewProduct(p.id);
+                        });
+                        
+                        const addBtn = card.querySelector('.add-to-cart');
+                        addBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            openQuantityModal(p.id, p.name, stock, p.price);
+                        });
+                        
+                        grid.appendChild(card);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading products:', error);
+                showToast('Error loading products', 'error');
+            }
+        }
     </script>
 </body>
 </html>
