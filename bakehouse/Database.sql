@@ -257,7 +257,7 @@ CREATE TABLE `order_items` (
 
 
 -- ======================
--- 3) Stock-management + totals triggers
+--  Stock-management + totals triggers
 -- ======================
 -- Drop any existing triggers to make this idempotent
 DROP TRIGGER IF EXISTS before_order_items_insert;
