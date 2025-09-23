@@ -211,3 +211,69 @@ BEGIN
     VALUES (OLD.id, 'DELETE', OLD.date, OLD.customer, OLD.quantity, OLD.total, OLD.status, OLD.user);
 END //
 DELIMITER ;
+
+--suer--
+
+-- Drop existing triggers if they exist (to allow remaking)
+DROP TRIGGER IF EXISTS after_users_insert;
+DROP TRIGGER IF EXISTS after_users_update;
+DROP TRIGGER IF EXISTS after_users_delete;
+
+-- Drop the users_log table if it exists (to remake cleanly)
+DROP TABLE IF EXISTS users_log;
+
+-- Creating the users_log table
+CREATE TABLE IF NOT EXISTS users_log (
+    log_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    operation VARCHAR(50) NOT NULL,
+    full_name VARCHAR(255),
+    email VARCHAR(255),
+    mobile VARCHAR(20),
+    address TEXT,
+    district VARCHAR(100),
+    role ENUM('customer', 'admin', 'manager'),
+    date_joined DATE,
+    profile_picture VARCHAR(255),
+    last_login TIMESTAMP NULL,
+    log_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add foreign key constraint for referential integrity
+ALTER TABLE users_log
+ADD CONSTRAINT fk_users_log_user_id
+FOREIGN KEY (user_id) REFERENCES users(id)
+ON DELETE SET NULL;
+
+-- Trigger for INSERT operations
+DELIMITER //
+CREATE TRIGGER after_users_insert
+AFTER INSERT ON users
+FOR EACH ROW
+BEGIN
+    INSERT INTO users_log (user_id, operation, full_name, email, mobile, address, district, role, date_joined, profile_picture, last_login)
+    VALUES (NEW.id, 'INSERT', NEW.full_name, NEW.email, NEW.mobile, NEW.address, NEW.district, NEW.role, NEW.date_joined, NEW.profile_picture, NEW.last_login);
+END //
+DELIMITER ;
+
+-- Trigger for UPDATE operations
+DELIMITER //
+CREATE TRIGGER after_users_update
+AFTER UPDATE ON users
+FOR EACH ROW
+BEGIN
+    INSERT INTO users_log (user_id, operation, full_name, email, mobile, address, district, role, date_joined, profile_picture, last_login)
+    VALUES (NEW.id, 'UPDATE', NEW.full_name, NEW.email, NEW.mobile, NEW.address, NEW.district, NEW.role, NEW.date_joined, NEW.profile_picture, NEW.last_login);
+END //
+DELIMITER ;
+
+-- Trigger for DELETE operations
+DELIMITER //
+CREATE TRIGGER after_users_delete
+AFTER DELETE ON users
+FOR EACH ROW
+BEGIN
+    INSERT INTO users_log (user_id, operation, full_name, email, mobile, address, district, role, date_joined, profile_picture, last_login)
+    VALUES (OLD.id, 'DELETE', OLD.full_name, OLD.email, OLD.mobile, OLD.address, OLD.district, OLD.role, OLD.date_joined, OLD.profile_picture, OLD.last_login);
+END //
+DELIMITER ;
