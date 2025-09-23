@@ -18,37 +18,47 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (isset($_POST['action'])) {
         // ADD USER
         if ($_POST['action'] == 'add') {
-            $name       = mysqli_real_escape_string($conn, $_POST['fName']);
-            $email      = mysqli_real_escape_string($conn, $_POST['fEmail']);
-            $mobile     = mysqli_real_escape_string($conn, $_POST['fMobile']);
-            $address    = mysqli_real_escape_string($conn, $_POST['fAddress']);
-            $district   = mysqli_real_escape_string($conn, $_POST['fDistrict']);
-            $role       = mysqli_real_escape_string($conn, $_POST['fRole']);
-            $lastActive = mysqli_real_escape_string($conn, $_POST['fLastActive']);
-            $status     = mysqli_real_escape_string($conn, $_POST['fStatus']);
-            $password   = password_hash('default123', PASSWORD_DEFAULT); // Default password
+    $name = $_POST['fName'] ?? '';
+    $email = $_POST['fEmail'] ?? '';
+    $mobile = $_POST['fMobile'] ?? '';
+    $address = $_POST['fAddress'] ?? '';
+    $district = $_POST['fDistrict'] ?? '';
+    $role = $_POST['fRole'] ?? 'customer';
+    $lastActive = $_POST['fLastActive'] ?? '';
+    $status = $_POST['fStatus'] ?? '';
+    $password = password_hash('default123', PASSWORD_DEFAULT); // Default password
 
-            if (empty($lastActive)) {
-                $message = "⚠ Please select a date joined.";
-            } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                $message = "⚠ Please enter a valid email.";
+    if (empty($lastActive)) {
+        $message = "⚠ Please select a date joined.";
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $message = "⚠ Please enter a valid email.";
+    } else {
+        // Check if email exists
+        $sql = "SELECT id FROM users WHERE email = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($result->num_rows > 0) {
+            $message = "⚠ Email already exists.";
+        } else {
+            $sql = "INSERT INTO users (full_name, email, mobile, address, district, role, date_joined, status, password) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            $stmt = $conn->prepare($sql);
+            if ($stmt === false) {
+                $message = "❌ Prepare failed: " . $conn->error;
             } else {
-                $checkEmail = "SELECT id FROM users WHERE email = '$email'";
-                $result = $conn->query($checkEmail);
-                if ($result->num_rows > 0) {
-                    $message = "⚠ Email already exists.";
-                } else {
-                    $sql = "INSERT INTO users 
-                            (full_name, email, mobile, address, district, role, date_joined, status, password)
-                            VALUES 
-                            ('$name', '$email', '$mobile', '$address', '$district', '$role', '$lastActive', '$status', '$password')";
-                    if ($conn->query($sql) === TRUE) {
-                        $message = "✅ User added successfully.";
-                    } else {
-                        $message = "❌ Error: " . $conn->error;
-                    }
+                $stmt->bind_param("sssssssss", $name, $email, $mobile, $address, $district, $role, $lastActive, $status, $password);
+                try {
+                    $stmt->execute();
+                    $message = "✅ User added successfully.";
+                } catch (mysqli_sql_exception $e) {
+                    $message = "❌ Insert failed: " . $e->getMessage();
                 }
+                $stmt->close();
             }
+        }
+    }
 
         // UPDATE USER
         } elseif ($_POST['action'] == 'update') {
