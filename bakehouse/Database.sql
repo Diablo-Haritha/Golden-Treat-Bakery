@@ -501,10 +501,10 @@ DROP TRIGGER IF EXISTS after_users_delete;
 -- Drop the users_log table if it exists (to remake cleanly)
 DROP TABLE IF EXISTS users_log;
 
--- Creating the users_log table
+-- Create the users_log table
 CREATE TABLE IF NOT EXISTS users_log (
     log_id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT,
+    user_id INT NULL, -- Ensure user_id is nullable
     operation VARCHAR(50) NOT NULL,
     full_name VARCHAR(255),
     email VARCHAR(255),
@@ -516,7 +516,7 @@ CREATE TABLE IF NOT EXISTS users_log (
     profile_picture VARCHAR(255),
     last_login TIMESTAMP NULL,
     log_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+) ENGINE=InnoDB;
 
 -- Add foreign key constraint for referential integrity
 ALTER TABLE users_log
@@ -553,6 +553,12 @@ AFTER DELETE ON users
 FOR EACH ROW
 BEGIN
     INSERT INTO users_log (user_id, operation, full_name, email, mobile, address, district, role, date_joined, profile_picture, last_login)
-    VALUES (OLD.id, 'DELETE', OLD.full_name, OLD.email, OLD.mobile, OLD.address, OLD.district, OLD.role, OLD.date_joined, OLD.profile_picture, OLD.last_login);
+    VALUES (NULL, 'DELETE', OLD.full_name, OLD.email, OLD.mobile, OLD.address, OLD.district, OLD.role, OLD.date_joined, OLD.profile_picture, OLD.last_login);
 END //
 DELIMITER ;
+
+-- Ensure the users table is using InnoDB (required for triggers and foreign keys)
+ALTER TABLE users ENGINE=InnoDB;
+
+-- Clean up orphaned records in users_log
+UPDATE users_log SET user_id = NULL WHERE user_id IS NOT NULL AND user_id NOT IN (SELECT id FROM users);
