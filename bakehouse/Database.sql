@@ -19,16 +19,7 @@ CREATE TABLE users (
 );
 
 -- Orders table (new, to match profile_api.php assumptions)
-CREATE TABLE orders (
-    order_id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    product_name VARCHAR(255) NOT NULL,
-    order_date DATE NOT NULL,
-    status ENUM('pending', 'processing', 'shipped', 'delivered', 'cancelled') DEFAULT 'pending' NOT NULL,
-    total_amount DECIMAL(10, 2) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
+
 CREATE TABLE products (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -80,20 +71,308 @@ CREATE TABLE bill_items (
 -- ==============================
 -- Orders Table
 -- ==============================
-CREATE TABLE orders(
-  id INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
-  order_date DATE DEFAULT NULL,
-  customer VARCHAR(255) NOT NULL,
-  product VARCHAR(255) NOT NULL,
-  quantity INT(10) UNSIGNED NOT NULL DEFAULT 1,
-  status ENUM('Pending','Shipped','Cancelled','Returned') NOT NULL DEFAULT 'Pending',
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP(),
-  updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(),
-  PRIMARY KEY (id),
-  KEY idx_orders_order_date (order_date),
-  KEY idx_orders_customer (customer),
-  KEY idx_orders_status (status)
-)
+CREATE TABLE `orders` (
+  `id` int(11) NOT NULL,
+  `order_date` date NOT NULL,
+  `customer` varchar(100) NOT NULL,
+  `product` varchar(100) NOT NULL,
+  `quantity` int(11) NOT NULL DEFAULT 1,
+  `original_quantity` int(11) NOT NULL DEFAULT 0,
+  `price` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `original_price` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `status` enum('Order Received','Payment Confirmed','Queued for Baking','In Preparation','Decorating','Ready for Pickup','Out for Delivery','Completed','Cancelled','Refunded','Returned','Pending','Partially Returned') NOT NULL DEFAULT 'Order Received',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `mobile` varchar(32) DEFAULT NULL,
+  `deleted_at` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `orders`
+--
+INSERT INTO `orders` (`id`, `order_date`, `customer`, `product`, `quantity`, `original_quantity`, `price`, `original_price`, `status`, `created_at`, `updated_at`, `mobile`, `deleted_at`) VALUES
+(1, '2025-09-01', 'Alice Fernando', 'Chocolate Cake', 1, 1, 2500.00, 2500.00, 'Order Received', '2025-09-04 16:08:03', '2025-09-13 12:24:07', NULL, NULL),
+(2, '2025-09-02', 'Brian Silva', 'Blueberry Muffins (6 pack)', 2, 2, 1800.00, 1800.00, 'Payment Confirmed', '2025-09-04 16:08:03', '2025-09-13 12:24:07', NULL, NULL),
+(3, '2025-09-02', 'Chathuri Perera', 'Butter Croissant', 12, 12, 2400.00, 2400.00, 'Queued for Baking', '2025-09-04 16:08:03', '2025-09-13 12:24:07', NULL, NULL),
+(4, '2025-09-03', 'Dilshan Jayawardena', 'Vanilla Cupcakes (12 pack)', 1, 1, 2200.00, 2200.00, 'In Preparation', '2025-09-04 16:08:03', '2025-09-13 12:24:07', NULL, NULL),
+(6, '2025-09-03', 'Fathima Rahman', 'Strawberry Tart', 2, 2, 3000.00, 3000.00, 'Ready for Pickup', '2025-09-04 16:08:03', '2025-09-13 12:24:07', NULL, NULL),
+(7, '2025-09-04', 'Gihan Abeysekera', 'Fruit Loaf', 1, 1, 1500.00, 1500.00, 'Out for Delivery', '2025-09-04 16:08:03', '2025-09-13 12:24:07', NULL, NULL),
+(10, '2025-09-04', 'Janani De Silva', 'Brownies', 8, 8, 1600.00, 1600.00, 'Cancelled', '2025-09-04 16:08:03', '2025-09-15 12:37:23', NULL, NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `order_status_history`
+--
+
+CREATE TABLE `order_status_history` (
+  `id` int(11) NOT NULL,
+  `order_id` int(11) NOT NULL,
+  `old_status` varchar(64) DEFAULT NULL,
+  `new_status` varchar(64) DEFAULT NULL,
+  `changed_by` int(11) DEFAULT NULL,
+  `note` text DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `order_status_history`
+--
+
+-- Table structure for table `returns`
+CREATE TABLE `returns` (
+  `id` int(11) NOT NULL,
+  `order_id` int(11) NOT NULL,
+  `return_date` date DEFAULT NULL,
+  `quantity` int(11) DEFAULT NULL,
+  `reason` text DEFAULT NULL,
+  `refund_amount` decimal(12,2) DEFAULT NULL,
+  `processed_by` int(11) DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+--
+-- Table structure for table `sms_logs`
+--
+
+CREATE TABLE `sms_logs` (
+  `id` int(11) NOT NULL,
+  `order_id` int(11) NOT NULL,
+  `mobile` varchar(32) NOT NULL,
+  `message` text NOT NULL,
+  `status` enum('sent','failed','queued') NOT NULL DEFAULT 'queued',
+  `meta` text DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `sms_queue`
+--
+
+CREATE TABLE `sms_queue` (
+  `id` int(11) NOT NULL,
+  `order_id` int(11) DEFAULT NULL,
+  `mobile` varchar(32) NOT NULL,
+  `message` text NOT NULL,
+  `attempts` int(11) DEFAULT 0,
+  `next_try` datetime DEFAULT current_timestamp(),
+  `created_at` datetime DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 1) Create customers (id NOT AUTO_INCREMENT so later ALTER statements in dump can run)
+CREATE TABLE IF NOT EXISTS customers (
+  id INT(11) NOT NULL,
+  user_id INT(11) NOT NULL,
+  full_name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  mobile VARCHAR(32) DEFAULT NULL,
+  address TEXT DEFAULT NULL,
+  district VARCHAR(100) DEFAULT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  last_login TIMESTAMP NULL DEFAULT NULL,
+  UNIQUE KEY ux_customers_user_id (user_id),
+  KEY idx_customers_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Add FK (run once; will error if repeated and constraint exists)
+ALTER TABLE customers
+  ADD CONSTRAINT fk_customers_user_id
+  FOREIGN KEY (user_id) REFERENCES users(id)
+  ON DELETE CASCADE
+  ON UPDATE CASCADE;
+
+-- Idempotent triggers to sync users -> customers
+DELIMITER //
+DROP TRIGGER IF EXISTS trg_users_after_insert_customer;
+//
+DROP TRIGGER IF EXISTS trg_users_after_update_customer;
+//
+DROP TRIGGER IF EXISTS trg_users_after_delete_customer;
+//
+
+CREATE TRIGGER trg_users_after_insert_customer
+AFTER INSERT ON users
+FOR EACH ROW
+BEGIN
+  INSERT INTO customers (user_id, full_name, email, mobile, address, district, created_at, last_login)
+  VALUES (NEW.id, NEW.full_name, NEW.email, NEW.mobile, NEW.address, NEW.district, NOW(), NEW.last_login)
+  ON DUPLICATE KEY UPDATE
+    full_name = VALUES(full_name),
+    email = VALUES(email),
+    mobile = VALUES(mobile),
+    address = VALUES(address),
+    district = VALUES(district),
+    last_login = VALUES(last_login);
+END;
+//
+
+CREATE TRIGGER trg_users_after_update_customer
+AFTER UPDATE ON users
+FOR EACH ROW
+BEGIN
+  UPDATE customers
+  SET full_name = NEW.full_name,
+      email     = NEW.email,
+      mobile    = NEW.mobile,
+      address   = NEW.address,
+      district  = NEW.district,
+      last_login = NEW.last_login
+  WHERE user_id = NEW.id;
+END;
+//
+
+CREATE TRIGGER trg_users_after_delete_customer
+AFTER DELETE ON users
+FOR EACH ROW
+BEGIN
+  DELETE FROM customers WHERE user_id = OLD.id;
+END;
+//
+DELIMITER ;
+-- === 1) add user_id + total_amount to orders (nullable so legacy rows stay valid) ===
+ALTER TABLE `orders`
+  ADD COLUMN user_id INT(11) NULL AFTER id,
+  ADD COLUMN total_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER price;
+
+-- Add FK from orders.user_id -> users.id (user_id nullable so it won't break existing rows)
+ALTER TABLE `orders`
+  ADD CONSTRAINT fk_orders_user_id
+  FOREIGN KEY (user_id) REFERENCES users(id)
+  ON DELETE SET NULL
+  ON UPDATE CASCADE;
+
+
+-- === 2) create order_items (one row per product in an order) ===
+CREATE TABLE `order_items` (
+  `id` int(11) NOT NULL,
+  `order_id` int(11) NOT NULL,
+  `product_id` int(11) NOT NULL,
+  `product_name` varchar(255) NOT NULL,
+  `unit_price` decimal(10,2) NOT NULL,
+  `quantity` int(11) NOT NULL DEFAULT 1,
+  `line_total` decimal(12,2) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- ======================
+-- 3) Stock-management + totals triggers
+-- ======================
+-- Drop any existing triggers to make this idempotent
+DROP TRIGGER IF EXISTS before_order_items_insert;
+DROP TRIGGER IF EXISTS before_order_items_update;
+DROP TRIGGER IF EXISTS before_order_items_delete;
+DROP TRIGGER IF EXISTS after_order_items_insert;
+DROP TRIGGER IF EXISTS after_order_items_update;
+DROP TRIGGER IF EXISTS after_order_items_delete;
+
+DELIMITER //
+
+-- BEFORE INSERT: check product exists and has enough stock; decrement stock; set line_total
+CREATE TRIGGER before_order_items_insert
+BEFORE INSERT ON order_items
+FOR EACH ROW
+BEGIN
+  DECLARE avail INT;
+  SELECT quantity INTO avail FROM products WHERE id = NEW.product_id FOR UPDATE;
+  IF avail IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Product not found';
+  END IF;
+  IF NEW.quantity > avail THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Insufficient stock for product';
+  END IF;
+  UPDATE products SET quantity = quantity - NEW.quantity WHERE id = NEW.product_id;
+  SET NEW.line_total = NEW.unit_price * NEW.quantity;
+END;
+//
+
+-- BEFORE UPDATE: handle quantity/product changes and adjust stock accordingly; update line_total
+CREATE TRIGGER before_order_items_update
+BEFORE UPDATE ON order_items
+FOR EACH ROW
+BEGIN
+  DECLARE avail INT;
+  -- If product_id unchanged, adjust by difference
+  IF NEW.product_id = OLD.product_id THEN
+    SET @diff = NEW.quantity - OLD.quantity; -- positive => need more stock; negative => return stock
+    IF @diff > 0 THEN
+      SELECT quantity INTO avail FROM products WHERE id = NEW.product_id FOR UPDATE;
+      IF avail < @diff THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Insufficient stock to increase quantity';
+      END IF;
+      UPDATE products SET quantity = quantity - @diff WHERE id = NEW.product_id;
+    ELSEIF @diff < 0 THEN
+      -- restore the returned units
+      UPDATE products SET quantity = quantity - @diff WHERE id = NEW.product_id; -- diff negative => subtract negative => add
+    END IF;
+  ELSE
+    -- product changed: give back old.product qty, then reserve NEW.product qty
+    UPDATE products SET quantity = quantity + OLD.quantity WHERE id = OLD.product_id;
+    SELECT quantity INTO avail FROM products WHERE id = NEW.product_id FOR UPDATE;
+    IF avail IS NULL THEN
+      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'New product not found';
+    END IF;
+    IF NEW.quantity > avail THEN
+      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Insufficient stock for new product';
+    END IF;
+    UPDATE products SET quantity = quantity - NEW.quantity WHERE id = NEW.product_id;
+  END IF;
+  SET NEW.line_total = NEW.unit_price * NEW.quantity;
+END;
+//
+
+-- BEFORE DELETE: restore product stock
+CREATE TRIGGER before_order_items_delete
+BEFORE DELETE ON order_items
+FOR EACH ROW
+BEGIN
+  UPDATE products SET quantity = quantity + OLD.quantity WHERE id = OLD.product_id;
+END;
+//
+
+-- AFTER INSERT: add to orders.total_amount
+CREATE TRIGGER after_order_items_insert
+AFTER INSERT ON order_items
+FOR EACH ROW
+FOR EACH ROW
+BEGIN
+  UPDATE `orders` SET total_amount = COALESCE(total_amount,0) + NEW.line_total WHERE id = NEW.order_id;
+END;
+//
+
+-- AFTER UPDATE: adjust orders.total_amount by diff
+CREATE TRIGGER after_order_items_update
+AFTER UPDATE ON order_items
+FOR EACH ROW
+BEGIN
+  UPDATE `orders` SET total_amount = COALESCE(total_amount,0) + (NEW.line_total - OLD.line_total) WHERE id = NEW.order_id;
+  -- If the order_id changed (moved item between orders), also adjust the old order
+  IF OLD.order_id <> NEW.order_id THEN
+    UPDATE `orders` SET total_amount = COALESCE(total_amount,0) - OLD.line_total WHERE id = OLD.order_id;
+  END IF;
+END;
+//
+
+-- AFTER DELETE: subtract from orders.total_amount
+CREATE TRIGGER after_order_items_delete
+AFTER DELETE ON order_items
+FOR EACH ROW
+BEGIN
+  UPDATE `orders` SET total_amount = COALESCE(total_amount,0) - OLD.line_total WHERE id = OLD.order_id;
+END;
+//
+
+DELIMITER ;
+
+
+-- === Helpful SELECT to check an order with items ===
+-- SELECT o.id, o.order_date, o.customer, o.user_id, o.total_amount,
+--        oi.id AS item_id, oi.product_id, oi.product_name, oi.unit_price, oi.quantity, oi.line_total
+-- FROM `orders` o
+-- JOIN order_items oi ON oi.order_id = o.id
+-- WHERE o.id = 1;
+
 
 
 -- ==============================
