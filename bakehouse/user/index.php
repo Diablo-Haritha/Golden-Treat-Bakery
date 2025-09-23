@@ -86,13 +86,38 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         // DELETE USER
         } elseif ($_POST['action'] == 'delete') {
-            $id = (int)$_POST['id'];
-            $sql = "DELETE FROM users WHERE id=$id";
-            if ($conn->query($sql) === TRUE) {
-                $message = "🗑 User deleted successfully.";
-            } else {
-                $message = "❌ Error: " . $conn->error;
+    $id = (int)$_POST['id'];
+    if ($id > 0) {
+        $conn->begin_transaction();
+        try {
+            // Disable foreign key checks
+            $conn->query("SET FOREIGN_KEY_CHECKS = 0");
+
+            // Delete the user
+            $sql = "DELETE FROM users WHERE id = ?";
+            $stmt = $conn->prepare($sql);
+            if ($stmt === false) {
+                throw new Exception("Prepare failed: " . $conn->error);
             }
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            $stmt->close();
+
+            // Re-enable foreign key checks
+            $conn->query("SET FOREIGN_KEY_CHECKS = 1");
+
+            $conn->commit();
+            $message = "🗑 User deleted successfully.";
+        } catch (Exception $e) {
+            $conn->rollback();
+            $conn->query("SET FOREIGN_KEY_CHECKS = 1");
+            $message = "❌ Error: " . $e->getMessage();
+        }
+    } else {
+        $message = "❌ Invalid user ID.";
+    }
+
+
 
         // EXPORT CSV
         } elseif ($_POST['action'] == 'export_csv') {
