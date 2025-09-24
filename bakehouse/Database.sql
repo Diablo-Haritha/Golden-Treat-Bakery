@@ -417,79 +417,7 @@ CREATE TABLE otp (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---sales--
--- ===========================================
--- 1. SALES TABLE (your main sales records)
--- ===========================================
-CREATE TABLE IF NOT EXISTS sales (
-id INT AUTO_INCREMENT PRIMARY KEY,
-    date DATE NOT NULL,
-    customer VARCHAR(100),
-    quantity INT,
-    total DECIMAL(10,2),
-    status VARCHAR(50),
-    user VARCHAR(50)
-);
--- Drop existing triggers if they exist (to allow remaking)
-DROP TRIGGER IF EXISTS after_sales_insert;
-DROP TRIGGER IF EXISTS after_sales_update;
-DROP TRIGGER IF EXISTS after_sales_delete;
 
--- Drop the sales_log table if it exists (to remake cleanly)
-DROP TABLE IF EXISTS sales_log;
-
--- Creating the sales_log table
-CREATE TABLE IF NOT EXISTS sales_log (
-    log_id INT AUTO_INCREMENT PRIMARY KEY,
-    sale_id INT,
-    operation VARCHAR(50) NOT NULL,
-    date DATE,
-    customer VARCHAR(100),
-    quantity INT,
-    total DECIMAL(10,2),
-    status VARCHAR(50),
-    user VARCHAR(50),
-    log_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Add foreign key constraint for referential integrity
-ALTER TABLE sales_log
-ADD CONSTRAINT fk_sales_log_sale_id
-FOREIGN KEY (sale_id) REFERENCES sales(id)
-ON DELETE SET NULL;
-
--- Trigger for INSERT operations
-DELIMITER //
-CREATE TRIGGER after_sales_insert
-AFTER INSERT ON sales
-FOR EACH ROW
-BEGIN
-    INSERT INTO sales_log (sale_id, operation, date, customer, quantity, total, status, user)
-    VALUES (NEW.id, 'INSERT', NEW.date, NEW.customer, NEW.quantity, NEW.total, NEW.status, NEW.user);
-END //
-DELIMITER ;
-
--- Trigger for UPDATE operations
-DELIMITER //
-CREATE TRIGGER after_sales_update
-AFTER UPDATE ON sales
-FOR EACH ROW
-BEGIN
-    INSERT INTO sales_log (sale_id, operation, date, customer, quantity, total, status, user)
-    VALUES (NEW.id, 'UPDATE', NEW.date, NEW.customer, NEW.quantity, NEW.total, NEW.status, NEW.user);
-END //
-DELIMITER ;
-
--- Trigger for DELETE operations
-DELIMITER //
-CREATE TRIGGER after_sales_delete
-AFTER DELETE ON sales
-FOR EACH ROW
-BEGIN
-    INSERT INTO sales_log (sale_id, operation, date, customer, quantity, total, status, user)
-    VALUES (OLD.id, 'DELETE', OLD.date, OLD.customer, OLD.quantity, OLD.total, OLD.status, OLD.user);
-END //
-DELIMITER ;
 
 --user_log--
 
@@ -562,3 +490,89 @@ ALTER TABLE users ENGINE=InnoDB;
 
 -- Clean up orphaned records in users_log
 UPDATE users_log SET user_id = NULL WHERE user_id IS NOT NULL AND user_id NOT IN (SELECT id FROM users);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--Sales--
+CREATE TABLE IF NOT EXISTS sales (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  date DATE NOT NULL,
+  customer VARCHAR(100),
+  quantity INT,
+  total DECIMAL(10,2),
+  status VARCHAR(50),
+  user VARCHAR(50)
+) ENGINE=InnoDB;
+
+
+
+-- Drop old triggers / logs so we can recreate cleanly
+DROP TRIGGER IF EXISTS trg_sales_after_insert;
+DROP TRIGGER IF EXISTS trg_sales_after_update;
+DROP TRIGGER IF EXISTS trg_sales_before_delete;
+
+
+DROP TABLE IF EXISTS sales_log;
+
+-- Create log tables (no foreign-key constraints: keep log data immutable)
+CREATE TABLE sales_log (
+  log_id INT AUTO_INCREMENT PRIMARY KEY,
+  sale_id INT NULL,
+  operation VARCHAR(50) NOT NULL,
+  date DATE,
+  customer VARCHAR(100),
+  quantity INT,
+  total DECIMAL(10,2),
+  status VARCHAR(50),
+  user VARCHAR(50),
+  log_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- Triggers for sales
+DELIMITER $$
+CREATE TRIGGER trg_sales_after_insert AFTER INSERT ON sales
+FOR EACH ROW
+BEGIN
+  INSERT INTO sales_log (sale_id, operation, date, customer, quantity, total, status, user)
+  VALUES (NEW.id, 'INSERT', NEW.date, NEW.customer, NEW.quantity, NEW.total, NEW.status, NEW.user);
+END$$
+
+CREATE TRIGGER trg_sales_after_update AFTER UPDATE ON sales
+FOR EACH ROW
+BEGIN
+  INSERT INTO sales_log (sale_id, operation, date, customer, quantity, total, status, user)
+  VALUES (NEW.id, 'UPDATE', NEW.date, NEW.customer, NEW.quantity, NEW.total, NEW.status, NEW.user);
+END$$
+
+-- IMPORTANT: use BEFORE DELETE so the parent row still exists while we log it
+CREATE TRIGGER trg_sales_before_delete BEFORE DELETE ON sales
+FOR EACH ROW
+BEGIN
+  INSERT INTO sales_log (sale_id, operation, date, customer, quantity, total, status, user)
+  VALUES (OLD.id, 'DELETE', OLD.date, OLD.customer, OLD.quantity, OLD.total, OLD.status, OLD.user);
+END$$
+DELIMITER ;
