@@ -491,7 +491,7 @@ BEGIN
 END //
 DELIMITER ;
 
---suer--
+--user_log--
 
 -- Drop existing triggers if they exist (to allow remaking)
 DROP TRIGGER IF EXISTS after_users_insert;
