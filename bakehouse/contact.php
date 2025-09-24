@@ -1,6 +1,4 @@
 <?php
-// No session or cart functionality needed for About Us page
-
 $servername = "localhost";
 $username = "root";
 $password = "";
@@ -13,6 +11,34 @@ $conn = new mysqli($servername, $username, $password, $dbname);
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
+
+// Handle contact form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_contact'])) {
+    $name = trim(htmlspecialchars($_POST['name']));
+    $email = trim(htmlspecialchars($_POST['email']));
+    $message = trim(htmlspecialchars($_POST['message']));
+    
+    // Basic validation
+    if (empty($name) || empty($email) || empty($message)) {
+        $error = "All fields are required.";
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error = "Invalid email format.";
+    } else {
+        // Insert into contact_messages table
+        $stmt = $conn->prepare("INSERT INTO contact_messages (name, email, message, created_at) VALUES (?, ?, ?, NOW())");
+        if (!$stmt) {
+            $error = "Database error: " . $conn->error;
+        } else {
+            $stmt->bind_param("sss", $name, $email, $message);
+            if ($stmt->execute()) {
+                $success = "Thank you for your message! We'll get back to you soon.";
+            } else {
+                $error = "Failed to send message: " . $stmt->error;
+            }
+            $stmt->close();
+        }
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -20,7 +46,7 @@ if ($conn->connect_error) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Golden Treat - About Us</title>
+    <title>Golden Treat - Contact Us</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Dancing+Script:wght@400;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Righteous&display=swap" rel="stylesheet">
     <style>
@@ -275,13 +301,13 @@ if ($conn->connect_error) {
             border-radius: 2px;
         }
 
-        .about-content {
+        .contact-content {
             display: flex;
             flex-direction: column;
             gap: 40px;
         }
 
-        .about-story, .about-mission, .about-team {
+        .contact-form, .contact-info, .contact-map {
             background: var(--white);
             border-radius: 20px;
             padding: 30px;
@@ -289,60 +315,104 @@ if ($conn->connect_error) {
             transition: all 0.3s ease;
         }
 
-        .about-story:hover, .about-mission:hover, .about-team:hover {
+        .contact-form:hover, .contact-info:hover, .contact-map:hover {
             transform: translateY(-10px);
             box-shadow: var(--shadow-hover);
         }
 
-        .about-story p, .about-mission p {
+        .contact-form form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .contact-form label {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1rem;
+            color: var(--secondary);
+            font-weight: 600;
+        }
+
+        .contact-form input, .contact-form textarea {
+            padding: 10px;
+            border: 1px solid var(--accent);
+            border-radius: 10px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 1rem;
+            background: var(--light);
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        .contact-form input:focus, .contact-form textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 5px rgba(212, 175, 55, 0.5);
+        }
+
+        .contact-form textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .contact-form button {
+            padding: 12px 25px;
+            background: var(--primary);
+            color: var(--white);
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-family: 'Righteous', sans-serif;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .contact-form button:hover {
+            background: var(--gradient-1);
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .contact-form .message {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1rem;
+            text-align: center;
+            margin-top: 15px;
+        }
+
+        .contact-form .success {
+            color: #4CAF50;
+        }
+
+        .contact-form .error {
+            color: #D32F2F;
+        }
+
+        .contact-info p {
             font-family: 'Poppins', sans-serif;
             font-size: 1rem;
             line-height: 1.6;
             color: var(--dark);
-            margin-bottom: 20px;
-        }
-
-        .about-team-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 30px;
-            margin-top: 20px;
-        }
-
-        .team-member {
-            text-align: center;
-            background: var(--light);
-            border-radius: 20px;
-            padding: 20px;
-            box-shadow: var(--shadow);
-            transition: all 0.3s ease;
-        }
-
-        .team-member:hover {
-            transform: translateY(-5px);
-            box-shadow: var(--shadow-hover);
-        }
-
-        .team-member img {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            object-fit: cover;
             margin-bottom: 15px;
-            border: 3px solid var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        .team-member h3 {
-            font-family: 'Righteous', sans-serif;
+        .contact-info i {
             font-size: 1.2rem;
-            color: var(--secondary);
-            margin-bottom: 10px;
+            color: var(--primary);
         }
 
-        .team-member p {
-            font-family: 'Poppins', sans-serif;
-            font-size: 0.9rem;
-            color: var(--dark);
+        .contact-map {
+            text-align: center;
+        }
+
+        .contact-map img {
+            width: 100%;
+            max-height: 300px;
+            object-fit: cover;
+            border-radius: 10px;
+            border: 2px solid var(--accent);
         }
 
         .progress-bar {
@@ -368,7 +438,7 @@ if ($conn->connect_error) {
             justify-content: center;
             z-index: 10000;
             opacity: 1;
-            transition: opacity 0.05s ease;
+            transition: opacity 0.5s ease;
         }
 
         .loading.hidden {
@@ -401,17 +471,20 @@ if ($conn->connect_error) {
             .hero h1 {
                 font-size: 3rem;
             }
-            .about-story, .about-mission, .about-team {
+            .contact-form, .contact-info, .contact-map {
                 padding: 20px;
             }
-            .about-team-grid {
-                grid-template-columns: 1fr;
+            .contact-form input, .contact-form textarea {
+                font-size: 0.9rem;
+            }
+            .contact-info p {
+                font-size: 0.9rem;
             }
         }
     </style>
 </head>
 <body>
-    
+ 
     <!-- Progress bar -->
     <div class="progress-bar"></div>
     <!-- Animated particles -->
@@ -420,11 +493,11 @@ if ($conn->connect_error) {
     <!-- Navigation -->
     <nav>
         <ul>
-            <li><a href="index.php">Home</a></li>
+            <li><a href="#home">Home</a></li>
             <li><a href="product2.php">Products</a></li>
             <li><a href="untitled-1.php">Table booking</a></li>
-            <li><a href="#about">About</a></li>
-            <li><a href="profile.php">Contact</a></li>
+            <li><a href="about.php">About</a></li>
+            <li><a href="#contact">Contact</a></li>
         </ul>
     </nav>
 
@@ -433,45 +506,45 @@ if ($conn->connect_error) {
         <div class="cupcake-particles"></div>
         <div class="hero-content">
             <h1>
-                <span class="word word--golden">About</span>
+                <span class="word word--golden">Contact</span>
                 <span class="welcome-message">Welcome</span>
                 <span class="word word--treat">Us</span>
             </h1>
-            <p>Discover the story behind Golden Treat's delicious creations</p>
+            <p>Get in touch with Golden Treat for any inquiries or orders</p>
         </div>
     </section>
 
-    <!-- About Us Section -->
-    <section class="section" id="about">
-        <h2>Our Story</h2>
-        <div class="about-content">
-            <div class="about-story">
-                <p>Golden Treat was founded in 2010 with a simple mission: to bring joy through artisan baked goods. Starting as a small family bakery in the heart of the city, we’ve grown into a beloved destination for pastry lovers, all while staying true to our roots. Our recipes blend traditional techniques with innovative flavors, using only the finest ingredients sourced locally whenever possible.</p>
-                <p>Every cake, croissant, and cookie tells a story of craftsmanship, care, and community. From our signature chocolate éclairs to custom wedding cakes, we pour our hearts into every creation, ensuring each bite is a moment of delight.</p>
+    <!-- Contact Us Section -->
+    <section class="section" id="contact">
+        <h2>Contact Us</h2>
+        <div class="contact-content">
+            <div class="contact-form">
+                <h2>Send Us a Message</h2>
+                <form method="POST" action="">
+                    <label for="name">Name</label>
+                    <input type="text" id="name" name="name" placeholder="Your Name" required value="<?php echo isset($name) ? htmlspecialchars($name) : ''; ?>">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" placeholder="Your Email" required value="<?php echo isset($email) ? htmlspecialchars($email) : ''; ?>">
+                    <label for="message">Message</label>
+                    <textarea id="message" name="message" placeholder="Your Message" required><?php echo isset($message) ? htmlspecialchars($message) : ''; ?></textarea>
+                    <button type="submit" name="submit_contact">Send Message</button>
+                </form>
+                <?php if (isset($success)): ?>
+                    <p class="message success"><?php echo $success; ?></p>
+                <?php elseif (isset($error)): ?>
+                    <p class="message error"><?php echo $error; ?></p>
+                <?php endif; ?>
             </div>
-            <div class="about-mission">
-                <h2>Our Mission</h2>
-                <p>At Golden Treat, we believe in more than just baking. Our mission is to create moments of happiness, celebrate life’s special occasions, and foster a sense of community through our delicious offerings. We strive to maintain sustainability by partnering with local farmers and reducing waste, ensuring our treats are as kind to the planet as they are to your taste buds.</p>
+            <div class="contact-info">
+                <h2>Our Contact Details</h2>
+                <p><i>📍</i> 123 Sweet Street, Bakery City, BC 12345</p>
+                <p><i>📞</i> +1 (555) 123-4567</p>
+                <p><i>📧</i> contact@goldentreat.com</p>
+                <p><i>🕒</i> Mon-Sat: 8 AM - 8 PM, Sun: 10 AM - 6 PM</p>
             </div>
-            <div class="about-team">
-                <h2>Meet Our Team</h2>
-                <div class="about-team-grid">
-                    <div class="team-member">
-                        <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=140&q=80" alt="Team Member">
-                        <h3>Emma Baker</h3>
-                        <p>Head Pastry Chef</p>
-                    </div>
-                    <div class="team-member">
-                        <img src="https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=140&q=80" alt="Team Member">
-                        <h3>James Miller</h3>
-                        <p>Master Baker</p>
-                    </div>
-                    <div class="team-member">
-                        <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=140&q=80" alt="Team Member">
-                        <h3>Sarah Lee</h3>
-                        <p>Creative Director</p>
-                    </div>
-                </div>
+            <div class="contact-map">
+                <h2>Find Us</h2>
+                <img src="https://images.unsplash.com/photo-1561336313-0bd5e3b27a2b?auto=format&fit=crop&w=1200&q=80" alt="Map Placeholder">
             </div>
         </div>
     </section>
@@ -480,8 +553,7 @@ if ($conn->connect_error) {
         // Create falling cupcakes for hero section
         function createCupcakes() {
             const cupcakeContainer = document.querySelector('.cupcake-particles');
-            const items = ['🍪', '🍰', '🍩'];
-
+            const items = ['🍕', '🥐', '🥖'];
             for (let i = 0; i < 200; i++) {
                 const cupcake = document.createElement('div');
                 cupcake.className = 'cupcake';
@@ -493,7 +565,7 @@ if ($conn->connect_error) {
             }
         }
 
-        // Particles
+        // Create particles
         function createParticles() {
             const wrap = document.querySelector('.particles');
             for (let i = 0; i < 50; i++) {

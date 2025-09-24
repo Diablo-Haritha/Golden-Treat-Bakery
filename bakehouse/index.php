@@ -935,7 +935,7 @@ if(isset($_POST['add_featured'])){
             justify-content: center;
             z-index: 10000;
             opacity: 1;
-            transition: opacity 0.5s ease;
+            transition: opacity 0.005s ease;
         }
 
         .loading.hidden {
@@ -1000,7 +1000,7 @@ if(isset($_POST['add_featured'])){
 	background:linear-gradient(to bottom, #7d5d3b 5%, #634b30 100%);
 	background-color:#7d5d3b;
 	border-radius:27px;
-	border:5px solid #54381e;
+	border:5px solid #5C2E0E;
 	display:inline-block;
 	cursor:pointer;
 	color:#ffffff;
@@ -1039,7 +1039,7 @@ if(isset($_POST['add_featured'])){
             <li><a href="#home">Home</a></li>
             <li><a href="product2.php">Products</a></li>
             <li><a href="untitled-1.php">Table booking</a></li>
-            <li><a href="#about">About</a></li>
+            <li><a href="about.php">About</a></li>
             <li><a href="profile.php">Contact</a></li>
         </ul>
     </nav>
