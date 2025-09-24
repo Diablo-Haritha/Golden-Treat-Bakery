@@ -68,6 +68,7 @@ CREATE TABLE bill_items (
     FOREIGN KEY (bill_id) REFERENCES bills(id) ON DELETE CASCADE
 );
 
+
 -- ==============================
 -- Orders Table
 -- ==============================
