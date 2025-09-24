@@ -32,6 +32,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $bookingId = "BID1001";
         }
 
+        $today = date("Y-m-d");
+        if ($date < $today) {
+            echo json_encode(["ok" => false, "msg" => "Cannot book a table for a past date."]);
+            exit;
+        }
+
+        // Validate phone (exactly 10 digits, no other characters)
+if (!preg_match("/^\d{10}$/", $phone)) {
+    echo json_encode(["ok" => false, "msg" => "Phone number must be exactly 10 digits"]);
+    exit;
+}
         // Insert booking (status defaults to Pending)
         $stmt = $conn->prepare(
             "INSERT INTO bookings (bookingId, customerName, date, time, tableNumber, status) 
@@ -81,7 +92,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 <nav>
   <ul>
     <li><a href="index.php">Home</a></li>
-    <li><a href="#booking">Booking</a></li>
+            <li><a href="product2.php">Products</a></li>
+            <li><a href="untitled-1.php">Table booking</a></li>
+            <li><a href="#about">About</a></li>
+            <li><a href="profile.php">Contact</a></li>
   </ul>
 </nav>
 
@@ -95,7 +109,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
   <form id="bookingForm">
     <input type="text" id="name" placeholder="Full Name" required>
     <input type="email" id="email" placeholder="Email" required>
-    <input type="tel" id="phone" placeholder="Phone Number" required>
+    <input type="tel" name="reg-mobile" id="reg-mobile" placeholder="Mobile Number" required maxlength="10" minlength="10" pattern="\d{10}" title="Please enter exactly 10 digits" oninput="this.value=this.value.replace(/\D/g,'')">
     <input type="date" id="date" required>
     <input type="time" id="time" required>
     <select id="guests" required>
