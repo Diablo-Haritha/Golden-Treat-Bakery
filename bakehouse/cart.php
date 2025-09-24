@@ -1,19 +1,18 @@
 <?php
-// cart.php - adapted to your golden_treat DB schema (products.image, cart.user_id varchar)
-// Put this file in your project (replace existing cart.php). Adjust DB creds if needed.
-
+// cart.php - Unified cart backend + simple frontend UI
+// Drop-in replacement for your existing cart.php
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
 session_start();
 
-// Use session-based guest id (stored as string - matches cart.user_id varchar(100))
+// Ensure guest temp id
 if (!isset($_SESSION['temp_user_id'])) {
     $_SESSION['temp_user_id'] = uniqid('guest_', true);
 }
 $user_id = $_SESSION['temp_user_id'];
 
-// DB connection - update credentials as necessary
+// DB connection (adjust creds if needed)
 $servername = "localhost";
 $username = "root";
 $password = "";
@@ -21,6 +20,7 @@ $dbname = "golden_treat";
 
 $conn = new mysqli($servername, $username, $password, $dbname);
 if ($conn->connect_error) {
+    // If AJAX request, return JSON; otherwise show minimal HTML error
     if (isset($_GET['action'])) {
         header('Content-Type: application/json');
         echo json_encode(['ok' => false, 'msg' => 'DB connection failed: ' . $conn->connect_error]);
@@ -31,21 +31,22 @@ if ($conn->connect_error) {
 }
 $conn->set_charset("utf8mb4");
 
-// Read JSON body or fallback to $_POST
+// Helper: fetch raw input JSON or fallback to $_POST
 function get_json_input() {
     $input = file_get_contents('php://input');
     $data = json_decode($input, true);
     if (is_array($data)) return $data;
+    // fallback to form-encoded
     return $_POST ?: [];
 }
 
-// Summarize cart for a given user_id
+// Helper: cart summary
 function getCartSummary($conn, $user_id) {
     $items = [];
     $total = 0;
     $item_count = 0;
 
-    $sql = "SELECT c.product_id, c.quantity AS qty, p.name, p.price, p.image, p.quantity AS stock
+    $sql = "SELECT c.product_id, c.quantity AS qty, p.name, p.price, p.image_path, p.quantity AS stock
             FROM cart c
             JOIN products p ON c.product_id = p.id
             WHERE c.user_id = ?
@@ -62,9 +63,9 @@ function getCartSummary($conn, $user_id) {
             'name' => $row['name'],
             'qty' => intval($row['qty']),
             'price' => floatval($row['price']),
-            'line_total' => round($line_total, 2),
+            'line_total' => $line_total,
             'stock' => intval($row['stock']),
-            'image' => $row['image'] ?: null,
+            'image' => $row['image_path'] ?: null,
             'emoji' => '🍰'
         ];
         $total += $line_total;
@@ -80,15 +81,14 @@ function getCartSummary($conn, $user_id) {
     ];
 }
 
-// Handle AJAX actions
+// If AJAX action requested, handle and return JSON
 if (isset($_GET['action'])) {
     header('Content-Type: application/json; charset=utf-8');
     $action = $_GET['action'];
 
     try {
-        // list products (useful for product listing pages)
         if ($action === 'list_products') {
-            $sql = "SELECT id, name, description, price, quantity, image FROM products ORDER BY name";
+            $sql = "SELECT id, name, description, price, quantity, image_path FROM products ORDER BY name";
             $res = $conn->query($sql);
             $products = [];
             if ($res) {
@@ -98,12 +98,11 @@ if (isset($_GET['action'])) {
             exit;
         }
 
-        // add item(s) to cart
         if ($action === 'add_to_cart') {
             $data = get_json_input();
             $product_id = isset($data['product_id']) ? intval($data['product_id']) : (isset($data['id']) ? intval($data['id']) : 0);
+            // accept 'qty' or 'quantity'
             $qty = isset($data['qty']) ? intval($data['qty']) : (isset($data['quantity']) ? intval($data['quantity']) : 1);
-
             if ($product_id <= 0) {
                 echo json_encode(['ok'=>false, 'msg'=>'Invalid product id']);
                 exit;
@@ -113,8 +112,8 @@ if (isset($_GET['action'])) {
                 exit;
             }
 
-            // fetch product & stock (products.image, products.quantity)
-            $stmt = $conn->prepare("SELECT id, name, price, quantity, image FROM products WHERE id = ?");
+            // fetch product & stock
+            $stmt = $conn->prepare("SELECT id, name, price, quantity FROM products WHERE id = ?");
             if (!$stmt) { echo json_encode(['ok'=>false,'msg'=>'DB error: '.$conn->error]); exit; }
             $stmt->bind_param('i', $product_id);
             $stmt->execute();
@@ -129,17 +128,19 @@ if (isset($_GET['action'])) {
                 exit;
             }
 
-            // Check existing cart qty for this user/product
+            // Check existing cart qty
             $stmt = $conn->prepare("SELECT quantity FROM cart WHERE user_id = ? AND product_id = ?");
-            $current_qty = 0;
             if ($stmt) {
                 $stmt->bind_param('si', $user_id, $product_id);
                 $stmt->execute();
                 $r = $stmt->get_result();
+                $current_qty = 0;
                 if ($r && $r->num_rows > 0) {
                     $current_qty = intval($r->fetch_assoc()['quantity']);
                 }
                 $stmt->close();
+            } else {
+                $current_qty = 0;
             }
 
             $new_qty = $current_qty + $qty;
@@ -148,7 +149,7 @@ if (isset($_GET['action'])) {
                 exit;
             }
 
-            // Insert or update cart inside transaction
+            // Insert / update within transaction
             $conn->begin_transaction();
             try {
                 if ($current_qty > 0) {
@@ -172,7 +173,7 @@ if (isset($_GET['action'])) {
                     'ok' => true,
                     'msg' => 'Added to cart',
                     'cart' => $cart_data,
-                    'product' => ['id' => intval($product['id']), 'name' => $product['name'], 'price' => floatval($product['price']), 'image' => $product['image']]
+                    'product' => ['id' => $product['id'], 'name' => $product['name'], 'price' => floatval($product['price'])]
                 ]);
             } catch (Exception $e) {
                 $conn->rollback();
@@ -181,14 +182,12 @@ if (isset($_GET['action'])) {
             exit;
         }
 
-        // return current cart
         if ($action === 'get_cart') {
             $cart_data = getCartSummary($conn, $user_id);
             echo json_encode(['ok'=>true, 'cart' => $cart_data, 'user_id' => $user_id]);
             exit;
         }
 
-        // set cart quantity (update or delete if qty = 0)
         if ($action === 'set_cart_qty') {
             $data = get_json_input();
             $product_id = isset($data['id']) ? intval($data['id']) : (isset($data['product_id']) ? intval($data['product_id']) : 0);
@@ -202,7 +201,7 @@ if (isset($_GET['action'])) {
                 exit;
             }
 
-            // Check product stock
+            // Check stock for product
             $stmt = $conn->prepare("SELECT quantity FROM products WHERE id = ?");
             if (!$stmt) { echo json_encode(['ok'=>false,'msg'=>'DB error: '.$conn->error]); exit; }
             $stmt->bind_param('i', $product_id);
@@ -226,10 +225,12 @@ if (isset($_GET['action'])) {
                     if (!$stmt->execute()) throw new Exception('Failed delete: '.$stmt->error);
                     $stmt->close();
                 } else {
+                    // Try update
                     $stmt = $conn->prepare("UPDATE cart SET quantity = ? WHERE user_id = ? AND product_id = ?");
                     if (!$stmt) throw new Exception('DB prepare failed: '.$conn->error);
                     $stmt->bind_param('isi', $qty, $user_id, $product_id);
                     $stmt->execute();
+                    // If no rows updated, insert new
                     if ($stmt->affected_rows === 0) {
                         $stmt->close();
                         $stmt = $conn->prepare("INSERT INTO cart (user_id, product_id, quantity) VALUES (?, ?, ?)");
@@ -252,7 +253,6 @@ if (isset($_GET['action'])) {
             exit;
         }
 
-        // clear cart for this user
         if ($action === 'clear_cart') {
             $conn->begin_transaction();
             try {
@@ -281,7 +281,7 @@ if (isset($_GET['action'])) {
     }
 }
 
-// No action => render cart page with front-end JS that calls the endpoints above
+// If no action provided, render simple cart HTML page (the UI)
 ?>
 <!doctype html>
 <html lang="en">
@@ -289,13 +289,10 @@ if (isset($_GET['action'])) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Cart - Golden Treat</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
- integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"/>
-<link rel="stylesheet" href="css/style.css">
 <style>
     body{font-family:Arial,Helvetica,sans-serif;background:#fff8e6;color:#2c1810;padding:20px}
-    .wrap{max-width:980px;margin:80px auto 0}
+
+    .wrap{max-width:980px;margin:0 auto}
     h1{font-family: 'Poppins', sans-serif;color:#8b4513}
     .cart-empty{padding:40px;border:2px dashed #ffdca8;border-radius:10px;text-align:center;background:#fffdf7}
     .cart-items{display:flex;flex-direction:column;gap:12px;margin-top:20px}
@@ -308,33 +305,242 @@ if (isset($_GET['action'])) {
     .cart-summary{margin-top:20px;padding:16px;background:#fffaf0;border-radius:10px;border:1px solid #ffe8c4;text-align:right}
     input.qty{width:60px;padding:6px;border-radius:6px;border:1px solid #ffdca8}
     .small{font-size:0.9rem;color:#6b4b3a}
-    #sub-pages { max-width:980px;margin:20px auto; text-align:center }
-    .subpages_box { display:flex; gap:12px; justify-content:center; }
-    .subpage-btn { background:#f7c07b; color:#fff; padding:8px 12px; border-radius:6px; text-decoration:none; }
+
+ 
+
+    /* ✅ Move your nav styles here */
+    nav {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(20px);
+        border-radius: 50px;
+        padding: 10px 30px;
+        box-shadow: var(--shadow);
+        z-index: 1000;
+        transition: all 0.3s ease;
+    }
+
+    nav.scrolled {
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: var(--shadow-hover);
+    }
+
+    nav ul {
+        display: flex;
+        list-style: none;
+        gap: 30px;
+        align-items: center;
+    }
+
+    nav a {
+        text-decoration: none;
+        color: var(--dark);
+        font-weight: 500;
+        transition: all 0.3s ease;
+        position: relative;
+    }
+
+    nav a:hover {
+        color: var(--primary);
+        transform: translateY(-2px);
+    }
+
+    nav a::after {
+        content: '';
+        position: absolute;
+        bottom: -5px;
+        left: 0;
+        width: 0;
+        height: 2px;
+        background: var(--gradient-1);
+        transition: width 0.3s ease;
+    }
+
+    nav a:hover::after {
+        width: 100%;
+    }
 </style>
 </head>
 <body>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+N5gGL7jI1QKNpa+5aY3E9oUsggR2" crossorigin="anonymous"></script>
 
-<div id="navbar-placeholder"></div>
-
-<section id="sub-pages">
-  <div class="subpages_box">
-    <a href="order_edit.php" class="btn subpage-btn">Edit Orders</a>
-    <a href="order_tracking.php" class="btn subpage-btn">Track Order</a>
-    <a href="order_history.php" class="btn subpage-btn">History</a>
-  </div>
-</section>
-
+ <nav>
+        <ul>
+            <li><a href="#home">Home</a></li>
+            <li><a href="product2.php">Products</a></li>
+            <li><a href="untitled-1.php">Table booking</a></li>
+            <li><a href="#about">About</a></li>
+            <li><a href="profile.php">Orders</a></li>
+        </ul>
+    </nav>
 <div class="wrap">
     <h1>Your Cart</h1>
     <div id="cartContainer">
         <div class="cart-empty">Loading cart...</div>
     </div>
-    <p class="small">Tip: Click \"Add to Cart\" on the existing products page to add items here. This cart uses a session-based guest id.</p>
+    <p class="small">Tip: Click "Add to Cart" on the products page to add items here. This cart uses a session-based guest id.</p>
 </div>
 
-<div id="footer-placeholder"></div>
-<script src="js/script.js"></script>
+<script>
+const api = async (action, opts = {}) => {
+    const url = `?action=${action}`;
+    const defaultOpts = { credentials: 'same-origin' };
+    try {
+        const res = await fetch(url, { ...defaultOpts, ...opts });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return await res.json();
+    } catch (e) {
+        console.error('API error', e);
+        throw e;
+    }
+};
+
+function formatPrice(num) {
+    return Number(num).toFixed(2);
+}
+
+async function loadCart() {
+    const container = document.getElementById('cartContainer');
+    container.innerHTML = '<div class="cart-empty">Loading cart...</div>';
+    try {
+        const data = await api('get_cart');
+        if (!data.ok) throw new Error(data.msg || 'Failed to load cart');
+        const cart = data.cart;
+        if (!cart.items || cart.items.length === 0) {
+            container.innerHTML = `<div class="cart-empty">
+                <div style="font-size:48px">🛒</div>
+                <p>Your cart is empty.</p>
+                <p><a href="product.php">Continue shopping</a></p>
+            </div>`;
+            return;
+        }
+
+        // build cart UI
+        const itemsDiv = document.createElement('div');
+        itemsDiv.className = 'cart-items';
+        let total = 0;
+        cart.items.forEach(item => {
+            total += item.line_total;
+            const row = document.createElement('div');
+            row.className = 'cart-item';
+
+            const imgWrap = document.createElement('div');
+            if (item.image) {
+                const img = document.createElement('img');
+                img.src = item.image;
+                img.alt = item.name;
+                imgWrap.appendChild(img);
+            } else {
+                imgWrap.textContent = item.emoji || '🍰';
+                imgWrap.style.fontSize = '40px';
+            }
+
+            const info = document.createElement('div');
+            info.className = 'info';
+            info.innerHTML = `<strong>${item.name}</strong><div class="small">Price: Rs ${formatPrice(item.price)}</div>
+                              <div class="small">Stock: ${item.stock}</div>`;
+
+            const controls = document.createElement('div');
+            controls.className = 'controls';
+            const dec = document.createElement('button');
+            dec.textContent = '-';
+            dec.onclick = () => updateQty(item.id, Math.max(0, item.qty - 1));
+            const qtyInput = document.createElement('input');
+            qtyInput.type = 'number';
+            qtyInput.className = 'qty';
+            qtyInput.value = item.qty;
+            qtyInput.min = 0;
+            qtyInput.max = item.stock || 999;
+            qtyInput.onchange = (e) => {
+                let v = parseInt(e.target.value) || 0;
+                if (v < 0) v = 0;
+                if (v > (item.stock || 999)) v = item.stock || 999;
+                updateQty(item.id, v);
+            };
+            const inc = document.createElement('button');
+            inc.textContent = '+';
+            inc.onclick = () => updateQty(item.id, Math.min((item.stock || 999), item.qty + 1));
+            const remove = document.createElement('button');
+            remove.textContent = 'Remove';
+            remove.className = 'ghost';
+            remove.onclick = () => {
+                if (confirm('Remove item from cart?')) updateQty(item.id, 0);
+            };
+
+            const subtotal = document.createElement('div');
+            subtotal.className = 'small';
+            subtotal.style.marginLeft = '12px';
+            subtotal.innerHTML = `<strong>Subtotal:</strong> Rs ${formatPrice(item.line_total)}`;
+
+            controls.appendChild(dec);
+            controls.appendChild(qtyInput);
+            controls.appendChild(inc);
+            controls.appendChild(remove);
+            controls.appendChild(subtotal);
+
+            row.appendChild(imgWrap);
+            row.appendChild(info);
+            row.appendChild(controls);
+
+            itemsDiv.appendChild(row);
+        });
+
+        // summary
+        const summary = document.createElement('div');
+        summary.className = 'cart-summary';
+        summary.innerHTML = `<div><strong>Total:</strong> Rs ${formatPrice(cart.total)}</div>
+                             <div style="margin-top:8px">
+                               <button onclick="location.href='product.php'">Continue shopping</button>
+                               <button onclick="checkout()" style="margin-left:8px">Checkout</button>
+                               <button onclick="clearCart()" style="margin-left:8px;background:#8b4513">Clear cart</button>
+                             </div>`;
+
+        container.innerHTML = '';
+        container.appendChild(itemsDiv);
+        container.appendChild(summary);
+
+    } catch (err) {
+        container.innerHTML = `<div class="cart-empty">Error loading cart: ${err.message || err}</div>`;
+    }
+}
+
+async function updateQty(productId, qty) {
+    try {
+        await api('set_cart_qty', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ id: productId, qty: qty })
+        });
+        await loadCart();
+    } catch (e) {
+        alert('Update failed: ' + (e.message || e));
+    }
+}
+
+async function clearCart() {
+    if (!confirm('Clear entire cart?')) return;
+    try {
+        await api('clear_cart');
+        await loadCart();
+    } catch (e) {
+        alert('Clear failed: ' + (e.message || e));
+    }
+}
+
+function checkout() {
+    alert('Proceed to checkout (not implemented).');
+    // implement checkout flow here
+}
+
+// Load on DOM ready
+document.addEventListener('DOMContentLoaded', () => {
+    loadCart();
+});
+</script>
 </body>
 </html>
+<?php
+$conn->close();
+?>
