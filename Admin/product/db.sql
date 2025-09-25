@@ -80,28 +80,3 @@ INSERT INTO product_customizations (product_id, customization_id) VALUES
 (4, 4), (4, 5), (4, 6), (4, 7), (4, 8), (4, 9),
 -- Strawberry Tart (id=5)
 (5, 4), (5, 5), (5, 6), (5, 10);
-
-    // Create orders table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS orders (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        order_number VARCHAR(20) UNIQUE NOT NULL,
-        customer_name VARCHAR(255) NOT NULL,
-        customer_email VARCHAR(255) NOT NULL,
-        customer_phone VARCHAR(20),
-        total_amount DECIMAL(10, 2) NOT NULL,
-        status ENUM('pending', 'confirmed', 'preparing', 'ready', 'completed') DEFAULT 'pending',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    )");
-
-    // Create order_items table
-    $pdo->exec("CREATE TABLE IF NOT EXISTS order_items (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        order_id INT,
-        product_name VARCHAR(255) NOT NULL,
-        quantity INT NOT NULL,
-        unit_price DECIMAL(10, 2) NOT NULL,
-        customizations TEXT,
-        total_price DECIMAL(10, 2) NOT NULL,
-        FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
-    )");

@@ -128,6 +128,7 @@ function getCustomizationNames($pdo, $customizationIds) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Golden Treat Bakery - Freshly Baked Delights</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
     <style>
         :root {
             --primary: #8B4513;
@@ -485,6 +486,12 @@ function getCustomizationNames($pdo, $customizationIds) {
             position: relative;
             max-height: 80vh;
             overflow-y: auto;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {opacity: 0; transform: translateY(-20px);}
+            to {opacity: 1; transform: translateY(0);}
         }
 
         .customization-header {
@@ -522,6 +529,11 @@ function getCustomizationNames($pdo, $customizationIds) {
             padding: 10px;
             background: var(--light);
             border-radius: 8px;
+            transition: transform 0.2s;
+        }
+
+        .customization-option:hover {
+            transform: scale(1.02);
         }
 
         .customization-option input[type="checkbox"] {
@@ -570,6 +582,7 @@ function getCustomizationNames($pdo, $customizationIds) {
             position: relative;
             max-height: 80vh;
             overflow-y: auto;
+            animation: fadeIn 0.3s ease-in-out;
         }
 
         .cart-modal-header {
@@ -601,6 +614,11 @@ function getCustomizationNames($pdo, $customizationIds) {
             display: flex;
             padding: 15px 0;
             border-bottom: 1px solid var(--border);
+            transition: background 0.2s;
+        }
+
+        .cart-item:hover {
+            background: var(--light);
         }
 
         .cart-item-image {
@@ -655,6 +673,11 @@ function getCustomizationNames($pdo, $customizationIds) {
             cursor: pointer;
             font-size: 14px;
             margin-left: 15px;
+            transition: transform 0.2s;
+        }
+
+        .remove-item:hover {
+            transform: scale(1.05);
         }
 
         .cart-total {
@@ -758,6 +781,29 @@ function getCustomizationNames($pdo, $customizationIds) {
                 padding: 20px;
             }
         }
+
+        .quantity-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .quantity-selector button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .quantity-selector input {
+            width: 50px;
+            text-align: center;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
@@ -780,7 +826,7 @@ function getCustomizationNames($pdo, $customizationIds) {
     </header>
     
     <?php if (isset($cartMessage)): ?>
-    <div style="background: #d4edda; color: #155724; text-align: center; padding: 15px; margin: 20px 0;">
+    <div style="background: #d4edda; color: #155724; text-align: center; padding: 15px; margin: 20px 0;" class="animate__animated animate__fadeIn">
         <?php echo htmlspecialchars($cartMessage); ?>
     </div>
     <?php endif; ?>
@@ -855,8 +901,14 @@ function getCustomizationNames($pdo, $customizationIds) {
             </div>
             <form id="customization-form" method="POST">
                 <input type="hidden" id="custom-product-id" name="product_id">
-                <input type="hidden" id="custom-quantity" name="quantity" value="1">
                 <input type="hidden" name="add_to_cart" value="1">
+                
+                <div class="form-group quantity-selector">
+                    <label for="custom-quantity">Quantity</label>
+                    <button type="button" onclick="changeQuantity(-1)">-</button>
+                    <input type="number" id="custom-quantity" name="quantity" value="1" min="1">
+                    <button type="button" onclick="changeQuantity(1)">+</button>
+                </div>
                 
                 <div id="customization-options">
                     <!-- Customization options will be loaded here by JavaScript -->
@@ -872,7 +924,7 @@ function getCustomizationNames($pdo, $customizationIds) {
     
     <main>
         <section class="hero">
-            <div class="hero-content">
+            <div class="hero-content animate__animated animate__fadeInDown">
                 <h1>Freshly Baked Daily</h1>
                 <p>Artisanal pastries, cakes, and breads made with love</p>
                 <a href="#products" class="btn btn-primary">Shop Now</a>
@@ -881,18 +933,18 @@ function getCustomizationNames($pdo, $customizationIds) {
         
         <section class="all-products" id="products">
             <div class="container">
-                <h2 class="section-title"><i class="fas fa-cookie-bite"></i> Our Delicious Treats</h2>
+                <h2 class="section-title animate__animated animate__fadeIn"><i class="fas fa-cookie-bite"></i> Our Delicious Treats</h2>
                 <div class="products-grid">
                     <?php if (!empty($products)): ?>
-                        <?php foreach ($products as $product): ?>
-                            <div class="product-card <?php echo $product['is_daily_special'] ? 'special' : ''; ?>">
+                        <?php foreach ($products as $product): 
+                            $availableCustomizations = getAvailableCustomizations($pdo, $product['id']);
+                        ?>
+                            <div class="product-card <?php echo $product['is_daily_special'] ? 'special' : ''; ?> animate__animated animate__fadeIn">
                                 <?php if ($product['is_daily_special']): ?>
                                     <div class="product-badge">Daily Special</div>
                                 <?php endif; ?>
                                 
-                                <?php 
-                                $availableCustomizations = getAvailableCustomizations($pdo, $product['id']);
-                                if (!empty($availableCustomizations)): ?>
+                                <?php if (!empty($availableCustomizations)): ?>
                                     <div class="customizable-indicator">Customizable</div>
                                 <?php endif; ?>
                                 
@@ -927,13 +979,19 @@ function getCustomizationNames($pdo, $customizationIds) {
                                         <?php if (!empty($availableCustomizations)): ?>
                                             <button class="btn btn-add-to-cart customize-btn" 
                                                     data-product-id="<?php echo $product['id']; ?>"
-                                                    data-product-name="<?php echo htmlspecialchars($product['name']); ?>">
+                                                    data-product-name="<?php echo htmlspecialchars($product['name']); ?>"
+                                                    data-customizations='<?php echo htmlentities(json_encode($availableCustomizations)); ?>'>
                                                 <i class="fas fa-magic"></i> Customize & Add
                                             </button>
                                         <?php else: ?>
                                             <form method="POST" style="margin-top: 15px;">
                                                 <input type="hidden" name="product_id" value="<?php echo $product['id']; ?>">
-                                                <input type="hidden" name="quantity" value="1">
+                                                <div class="quantity-selector">
+                                                    <label>Quantity</label>
+                                                    <button type="button" onclick="changeQuantityNonCustom(-1, this)">-</button>
+                                                    <input type="number" name="quantity" value="1" min="1">
+                                                    <button type="button" onclick="changeQuantityNonCustom(1, this)">+</button>
+                                                </div>
                                                 <input type="hidden" name="add_to_cart" value="1">
                                                 <button type="submit" class="btn btn-add-to-cart">
                                                     <i class="fas fa-shopping-cart"></i> Add to Cart
@@ -992,6 +1050,7 @@ function getCustomizationNames($pdo, $customizationIds) {
         const customizationProductName = document.getElementById('customization-product-name');
         const customProductId = document.getElementById('custom-product-id');
         const customizationOptions = document.getElementById('customization-options');
+        const customQuantity = document.getElementById('custom-quantity');
         
         // Open cart modal
         cartIcon.addEventListener('click', () => {
@@ -1018,72 +1077,17 @@ function getCustomizationNames($pdo, $customizationIds) {
             button.addEventListener('click', function() {
                 const productId = this.dataset.productId;
                 const productName = this.dataset.productName;
+                const customizations = JSON.parse(this.dataset.customizations);
                 
                 // Populate modal
                 customizationProductName.textContent = productName;
                 customProductId.value = productId;
+                customQuantity.value = 1; // Reset quantity
                 
-                // Load customization options via AJAX
-                loadCustomizationOptions(productId);
+                displayCustomizationOptions(customizations);
+                customizationModal.style.display = 'block';
             });
         });
-        
-        function loadCustomizationOptions(productId) {
-            // In a real app, this would be an AJAX call
-            // For this demo, we'll use the data that's already available in the page
-            const productCards = document.querySelectorAll('.product-card');
-            let customizations = [];
-            
-            productCards.forEach(card => {
-                if (card.querySelector('.customize-btn') && 
-                    card.querySelector('.customize-btn').dataset.productId == productId) {
-                    // Extract customizations from the page structure
-                    // This is a workaround since we don't have AJAX in this single file
-                    // In a real app, you'd make an AJAX request to get customizations
-                }
-            });
-            
-            // For demo purposes, we'll use hardcoded data based on product ID
-            if (productId == 1) { // Chocolate Croissant
-                customizations = [
-                    {id: 1, name: 'Extra Chocolate', price: 0.75, category: 'Toppings'},
-                    {id: 2, name: 'Almond Topping', price: 0.50, category: 'Toppings'},
-                    {id: 6, name: 'Gluten-Free', price: 1.00, category: 'Dietary'},
-                    {id: 7, name: 'Vegan', price: 1.50, category: 'Dietary'}
-                ];
-            } else if (productId == 2) { // Blueberry Muffin
-                customizations = [
-                    {id: 3, name: 'Walnut Topping', price: 0.75, category: 'Toppings'},
-                    {id: 4, name: 'Sprinkles', price: 0.25, category: 'Toppings'},
-                    {id: 6, name: 'Gluten-Free', price: 1.00, category: 'Dietary'},
-                    {id: 8, name: 'Extra Large', price: 2.00, category: 'Size'}
-                ];
-            } else if (productId == 3) { // Cinnamon Roll
-                customizations = [
-                    {id: 1, name: 'Extra Chocolate', price: 0.75, category: 'Toppings'},
-                    {id: 3, name: 'Walnut Topping', price: 0.75, category: 'Toppings'},
-                    {id: 5, name: 'Chocolate Drizzle', price: 0.50, category: 'Toppings'},
-                    {id: 6, name: 'Gluten-Free', price: 1.00, category: 'Dietary'}
-                ];
-            } else if (productId == 4) { // Vanilla Cupcake
-                customizations = [
-                    {id: 4, name: 'Sprinkles', price: 0.25, category: 'Toppings'},
-                    {id: 5, name: 'Chocolate Drizzle', price: 0.50, category: 'Toppings'},
-                    {id: 6, name: 'Gluten-Free', price: 1.00, category: 'Dietary'},
-                    {id: 9, name: 'Birthday Message', price: 1.00, category: 'Special'}
-                ];
-            } else if (productId == 5) { // Strawberry Tart
-                customizations = [
-                    {id: 4, name: 'Sprinkles', price: 0.25, category: 'Toppings'},
-                    {id: 5, name: 'Chocolate Drizzle', price: 0.50, category: 'Toppings'},
-                    {id: 6, name: 'Gluten-Free', price: 1.00, category: 'Dietary'},
-                    {id: 10, name: 'Wedding Decoration', price: 3.00, category: 'Special'}
-                ];
-            }
-            
-            displayCustomizationOptions(customizations);
-            customizationModal.style.display = 'block';
-        }
         
         function displayCustomizationOptions(customizations) {
             if (customizations.length === 0) {
@@ -1109,7 +1113,7 @@ function getCustomizationNames($pdo, $customizationIds) {
                         <div class="customization-option">
                             <input type="checkbox" name="customizations[]" value="${cust.id}" id="cust-${cust.id}">
                             <label for="cust-${cust.id}" class="customization-name">${cust.name}</label>
-                            <span class="customization-price">+$${cust.price.toFixed(2)}</span>
+                            <span class="customization-price">+$${parseFloat(cust.price_adjustment).toFixed(2)}</span>
                         </div>
                     `;
                 });
@@ -1121,6 +1125,31 @@ function getCustomizationNames($pdo, $customizationIds) {
         
         cancelCustomization.addEventListener('click', () => {
             customizationModal.style.display = 'none';
+        });
+
+        // Quantity changer for customization modal
+        function changeQuantity(delta) {
+            let value = parseInt(customQuantity.value);
+            value = isNaN(value) ? 1 : value + delta;
+            customQuantity.value = Math.max(1, value);
+        }
+
+        // Quantity changer for non-custom products
+        function changeQuantityNonCustom(delta, button) {
+            const input = button.parentElement.querySelector('input[name="quantity"]');
+            let value = parseInt(input.value);
+            value = isNaN(value) ? 1 : value + delta;
+            input.value = Math.max(1, value);
+        }
+
+        // Add smooth scroll to products
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
         });
     </script>
 </body>

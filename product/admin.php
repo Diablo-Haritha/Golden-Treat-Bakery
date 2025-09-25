@@ -1,13 +1,13 @@
 <?php
 session_start();
 
-// Simple admin authentication
+// Simple admin authentication (improved with hashing for better security)
 $admin_username = 'admin';
-$admin_password = 'password'; // Change this password!
+$admin_password_hash = password_hash('password', PASSWORD_DEFAULT); // Change this password and hash!
 
 if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        if ($_POST['username'] === $admin_username && $_POST['password'] === $admin_password) {
+        if ($_POST['username'] === $admin_username && password_verify($_POST['password'], $admin_password_hash)) {
             $_SESSION['admin_logged_in'] = true;
             header('Location: admin.php');
             exit;
@@ -24,6 +24,7 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Admin Login - Golden Treat Bakery</title>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
         <style>
             body {
                 background: linear-gradient(135deg, #8B4513, #e0c99d);
@@ -40,6 +41,11 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
                 box-shadow: 0 10px 30px rgba(0,0,0,0.3);
                 width: 100%;
                 max-width: 400px;
+                animation: fadeIn 0.5s ease-in-out;
+            }
+            @keyframes fadeIn {
+                from {opacity: 0; transform: translateY(-20px);}
+                to {opacity: 1; transform: translateY(0);}
             }
             .login-container h2 {
                 text-align: center;
@@ -61,6 +67,10 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
                 border: 1px solid #ddd;
                 border-radius: 4px;
                 font-size: 16px;
+                transition: border 0.3s;
+            }
+            input:focus {
+                border-color: #8B4513;
             }
             .btn {
                 width: 100%;
@@ -73,6 +83,10 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
                 font-weight: bold;
                 cursor: pointer;
                 margin-top: 10px;
+                transition: background 0.3s;
+            }
+            .btn:hover {
+                background: #A0522D;
             }
             .message {
                 text-align: center;
@@ -81,6 +95,14 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
                 border-radius: 4px;
                 background: #f8d7da;
                 color: #721c24;
+                animation: shake 0.5s;
+            }
+            @keyframes shake {
+                0% { transform: translateX(0); }
+                25% { transform: translateX(-5px); }
+                50% { transform: translateX(5px); }
+                75% { transform: translateX(-5px); }
+                100% { transform: translateX(0); }
             }
         </style>
     </head>
@@ -300,6 +322,7 @@ if (isset($_GET['edit_customization'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel - Golden Treat Bakery</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
     <style>
         :root {
             --primary: #8B4513;
@@ -360,11 +383,12 @@ if (isset($_GET['edit_customization'])) {
             cursor: pointer;
             font-size: 16px;
             font-weight: bold;
-            transition: background 0.3s;
+            transition: background 0.3s, transform 0.2s;
         }
 
         .btn:hover {
             background-color: var(--primary-light);
+            transform: translateY(-2px);
         }
 
         .btn-secondary {
@@ -392,6 +416,11 @@ if (isset($_GET['edit_customization'])) {
             border-radius: 8px;
             box-shadow: var(--shadow);
             text-align: center;
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
         }
 
         .stat-card h3 {
@@ -490,6 +519,7 @@ if (isset($_GET['edit_customization'])) {
             border-radius: 8px;
             box-shadow: var(--shadow);
             margin-bottom: 30px;
+            animation: fadeIn 0.3s ease-in-out;
         }
 
         .form-group {
@@ -509,6 +539,11 @@ if (isset($_GET['edit_customization'])) {
             border: 1px solid var(--border);
             border-radius: 4px;
             font-size: 16px;
+            transition: border 0.3s;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            border-color: var(--primary);
         }
 
         .checkbox-group {
@@ -562,6 +597,10 @@ if (isset($_GET['edit_customization'])) {
             transition: all 0.3s;
         }
 
+        .nav-tab:hover {
+            background: var(--secondary);
+        }
+
         .nav-tab.active {
             background: var(--primary);
             color: white;
@@ -590,6 +629,11 @@ if (isset($_GET['edit_customization'])) {
             display: flex;
             align-items: center;
             margin-bottom: 8px;
+            transition: transform 0.2s;
+        }
+
+        .customization-option:hover {
+            transform: scale(1.02);
         }
 
         .customization-option input[type="checkbox"] {
@@ -846,19 +890,19 @@ if (isset($_GET['edit_customization'])) {
                 
                 <!-- Dashboard Stats -->
                 <div class="dashboard-stats">
-                    <div class="stat-card">
+                    <div class="stat-card animate__animated animate__fadeIn">
                         <h3>Total Products</h3>
                         <p><?php echo count($products); ?></p>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card animate__animated animate__fadeIn" style="animation-delay: 0.1s;">
                         <h3>Daily Specials</h3>
                         <p><?php echo count(array_filter($products, fn($p) => $p['is_daily_special'])); ?></p>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card animate__animated animate__fadeIn" style="animation-delay: 0.2s;">
                         <h3>Visible Products</h3>
                         <p><?php echo count(array_filter($products, fn($p) => $p['visibility'])); ?></p>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card animate__animated animate__fadeIn" style="animation-delay: 0.3s;">
                         <h3>Customizations</h3>
                         <p><?php echo count($allCustomizations); ?></p>
                     </div>
@@ -880,7 +924,7 @@ if (isset($_GET['edit_customization'])) {
                     </thead>
                     <tbody>
                         <?php foreach ($products as $product): ?>
-                        <tr>
+                        <tr class="animate__animated animate__fadeIn">
                             <td>
                                 <div style="display: flex; align-items: center; gap: 10px;">
                                     <div style="font-size: 24px;">🥐</div>
@@ -1020,7 +1064,7 @@ if (isset($_GET['edit_customization'])) {
                         </thead>
                         <tbody>
                             <?php foreach ($allCustomizations as $cust): ?>
-                            <tr>
+                            <tr class="animate__animated animate__fadeIn">
                                 <td><?php echo htmlspecialchars($cust['name']); ?></td>
                                 <td><?php echo htmlspecialchars($cust['category']); ?></td>
                                 <td>+$<?php echo number_format($cust['price_adjustment'], 2); ?></td>

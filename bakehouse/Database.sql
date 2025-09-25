@@ -421,6 +421,20 @@ CREATE TABLE otp (
 
 
 --user_log--
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    mobile VARCHAR(20) NOT NULL,
+    address TEXT NOT NULL,
+    district VARCHAR(100) NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    role ENUM('customer', 'admin', 'manager') DEFAULT 'customer' NOT NULL,
+    date_joined DATE NOT NULL,
+    profile_picture VARCHAR(255) DEFAULT NULL,
+    last_login TIMESTAMP NULL DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
 -- Drop existing triggers if they exist (to allow remaking)
 DROP TRIGGER IF EXISTS after_users_insert;

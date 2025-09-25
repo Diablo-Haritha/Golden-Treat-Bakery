@@ -244,7 +244,7 @@ $admins      = count(array_filter($users, fn($r) => $r['role'] === 'admin'));
         <p>User Management</p>
         <div class="salebtn">
           <button class="tab-btn active" onclick="window.location.href='index.php'">User Dashboard</button>
-          <button class="tab-btn" onclick="window.location.href='index2.php'">User SUM</button>
+          <button class="tab-btn" onclick="window.location.href='../users_log.php'">User SUM</button>
          <button class="tab-btn " onclick="window.location.href='index3.php'">User Analysis</button>
           
         </div>

@@ -87,7 +87,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action'])) {
                 $_SESSION['full_name'] = $row['full_name'];
 
                if (in_array($row['role'], ['admin', 'manager'])) {
-                    header("Location: adminproduct.php");
+                    header("Location: ../Admin/index.php");
                     exit();
                 } else {
                     header("Location: index.php");
@@ -289,7 +289,9 @@ $conn->close();
             align-items: center;
             position: relative;
         }
-
+    body {
+      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="%23D4AF37" opacity="0.5"/></svg>'), auto;
+    }
         .sprinkles {
             position: fixed;
             top: 0;

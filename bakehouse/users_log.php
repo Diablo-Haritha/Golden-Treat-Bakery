@@ -577,7 +577,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
                     <button class="tab-btn" onclick="window.location.href='../sales/index.php'">Booking Logs Management</button>
                     <button class="tab-btn" onclick="window.location.href='../sales/index2.php'">Stock Logs Management</button>
                     <button class="tab-btn active" onclick="window.location.href='user_logs.php'">User Logs Management</button>
-                    <button class="tab-btn" onclick="window.location.href='logs.php'">Sales Logs Management</button>
+                    <button class="tab-btn" onclick="window.location.href='./log.php'">Sales Logs Management</button>
                 </div>
             </nav>
         </aside>
