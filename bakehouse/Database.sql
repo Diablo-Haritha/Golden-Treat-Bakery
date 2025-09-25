@@ -106,7 +106,7 @@ INSERT INTO `orders` (`id`, `order_date`, `customer`, `product`, `quantity`, `or
 -- Table structure for table `order_status_history`
 --
 
-CREATE TABLE `order_status_history` (
+/*CREATE TABLE `order_status_history` (
   `id` int(11) NOT NULL,
   `order_id` int(11) NOT NULL,
   `old_status` varchar(64) DEFAULT NULL,
@@ -374,7 +374,7 @@ DELIMITER ;
 -- JOIN order_items oi ON oi.order_id = o.id
 -- WHERE o.id = 1;
 
-
+*/
 
 -- ==============================
 -- Stock Table
@@ -576,4 +576,5 @@ BEGIN
   INSERT INTO sales_log (sale_id, operation, date, customer, quantity, total, status, user)
   VALUES (OLD.id, 'DELETE', OLD.date, OLD.customer, OLD.quantity, OLD.total, OLD.status, OLD.user);
 END$$
+
 DELIMITER ;
