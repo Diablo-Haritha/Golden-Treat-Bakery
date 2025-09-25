@@ -135,15 +135,6 @@ CREATE TABLE `returns` (
 -- Table structure for table `sms_logs`
 --
 
-CREATE TABLE `sms_logs` (
-  `id` int(11) NOT NULL,
-  `order_id` int(11) NOT NULL,
-  `mobile` varchar(32) NOT NULL,
-  `message` text NOT NULL,
-  `status` enum('sent','failed','queued') NOT NULL DEFAULT 'queued',
-  `meta` text DEFAULT NULL,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -151,15 +142,6 @@ CREATE TABLE `sms_logs` (
 -- Table structure for table `sms_queue`
 --
 
-CREATE TABLE `sms_queue` (
-  `id` int(11) NOT NULL,
-  `order_id` int(11) DEFAULT NULL,
-  `mobile` varchar(32) NOT NULL,
-  `message` text NOT NULL,
-  `attempts` int(11) DEFAULT 0,
-  `next_try` datetime DEFAULT current_timestamp(),
-  `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 1) Create customers (id NOT AUTO_INCREMENT so later ALTER statements in dump can run)
 CREATE TABLE IF NOT EXISTS customers (
@@ -590,4 +572,7 @@ BEGIN
   INSERT INTO sales_log (sale_id, operation, date, customer, quantity, total, status, user)
   VALUES (OLD.id, 'DELETE', OLD.date, OLD.customer, OLD.quantity, OLD.total, OLD.status, OLD.user);
 END$$
+
 DELIMITER ;
+
+
