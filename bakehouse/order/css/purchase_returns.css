@@ -171,6 +171,10 @@
     .Ubtn {
       background: #30b6a2
     }
+    .viewBtn{
+        color: #fff;
+       background: var(--primary) 
+    }
 
     .Bbtn {
       background: #edcd00
@@ -203,11 +207,6 @@
       margin: 8px 0
     }
 
-    .sidebar p {
-      font-size: 12px;
-      color: #6b7280;
-      font-weight: 700
-    }
 
     /* Sales Management sub-tabs */
     .salebtn {
@@ -303,8 +302,9 @@
     .filter-bar select,
     .filter-bar button {
       padding: 8px;
-      border: 1px;
+      border: 1px ;
       border-radius: 8px;
+
     }
 
     .btn {
@@ -316,9 +316,8 @@
       background: var(--primary)
     }
 
-    .btn.secondary,.invoiceBtn {
-      background: #10b981;
-      color: #fff;
+    .btn.secondary {
+      background: #10b981
     }
 
     .btn.warn {
@@ -329,10 +328,7 @@
     .btn.danger {
       background: var(--danger)
     }
-    .viewBtn{
-        color: #fff;
-       background: var(--primary) 
-    }
+
     .btn.light {
       background: #e5e7eb;
       color: #111827;
@@ -458,7 +454,7 @@
       gap: 10px;
       margin-top: 12px
     }
-
+    
     /* Analysis */
     .chart-card {
       background: #fff;
@@ -539,7 +535,7 @@
     }
 
     .muted {
-      color: var(--muted);
+      color: var(--ink);
       font-size: 13px
     }
 
@@ -646,4 +642,5 @@
   .orderhistory.active {
     outline: 3px solid rgba(146, 48, 182, 0.35);
   }
-    
+
+  
