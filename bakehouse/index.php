@@ -379,7 +379,7 @@ if(isset($_POST['add_featured'])){
       --dark: #2C1810;
       --light: #FFF8F0;
       --white: #FFFFFF;
-      --gradient-1: linear-gradient(135deg, #D4AF37, #FFE5B4);
+      --gradient-1: linear-gradient(135deg, #271200ff, #FFE5B4);
       --gradient-2: linear-gradient(135deg, #8B4513, #D2691E);
       --shadow: 0 10px 30px rgba(212, 175, 55, 0.2);
       --shadow-hover: 0 15px 40px rgba(212, 175, 55, 0.3);

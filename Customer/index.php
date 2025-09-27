@@ -366,7 +366,7 @@ ob_end_flush();
             box-shadow: 0 2px 20px rgba(0,0,0,0.1);
             position: fixed;
             top:40px;
-            left:25%;
+            right:20px;
             z-index: 1000;
             transition: all 0.3s ease;
             border-radius: 5cm;
@@ -387,6 +387,7 @@ ob_end_flush();
             text-decoration: none;
             display: flex;
             align-items: center;
+            padding-right: 30px;
             gap: 10px;
         }
 
@@ -1083,9 +1084,60 @@ ob_end_flush();
                 text-align: center;
             }
         }
+        
+    .cartbtn {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      width: 70px;
+      height: 70px;
+      background: #241300ff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      z-index: 1000;
+      transition: all 0.3s ease;
+      animation: pulse 2s infinite;
+    }
+
+    .cartbtn:hover {
+      transform: scale(1.1);
+      box-shadow: var(--shadow-hover);
+    }
+
+    .cartbtn::before {
+      
+      font-size: 1.5rem;
+    }
+
+    @keyframes pulse {
+      0% {
+        box-shadow: var(--shadow);
+      }
+
+      50% {
+        box-shadow: var(--shadow-hover);
+      }
+
+      100% {
+        box-shadow: var(--shadow);
+      }
+    }
     </style>
 </head>
 <body>
+      <!-- Floating cart -->
+<div class="cartbtn">
+                <div class="header-actions">
+                    <div class="cart-icon" id="cart-icon">
+                        <i class="fas fa-shopping-cart"></i>
+                        <span class="cart-count"><?php echo $cartCount; ?></span>
+                    </div>
+                </div></div>
+
     <!-- Message Display -->
     <?php if (!empty($cartMessage)): ?>
         <div class="message <?php echo $messageType; ?> animated">
@@ -1108,11 +1160,11 @@ ob_end_flush();
                 <ul class="nav-links">
                   
                 </ul>
-                <div class="header-actions">
+               <!-- <div class="header-actions">
                     <div class="cart-icon" id="cart-icon">
                         <i class="fas fa-shopping-cart"></i>
                         <span class="cart-count"><?php echo $cartCount; ?></span>
-                    </div>
+                    </div>-->
                 </div>
             </nav>
         </div>
@@ -1274,14 +1326,14 @@ ob_end_flush();
             <div class="hero-content">
                 <h1 class="animated fadeIn">Freshly Baked Daily</h1>
                 <p class="animated fadeIn">Artisanal pastries, cakes, and breads made with love and the finest ingredients</p>
-                <a href="#products" class="btn btn-primary animated fadeIn">
-                    <i class="fas fa-arrow-down"></i> Home
+                <a href="../bakehouse/index.php" class="btn btn-primary animated fadeIn">
+                    <i class="fas fa-arrow-down" ></i> Home
                 </a>
                                 <a href="#products" class="btn btn-primary animated fadeIn">
                     <i class="fas fa-arrow-down"></i> Product
                 </a>
-                                <a href="#products" class="btn btn-primary animated fadeIn">
-                    <i class="fas fa-arrow-down" id="#About"></i> About
+                                <a href="#about" class="btn btn-primary animated fadeIn">
+                    <i class="fas fa-arrow-down"></i> About
                 </a>
             </div>
         </section>
