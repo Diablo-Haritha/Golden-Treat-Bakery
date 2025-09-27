@@ -289,13 +289,13 @@
     .toolbar {
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
+      gap: 5px;
       align-items: center
     }
 
     .filter-bar {
       display: flex;
-      gap: 10px;
+      gap: 5px;
       flex-wrap: wrap
     }
 
@@ -303,9 +303,8 @@
     .filter-bar select,
     .filter-bar button {
       padding: 8px;
-      border: 1px solid #d1d5db;
+      border: 1px;
       border-radius: 8px;
-      background: #fff
     }
 
     .btn {
@@ -317,8 +316,9 @@
       background: var(--primary)
     }
 
-    .btn.secondary {
-      background: #10b981
+    .btn.secondary,.invoiceBtn {
+      background: #10b981;
+      color: #fff;
     }
 
     .btn.warn {
@@ -329,7 +329,10 @@
     .btn.danger {
       background: var(--danger)
     }
-
+    .viewBtn{
+        color: #fff;
+       background: var(--primary) 
+    }
     .btn.light {
       background: #e5e7eb;
       color: #111827;
@@ -536,8 +539,9 @@
     }
 
     .muted {
-      color: var(--muted);
-      font-size: 13px
+      color: var(--ink);
+      font-size: 13px;
+
     }
 
     @media (max-width:1000px) {
@@ -643,5 +647,4 @@
   .orderhistory.active {
     outline: 3px solid rgba(146, 48, 182, 0.35);
   }
-
-  
+    

@@ -188,8 +188,12 @@ foreach ($rows as $r) {
 
           <div class="toolbar" >
             <form method="get" class="filter-bar">
+              <lable>From:
               <input type="date" name="from" value="<?= htmlspecialchars($from) ?>" />
+              </label>
+              <label>To:
               <input type="date" name="to" value="<?= htmlspecialchars($to) ?>" />
+              </label>
               <input type="text" name="customer" placeholder="Customer" value="<?= htmlspecialchars($customer) ?>" />
               <input type="number" name="order_id" placeholder="Order ID" value="<?= ($order_id ? (int)$order_id : '') ?>" />
               <input type="number" name="processed_by" placeholder="Processed by (admin id)" value="<?= ($processed_by ? (int)$processed_by : '') ?>" />

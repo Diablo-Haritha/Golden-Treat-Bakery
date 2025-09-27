@@ -192,8 +192,12 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
 
           <div class="toolbar">
             <form method="get"  class="filter-bar">
-              <input type="date" name="from" value="<?= htmlspecialchars($from ? substr($from,0,10) : '') ?>" />
-              <input type="date" name="to" value="<?= htmlspecialchars($to ? substr($to,0,10) : '') ?>" />
+              <label>From:
+                <input type="date" name="from" placeholder="Start date" value="<?= htmlspecialchars($from ? substr($from,0,10) : '') ?>" />
+              </label>
+              <label>To:
+                <input type="date" name="to" placeholder="End date" value="<?= htmlspecialchars($to ? substr($to,0,10) : '') ?>" />
+              </label>
               <input type="text" name="customer" placeholder="Customer" value="<?= htmlspecialchars($customer) ?>" />
               <input type="number" name="order_id" placeholder="Order ID" value="<?= ($order_id ? (int)$order_id : '') ?>" />
               <select name="status">
