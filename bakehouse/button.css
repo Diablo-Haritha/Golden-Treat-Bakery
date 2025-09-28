@@ -1,0 +1,1328 @@
+ /* 1. Golden Croissant Luxury */
+        .croissant-luxury {
+            background: linear-gradient(45deg, #FFD700, #FFA500, #FF8C00);
+            color: #8B4513;
+            padding: 18px 40px;
+            border: none;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 
+                0 10px 30px rgba(255, 215, 0, 0.3),
+                inset 0 2px 0 rgba(255, 255, 255, 0.3);
+            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+            margin: 8px;
+        }
+
+        .croissant-luxury::before {
+            content: '🥐';
+            position: absolute;
+            left: 20px;
+            opacity: 0;
+            transition: all 0.3s;
+            font-size: 20px;
+        }
+
+        .croissant-luxury:hover::before {
+            opacity: 1;
+            transform: rotate(10deg);
+        }
+
+        .croissant-luxury:hover {
+            transform: translateY(-8px) scale(1.05);
+            padding-left: 60px;
+            box-shadow: 
+                0 20px 50px rgba(255, 215, 0, 0.5),
+                inset 0 3px 0 rgba(255, 255, 255, 0.4);
+        }
+
+        /* 2. Artisan Bread Embossed */
+        .bread-embossed {
+            background: linear-gradient(135deg, #D2691E 0%, #CD853F 50%, #DEB887 100%);
+            color: white;
+            padding: 20px 45px;
+            border: 3px solid #8B4513;
+            border-radius: 15px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            position: relative;
+            box-shadow: 
+                0 8px 20px rgba(139, 69, 19, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 8px;
+        }
+
+        .bread-embossed::after {
+            content: '🍞';
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background: #8B4513;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            opacity: 0;
+            transform: scale(0);
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .bread-embossed:hover::after {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .bread-embossed:hover {
+            transform: translateY(-5px);
+            box-shadow: 
+                0 15px 35px rgba(139, 69, 19, 0.4),
+                inset 0 2px 0 rgba(255, 255, 255, 0.3);
+        }
+
+        /* 3. Pastry Chef's Choice */
+        .pastry-choice {
+            background: radial-gradient(ellipse at center, #F4A460 0%, #DEB887 100%);
+            color: #8B4513;
+            padding: 18px 40px;
+            border: 2px solid #CD853F;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s ease;
+            margin: 8px;
+        }
+
+        .pastry-choice::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transition: left 0.6s;
+        }
+
+        .pastry-choice::after {
+            content: '🧁 👨‍🍳';
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            opacity: 0;
+            transition: all 0.3s;
+        }
+
+        .pastry-choice:hover::before {
+            left: 100%;
+        }
+
+        .pastry-choice:hover::after {
+            opacity: 1;
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        .pastry-choice:hover {
+            background: radial-gradient(ellipse at center, #FFE4B5 0%, #F4A460 100%);
+            transform: translateY(-3px);
+            padding-right: 80px;
+        }
+
+        /* 4. Vintage Bakery Seal */
+        .vintage-seal {
+            background: linear-gradient(145deg, #8B4513, #A0522D);
+            color: #FFD700;
+            padding: 20px 40px;
+            border: none;
+            border-radius: 50%;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            position: relative;
+            width: 120px;
+            height: 120px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 
+                0 10px 25px rgba(139, 69, 19, 0.4),
+                inset 0 2px 0 rgba(255, 215, 0, 0.3);
+            transition: all 0.3s ease;
+            margin: 8px;
+        }
+
+        .vintage-seal::before {
+            content: '';
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            right: 5px;
+            bottom: 5px;
+            border: 2px dashed #FFD700;
+            border-radius: 50%;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .vintage-seal:hover::before {
+            opacity: 1;
+        }
+
+        .vintage-seal:hover {
+            transform: rotate(360deg) scale(1.1);
+            box-shadow: 
+                0 15px 40px rgba(139, 69, 19, 0.5),
+                0 0 30px rgba(255, 215, 0, 0.5);
+        }
+
+        /* 5. Sourdough Rustic */
+        .sourdough-rustic {
+            background: 
+                linear-gradient(45deg, #D2B48C 25%, transparent 25%),
+                linear-gradient(-45deg, #D2B48C 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #D2B48C 75%),
+                linear-gradient(-45deg, transparent 75%, #D2B48C 75%),
+                linear-gradient(135deg, #DEB887, #CD853F);
+            background-size: 20px 20px;
+            color: #8B4513;
+            padding: 18px 35px;
+            border: 3px solid #8B4513;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s ease;
+            text-transform: capitalize;
+            margin: 8px;
+        }
+
+        .sourdough-rustic:hover {
+            background-size: 30px 30px;
+            transform: translateY(-3px) rotate(1deg);
+            box-shadow: 0 10px 25px rgba(139, 69, 19, 0.3);
+        }
+
+        /* 6. Macaron Elegant */
+        .macaron-elegant {
+            background: linear-gradient(135deg, #FFB6C1, #FFC0CB, #FFCCCB);
+            color: #8B008B;
+            padding: 16px 35px;
+            border: none;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            position: relative;
+            box-shadow: 
+                0 5px 15px rgba(255, 192, 203, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.5);
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            margin: 8px;
+        }
+
+        .macaron-elegant::before {
+            content: '🌸';
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 18px;
+            opacity: 0;
+            transition: all 0.3s;
+        }
+
+        .macaron-elegant::after {
+            content: '🌸';
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 18px;
+            opacity: 0;
+            transition: all 0.3s;
+        }
+
+        .macaron-elegant:hover::before,
+        .macaron-elegant:hover::after {
+            opacity: 1;
+        }
+
+        .macaron-elegant:hover {
+            background: linear-gradient(135deg, #FFC0CB, #FFCCCB, #FFB6C1);
+            transform: translateY(-6px) scale(1.05);
+            padding: 16px 60px;
+            box-shadow: 
+                0 15px 30px rgba(255, 192, 203, 0.6),
+                inset 0 2px 0 rgba(255, 255, 255, 0.6);
+        }
+
+        /* 7. Chocolate Truffle */
+        .chocolate-truffle {
+            background: radial-gradient(circle at 30% 30%, #D2691E, #8B4513);
+            color: #FFEFD5;
+            padding: 20px 40px;
+            border: none;
+            border-radius: 20px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            box-shadow: 
+                0 8px 20px rgba(139, 69, 19, 0.4),
+                inset 0 2px 0 rgba(255, 239, 213, 0.3);
+            transition: all 0.3s ease;
+            overflow: hidden;
+            margin: 8px;
+        }
+
+        .chocolate-truffle::before {
+            content: '🍫✨';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            opacity: 0;
+            transition: all 0.3s;
+        }
+
+        .chocolate-truffle:hover::before {
+            opacity: 0.7;
+            transform: translate(-50%, -50%) scale(1.2);
+        }
+
+        .chocolate-truffle:hover {
+            background: radial-gradient(circle at 30% 30%, #CD853F, #A0522D);
+            transform: translateY(-4px);
+            box-shadow: 
+                0 15px 35px rgba(139, 69, 19, 0.5),
+                inset 0 3px 0 rgba(255, 239, 213, 0.4);
+        }
+
+        /* 8. Cinnamon Roll Swirl */
+        .cinnamon-swirl {
+            background: conic-gradient(from 0deg, #D2691E, #CD853F, #DEB887, #F4A460, #D2691E);
+            color: #8B4513;
+            padding: 18px 40px;
+            border: 2px solid #8B4513;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            animation: cinnamonSpin 8s linear infinite;
+            transition: all 0.3s ease;
+            margin: 8px;
+        }
+
+        @keyframes cinnamonSpin {
+            0% { background: conic-gradient(from 0deg, #D2691E, #CD853F, #DEB887, #F4A460, #D2691E); }
+            100% { background: conic-gradient(from 360deg, #D2691E, #CD853F, #DEB887, #F4A460, #D2691E); }
+        }
+
+        .cinnamon-swirl:hover {
+            animation-duration: 2s;
+            transform: scale(1.1);
+            box-shadow: 0 10px 30px rgba(139, 69, 19, 0.4);
+        }
+
+        /* 9. Danish Pastry Layers */
+        .danish-layers {
+            background: 
+                repeating-linear-gradient(
+                    45deg,
+                    #FFE4B5,
+                    #FFE4B5 5px,
+                    #DEB887 5px,
+                    #DEB887 10px
+                );
+            color: #8B4513;
+            padding: 18px 38px;
+            border: 2px solid #CD853F;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s ease;
+            margin: 8px;
+        }
+
+        .danish-layers:hover {
+            background: 
+                repeating-linear-gradient(
+                    45deg,
+                    #FFF8DC,
+                    #FFF8DC 3px,
+                    #F0E68C 3px,
+                    #F0E68C 6px
+                );
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(205, 133, 63, 0.3);
+        }
+
+        /* 10. Honey Drizzle */
+        .honey-drizzle {
+            background: linear-gradient(180deg, #FFD700 0%, #FFA500 100%);
+            color: #8B4513;
+            padding: 18px 40px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 20px rgba(255, 165, 0, 0.3);
+            transition: all 0.4s ease;
+            margin: 8px;
+        }
+
+        .honey-drizzle::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: 0;
+            width: 100%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transform: translateX(-100%) rotate(45deg);
+            transition: transform 0.8s;
+        }
+
+        .honey-drizzle::after {
+            content: '🍯';
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 20px;
+            opacity: 0;
+            transition: all 0.3s;
+        }
+
+        .honey-drizzle:hover::before {
+            transform: translateX(100%) rotate(45deg);
+        }
+
+        .honey-drizzle:hover::after {
+            opacity: 1;
+            transform: translateY(-50%) scale(1.2);
+        }
+
+        .honey-drizzle:hover {
+            background: linear-gradient(180deg, #FFFF99 0%, #FFD700 100%);
+            transform: translateY(-4px);
+            padding-right: 60px;
+        }
+
+        /* 11. Pretzel Twist */
+        .pretzel-twist {
+            background: linear-gradient(45deg, #D2B48C, #CD853F);
+            color: #FFFACD;
+            padding: 15px 35px;
+            border: 3px solid #8B4513;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            margin: 8px;
+        }
+
+        .pretzel-twist:hover {
+            transform: rotate(180deg) scale(1.1);
+            background: linear-gradient(45deg, #F4A460, #DEB887);
+            border-color: #FFFACD;
+            color: #8B4513;
+        }
+
+        /* 12. Baguette French */
+        .baguette-french {
+            background: linear-gradient(135deg, #F5DEB3, #D2B48C, #DEB887);
+            color: #8B4513;
+            padding: 12px 50px;
+            border: 2px solid #CD853F;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s ease;
+            font-family: 'Libre Baskerville', serif;
+            margin: 8px;
+        }
+
+        .baguette-french::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 10px;
+            right: 10px;
+            height: 2px;
+            background: #8B4513;
+            transform: translateY(-50%);
+            opacity: 0.3;
+        }
+
+        .baguette-french::after {
+            content: '';
+            position: absolute;
+            top: 30%;
+            left: 15px;
+            right: 15px;
+            height: 1px;
+            background: #8B4513;
+            opacity: 0.2;
+        }
+
+        .baguette-french:hover {
+            transform: scaleX(1.1);
+            background: linear-gradient(135deg, #FFFACD, #F5DEB3, #D2B48C);
+        }
+
+        /* 13. Donut Glaze */
+        .donut-glaze {
+            background: radial-gradient(circle at center, #FFB6C1 0%, #FF69B4 70%, #FF1493 100%);
+            color: white;
+            padding: 20px 20px;
+            border: none;
+            border-radius: 50%;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 80px;
+            height: 80px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            transition: all 0.3s ease;
+            margin: 8px;
+        }
+
+        .donut-glaze::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 25px;
+            height: 25px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.3s;
+        }
+
+        .donut-glaze:hover {
+            transform: rotate(360deg) scale(1.2);
+            box-shadow: 0 10px 30px rgba(255, 105, 180, 0.5);
+        }
+
+        .donut-glaze:hover::before {
+            width: 35px;
+            height: 35px;
+        }
+
+        /* 14. Muffin Top */
+        .muffin-top {
+            background: 
+                radial-gradient(ellipse 60% 40% at 50% 100%, #D2691E 0%, transparent 70%),
+                linear-gradient(135deg, #DEB887 0%, #CD853F 100%);
+            color: #8B4513;
+            padding: 25px 35px 15px 35px;
+            border: none;
+            border-radius: 50% 50% 20% 20%;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s ease;
+            margin: 8px;
+        }
+
+        .muffin-top::before {
+            content: '🫐';
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            opacity: 0.7;
+        }
+
+        .muffin-top:hover {
+            transform: translateY(-5px);
+            border-radius: 60% 60% 20% 20%;
+            box-shadow: 0 10px 25px rgba(139, 69, 19, 0.3);
+        }
+
+        /* 15. Wedding Cake Tier */
+        .wedding-tier {
+            background: 
+                linear-gradient(180deg, #FFFACD 0%, #FFFACD 33%, #F0F8FF 33%, #F0F8FF 66%, #FFE4E1 66%);
+            color: #8B008B;
+            padding: 25px 35px;
+            border: 2px solid #DDA0DD;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.4s ease;
+            margin: 8px;
+        }
+
+        .wedding-tier::before {
+            content: '👑';
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 20px;
+            opacity: 0;
+            transition: all 0.3s;
+        }
+
+        .wedding-tier:hover::before {
+            opacity: 1;
+            top: -20px;
+        }
+
+        .wedding-tier:hover {
+            transform: translateY(-8px);
+            background: 
+                linear-gradient(180deg, #FFFFF0 0%, #FFFFF0 33%, #F8F8FF 33%, #F8F8FF 66%, #FFF0F5 66%);
+            box-shadow: 0 15px 35px rgba(221, 160, 221, 0.4);
+        }
+
+        /* Button click effects */
+        @keyframes buttonPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(0.95); }
+            100% { transform: scale(1); }
+        }
+
+        button:active {
+            animation: buttonPulse 0.2s ease;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+            
+            .main-title {
+                font-size: 2.5rem;
+            }
+            
+            button {
+                font-size: 14px !important;
+                padding: 14px 28px !important;
+            }
+        }        /* 16. Steam Rising Bread */
+        .steam-bread {
+            background: linear-gradient(135deg, #DEB887 0%, #D2B48C 50%, #BC9A6A 100%);
+            color: #654321;
+            padding: 20px 45px;
+            border: none;
+            border-radius: 15px;
+            font-size: 17px;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.4s ease;
+            margin: 10px;
+            overflow: hidden;
+        }
+
+        .steam-bread::before {
+            content: '💨 💨 💨';
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            opacity: 0;
+            animation: steamRise 2s ease infinite;
+            transition: opacity 0.3s;
+        }
+
+        @keyframes steamRise {
+            0% { transform: translateX(-50%) translateY(0px) scale(1); opacity: 0; }
+            50% { transform: translateX(-50%) translateY(-10px) scale(1.2); opacity: 1; }
+            100% { transform: translateX(-50%) translateY(-20px) scale(0.8); opacity: 0; }
+        }
+
+        .steam-bread:hover::before {
+            opacity: 1;
+        }
+
+        .steam-bread:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(188, 154, 106, 0.4);
+        }
+
+        /* 17. Flour Dusted */
+        .flour-dusted {
+            background: 
+                radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.3) 2px, transparent 2px),
+                radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.2) 1px, transparent 1px),
+                radial-gradient(circle at 40% 70%, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+                linear-gradient(135deg, #F5DEB3, #DEB887);
+            color: #8B4513;
+            padding: 18px 40px;
+            border: 2px dotted #CD853F;
+            border-radius: 20px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s ease;
+            margin: 10px;
+        }
+
+        .flour-dusted::after {
+            content: '🌾';
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #8B4513;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            transform: rotate(-15deg);
+            animation: wheatSway 2s ease-in-out infinite;
+        }
+
+        @keyframes wheatSway {
+            0%, 100% { transform: rotate(-15deg); }
+            50% { transform: rotate(15deg); }
+        }
+
+        .flour-dusted:hover {
+            background: 
+                radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.5) 3px, transparent 3px),
+                radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.4) 2px, transparent 2px),
+                radial-gradient(circle at 40% 70%, rgba(255, 255, 255, 0.3) 2px, transparent 2px),
+                linear-gradient(135deg, #FFFACD, #F5DEB3);
+            transform: translateY(-3px);
+        }
+
+        /* 18. Oven Glow */
+        .oven-glow {
+            background: radial-gradient(ellipse at center, #FF4500 0%, #FF6347 30%, #8B4513 100%);
+            color: #FFFACD;
+            padding: 20px 42px;
+            border: 3px solid #B22222;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.4s ease;
+            margin: 10px;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+            box-shadow: 
+                0 0 20px rgba(255, 69, 0, 0.3),
+                inset 0 2px 0 rgba(255, 250, 205, 0.2);
+        }
+
+        .oven-glow::before {
+            content: '🔥';
+            position: absolute;
+            bottom: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 18px;
+            animation: flicker 1.5s ease-in-out infinite;
+        }
+
+        @keyframes flicker {
+            0%, 100% { opacity: 1; transform: translateX(-50%) scale(1); }
+            25% { opacity: 0.8; transform: translateX(-50%) scale(0.95); }
+            50% { opacity: 0.6; transform: translateX(-50%) scale(1.05); }
+            75% { opacity: 0.9; transform: translateX(-50%) scale(0.98); }
+        }
+
+        .oven-glow:hover {
+            background: radial-gradient(ellipse at center, #FF6347 0%, #FF7F50 30%, #A0522D 100%);
+            box-shadow: 
+                0 0 40px rgba(255, 69, 0, 0.6),
+                inset 0 3px 0 rgba(255, 250, 205, 0.3);
+            transform: translateY(-4px);
+        }
+
+        /* 19. Sugar Crystal */
+        .sugar-crystal {
+            background: 
+                linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.5) 30.5%, rgba(255,255,255,0.5) 36%, transparent 36.5%),
+                linear-gradient(-45deg, transparent 30%, rgba(255,255,255,0.3) 30.5%, rgba(255,255,255,0.3) 36%, transparent 36.5%),
+                linear-gradient(135deg, #E6E6FA, #DDA0DD, #DA70D6);
+            color: #8B008B;
+            padding: 18px 40px;
+            border: 2px solid #9370DB;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s ease;
+            margin: 10px;
+            box-shadow: 
+                0 8px 20px rgba(147, 112, 219, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.5);
+        }
+
+        .sugar-crystal::after {
+            content: '✨💎✨';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 14px;
+            opacity: 0;
+            transition: all 0.3s;
+        }
+
+        .sugar-crystal:hover::after {
+            opacity: 0.8;
+            animation: sparkle 1s ease infinite;
+        }
+
+        @keyframes sparkle {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.2); }
+        }
+
+        .sugar-crystal:hover {
+            background: 
+                linear-gradient(45deg, transparent 25%, rgba(255,255,255,0.7) 25.5%, rgba(255,255,255,0.7) 35%, transparent 35.5%),
+                linear-gradient(-45deg, transparent 25%, rgba(255,255,255,0.5) 25.5%, rgba(255,255,255,0.5) 35%, transparent 35.5%),
+                linear-gradient(135deg, #F8F8FF, #E6E6FA, #DDA0DD);
+            transform: translateY(-3px);
+        }
+
+        /* 20. Pie Crust */
+        .pie-crust {
+            background: 
+                radial-gradient(circle at 25% 25%, #CD853F 8%, transparent 8%),
+                radial-gradient(circle at 75% 75%, #D2B48C 6%, transparent 6%),
+                linear-gradient(135deg, #DEB887, #F4A460);
+            color: #8B4513;
+            padding: 20px 40px;
+            border: 4px ridge #CD853F;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            margin: 10px;
+        }
+
+        .pie-crust:hover {
+            transform: translateY(-6px) scale(1.05);
+            background: 
+                radial-gradient(circle at 25% 25%, #D2B48C 10%, transparent 10%),
+                radial-gradient(circle at 75% 75%, #DEB887 8%, transparent 8%),
+                linear-gradient(135deg, #F4A460, #FFEBCD);
+            box-shadow: 0 12px 30px rgba(205, 133, 63, 0.4);
+        }
+
+        /* 21. Cupcake Frosting */
+        .cupcake-frosting {
+            background: linear-gradient(180deg, #FFB6C1 0%, #FFC0CB 50%, #DEB887 100%);
+            color: #8B4513;
+            padding: 25px 35px 15px 35px;
+            border: none;
+            border-radius: 50% 50% 10% 10%;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            margin: 10px;
+            box-shadow: 0 8px 20px rgba(255, 182, 193, 0.3);
+        }
+
+        .cupcake-frosting::before {
+            content: '🍒';
+            position: absolute;
+            top: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 16px;
+            animation: cherryBounce 2s ease-in-out infinite;
+        }
+
+        @keyframes cherryBounce {
+            0%, 100% { transform: translateX(-50%) translateY(0px); }
+            50% { transform: translateX(-50%) translateY(-3px); }
+        }
+
+        .cupcake-frosting:hover {
+            transform: translateY(-8px) scale(1.1);
+            border-radius: 60% 60% 10% 10%;
+            background: linear-gradient(180deg, #FFCCCB 0%, #FFE4E1 50%, #F4A460 100%);
+            box-shadow: 0 15px 35px rgba(255, 182, 193, 0.5);
+        }
+
+        /* 22. Waffle Grid */
+        .waffle-grid {
+            background: 
+                linear-gradient(90deg, #CD853F 1px, transparent 1px),
+                linear-gradient(180deg, #CD853F 1px, transparent 1px),
+                linear-gradient(135deg, #DEB887, #F4A460);
+            background-size: 15px 15px, 15px 15px, 100% 100%;
+            color: #8B4513;
+            padding: 18px 40px;
+            border: 3px solid #8B4513;
+            border-radius: 15px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s ease;
+            margin: 10px;
+        }
+
+        .waffle-grid::after {
+            content: '🧈';
+            position: absolute;
+            top: 50%;
+            right: 15px;
+            transform: translateY(-50%);
+            font-size: 18px;
+            opacity: 0;
+            transition: all 0.3s;
+        }
+
+        .waffle-grid:hover::after {
+            opacity: 1;
+            transform: translateY(-50%) scale(1.2);
+        }
+
+        .waffle-grid:hover {
+            background-size: 12px 12px, 12px 12px, 100% 100%;
+            transform: translateY(-3px);
+            padding-right: 60px;
+            background: 
+                linear-gradient(90deg, #8B4513 1px, transparent 1px),
+                linear-gradient(180deg, #8B4513 1px, transparent 1px),
+                linear-gradient(135deg, #F4A460, #FFEBCD);
+        }
+
+        /* 23. Cookie Crumbs */
+        .cookie-crumbs {
+            background: 
+                radial-gradient(circle at 20% 30%, #8B4513 2px, transparent 2px),
+                radial-gradient(circle at 70% 20%, #A0522D 1px, transparent 1px),
+                radial-gradient(circle at 30% 80%, #CD853F 1px, transparent 1px),
+                radial-gradient(circle at 80% 70%, #D2691E 2px, transparent 2px),
+                linear-gradient(135deg, #190f00, #301b00);
+            color: #fff5eb;
+            padding: 10px;
+            padding-right: 20px;
+            padding-top: 5px;
+            padding-bottom: 5px;
+            border: 2px dashed #181412;
+            border-radius: 25px;
+            font-size: 20px;
+            font-weight: 800;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s ease;
+            margin: 10px;
+        }
+
+        .cookie-crumbs::before {
+            content: '🍪';
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background: #8b45130b;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            animation: cookieRotate 3s linear infinite;
+        }
+
+        @keyframes cookieRotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .cookie-crumbs:hover {
+            background: 
+       
+        linear-gradient(135deg, #ffeee74a, #D2B48C);
+            transform: translateY(-4px);
+            color: #301b00;
+        }
+        
+
+        /* 24. Caramel Drip */
+        .caramel-drip {
+            background: linear-gradient(180deg, #DAA520 0%, #B8860B 100%);
+            color: #FFFACD;
+            padding: 18px 40px;
+            border: none;
+            border-radius: 25px 25px 50% 50%;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.4s ease;
+            margin: 10px;
+            overflow: hidden;
+        }
+
+        .caramel-drip::before {
+            content: '';
+            position: absolute;
+            bottom: -20px;
+            left: 20%;
+            width: 8px;
+            height: 30px;
+            background: linear-gradient(180deg, #DAA520, #8B7355);
+            border-radius: 0 0 50% 50%;
+            animation: drip1 3s ease-in-out infinite;
+        }
+
+        .caramel-drip::after {
+            content: '';
+            position: absolute;
+            bottom: -15px;
+            right: 30%;
+            width: 6px;
+            height: 25px;
+            background: linear-gradient(180deg, #DAA520, #8B7355);
+            border-radius: 0 0 50% 50%;
+            animation: drip2 3s ease-in-out infinite 1s;
+        }
+
+        @keyframes drip1 {
+            0%, 100% { height: 30px; }
+            50% { height: 40px; }
+        }
+
+        @keyframes drip2 {
+            0%, 100% { height: 25px; }
+            50% { height: 35px; }
+        }
+
+        .caramel-drip:hover {
+            background: linear-gradient(180deg, #FFD700 0%, #DAA520 100%);
+            transform: translateY(-5px);
+            border-radius: 25px 25px 60% 60%;
+        }
+
+        /* 25. Meringue Swirl */
+        .meringue-swirl {
+            background: 
+                conic-gradient(from 0deg, #FFFACD, #F5F5DC, #FFFFF0, #FFFACD);
+            color: #8B4513;
+            padding: 20px 40px;
+            border: 2px solid #DEB887;
+            border-radius: 50%;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            width: 120px;
+            height: 120px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            animation: meringueSwirl 6s linear infinite;
+            transition: all 0.3s ease;
+            margin: 10px;
+            text-align: center;
+            box-shadow: 0 8px 20px rgba(222, 184, 135, 0.3);
+        }
+
+        @keyframes meringueSwirl {
+            0% { 
+                background: conic-gradient(from 0deg, #FFFACD, #F5F5DC, #FFFFF0, #FFFACD);
+            }
+            100% { 
+                background: conic-gradient(from 360deg, #FFFACD, #F5F5DC, #FFFFF0, #FFFACD);
+            }
+        }
+
+        .meringue-swirl:hover {
+            animation-duration: 2s;
+            transform: scale(1.1);
+            box-shadow: 0 12px 30px rgba(222, 184, 135, 0.5);
+        }
+
+        /* 26. Pancake Stack */
+        .pancake-stack {
+            background: 
+                linear-gradient(180deg, #DEB887 0%, #DEB887 20%, #8B4513 20%, #8B4513 22%, #D2B48C 22%, #D2B48C 42%, #8B4513 42%, #8B4513 44%, #DEB887 44%, #DEB887 64%, #8B4513 64%, #8B4513 66%, #D2B48C 66%);
+            color: #654321;
+            padding: 25px 35px;
+            border: none;
+            border-radius: 15px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s ease;
+            margin: 10px;
+        }
+
+        .pancake-stack::before {
+            content: '🥞';
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 20px;
+            filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));
+        }
+
+        .pancake-stack:hover {
+            transform: translateY(-6px) scale(1.05);
+            background: 
+                linear-gradient(180deg, #F4A460 0%, #F4A460 20%, #8B4513 20%, #8B4513 22%, #DEB887 22%, #DEB887 42%, #8B4513 42%, #8B4513 44%, #F4A460 44%, #F4A460 64%, #8B4513 64%, #8B4513 66%, #DEB887 66%);
+        }
+
+        /* 27. Candy Cane Stripe */
+        .candy-stripe {
+            background: 
+                repeating-linear-gradient(
+                    45deg,
+                    #FF69B4,
+                    #FF69B4 10px,
+                    #FFFFFF 10px,
+                    #FFFFFF 20px
+                );
+            color: #8B008B;
+            padding: 18px 40px;
+            border: 3px solid #FF1493;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s ease;
+            margin: 10px;
+            text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+        }
+
+        .candy-stripe:hover {
+            background: 
+                repeating-linear-gradient(
+                    45deg,
+                    #FFB6C1,
+                    #FFB6C1 8px,
+                    #FFFFFF 8px,
+                    #FFFFFF 16px
+                );
+            transform: translateY(-4px) scale(1.03);
+            animation: candyShimmer 1s ease infinite;
+        }
+
+        @keyframes candyShimmer {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.1); }
+        }
+
+        /* 28. Layered Cake */
+        .layered-cake {
+            background: 
+                linear-gradient(180deg, 
+                    #FFE4E1 0%, #FFE4E1 25%,
+                    #8B4513 25%, #8B4513 27%,
+                    #F0F8FF 27%, #F0F8FF 52%,
+                    #8B4513 52%, #8B4513 54%,
+                    #FFFACD 54%, #FFFACD 79%,
+                    #8B4513 79%, #8B4513 81%,
+                    #FFB6C1 81%
+                );
+            color: #8B008B;
+            padding: 30px 40px;
+            border: 3px solid #DDA0DD;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.4s ease;
+            margin: 10px;
+        }
+
+        .layered-cake::before {
+            content: '🕯️🕯️🕯️';
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            animation: candleFlicker 2s ease-in-out infinite;
+        }
+
+        @keyframes candleFlicker {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        .layered-cake:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 15px 40px rgba(221, 160, 221, 0.4);
+        }
+
+        /* 29. Bubble Tea */
+        .bubble-tea {
+            background: 
+                radial-gradient(circle at bottom, #8B4513 0%, #8B4513 20%, #DEB887 20%, #DEB887 80%, #F5DEB3 80%);
+            color: #654321;
+            padding: 25px 35px;
+            border: 3px solid #8B4513;
+            border-radius: 15px 15px 50px 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s ease;
+            margin: 10px;
+        }
+
+        .bubble-tea::before {
+            content: '';
+            position: absolute;
+            bottom: 10px;
+            left: 20%;
+            width: 8px;
+            height: 8px;
+            background: #8B4513;
+            border-radius: 50%;
+            box-shadow: 
+                15px 0 #8B4513,
+                30px 5px #654321,
+                45px 0 #8B4513,
+                10px -8px #654321;
+        }
+
+        .bubble-tea::after {
+            content: '🥤';
+            position: absolute;
+            top: -15px;
+            right: 10px;
+            font-size: 20px;
+            animation: bobbing 2s ease-in-out infinite;
+        }
+
+        @keyframes bobbing {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+        }
+
+        .bubble-tea:hover {
+            transform: translateY(-5px);
+            background: 
+                radial-gradient(circle at bottom, #A0522D 0%, #A0522D 20%, #F4A460 20%, #F4A460 80%, #FFFACD 80%);
+        }
+
+        /* 30. Ice Cream Cone */
+        .ice-cream {
+            background: 
+                linear-gradient(180deg, #FFB6C1 0%, #FFB6C1 60%, #DEB887 60%);
+            color: #8B4513;
+            padding: 25px 30px 15px 30px;
+            border: none;
+            border-radius: 50% 50% 10% 10%;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.4s ease;
+            margin: 10px;
+            overflow: hidden;
+        }
+
+        .ice-cream::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-left: 25px solid transparent;
+            border-right: 25px solid transparent;
+            border-top: 40px solid #DEB887;
+            transform: translateX(-50%);
+            z-index: -1;
+        }
+
+        .ice-cream::after {
+            content: '🍨';
+            position: absolute;
+            top: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 16px;
+            animation: melt 3s ease-in-out infinite;
+        }
+
+        @keyframes melt {
+            0%, 100% { transform: translateX(-50%) translateY(0px); }
+            50% { transform: translateX(-50%) translateY(2px); }
+        }
+
+        .ice-cream:hover {
+            transform: translateY(-6px);
+            background: linear-gradient(180deg, #FFC0CB 0%, #FFC0CB 60%, #F4A460 60%);
+            border-radius: 60% 60% 10% 10%;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+            
+            .main-title {
+                font-size: 3.5rem;
+            }
+            
+            button {
+                font-size: 14px !important;
+                padding: 14px 28px !important;
+                margin: 8px 5px !important;
+            }
+            
+            .vintage-seal, .meringue-swirl {
+                width: 100px !important;
+                height: 100px !important;
+            }
+        }

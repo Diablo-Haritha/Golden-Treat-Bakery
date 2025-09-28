@@ -189,6 +189,7 @@ if(isset($_POST['add_featured'])){
     href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Dancing+Script:wght@400;700&display=swap"
     rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Righteous&display=swap" rel="stylesheet">
+  <link href="button.css" rel="stylesheet">
   <style>
     .modal {
       display: none;
@@ -379,7 +380,7 @@ if(isset($_POST['add_featured'])){
       --dark: #2C1810;
       --light: #FFF8F0;
       --white: #FFFFFF;
-      --gradient-1: linear-gradient(135deg, #271200ff, #FFE5B4);
+      --gradient-1: linear-gradient(135deg, #321a00ff, #FFE5B4);
       --gradient-2: linear-gradient(135deg, #8B4513, #D2691E);
       --shadow: 0 10px 30px rgba(212, 175, 55, 0.2);
       --shadow-hover: 0 15px 40px rgba(212, 175, 55, 0.3);
@@ -497,7 +498,7 @@ if(isset($_POST['add_featured'])){
     }
 
     nav a:hover {
-      color: var(--primary);
+      color:#2C1810;
       transform: translateY(-2px);
     }
 
@@ -787,10 +788,9 @@ if(isset($_POST['add_featured'])){
       position: fixed;
       bottom: 30px;
       right: 30px;
-      width: 70px;
-      height: 70px;
-      background: var(--gradient-1);
-      border-radius: 50%;
+     
+     
+
       display: flex;
       align-items: center;
       justify-content: center;
@@ -807,8 +807,8 @@ if(isset($_POST['add_featured'])){
     }
 
     .floating-cart::before {
-      content: '🛒';
-      font-size: 1.5rem;
+      
+      
     }
 
     @keyframes pulse {
@@ -983,46 +983,62 @@ if(isset($_POST['add_featured'])){
       position: fixed;
       top: 10px;
       right: 30px;
-      width: 70px;
+      
 
-      background: var(--gradient-1);
+  
 
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: var(--shadow);
-      cursor: pointer;
+  
       z-index: 1000;
-      transition: all 0.3s ease;
-      animation: pulse 2s infinite;
+      
     }
 
-    .myButton {
-      box-shadow: inset 0px 1px 0px 0px #a6827e;
-      background: linear-gradient(to bottom, #7d5d3b 5%, #634b30 100%);
-      background-color: #7d5d3b;
-      border-radius: 27px;
-      border: 5px solid #5C2E0E;
-      display: inline-block;
-      cursor: pointer;
-      color: #ffffff;
-      font-family: Verdana;
-      font-size: 17px;
-      font-weight: bold;
-      padding: 10px 20px;
-      text-decoration: none;
-      text-shadow: 0px 5px 13px #4d3534;
-    }
+   .myButton {
+    display: inline-block;
+    padding: 12px 24px;
+    font-family: 'Arial', sans-serif;
+    font-size: 18px;
+    font-weight: bold;
+    color: #fff;
+    text-align: center;
+    text-decoration: none;
+    background: linear-gradient(135deg, #f1c40f 0%, #e67e22 100%);
+    border: 3px solid #d35400;
+    border-radius: 30px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
 
-    .myButton:hover {
-      background: linear-gradient(to bottom, #634b30 5%, #7d5d3b 100%);
-      background-color: #634b30;
-    }
+.myButton:hover {
+    background: linear-gradient(135deg, #e67e22 0%, #f1c40f 100%);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    transform: translateY(-2px) scale(1.05);
+}
 
-    .myButton:active {
-      position: relative;
-      top: 1px;
-    }
+.myButton:active {
+    transform: translateY(1px) scale(0.98);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.myButton::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.4s ease, height 0.4s ease;
+}
+
+.myButton:hover::after {
+    width: 200px;
+    height: 200px;
+}
   </style>
 </head>
 
@@ -1054,16 +1070,19 @@ if(isset($_POST['add_featured'])){
     <div class="quick-btn" title="Profile">👤</div>
     <div class="quick-btn" title="Reviews">⭐</div>
     <div class="quick-btn" title="Share">📤</div>
+                
+              
   </div>
 
   <!-- Floating cart -->
   <div class="floating-cart" id="floatingCart">
-    <span class="cart-badge" id="cartCount" style="display:none">0</span>
+   <?php include 'animation1.html'; ?>
 
   </div>
   <!-- Floating cart -->
   <div class="loginbtn" id="floatingCart">
-    <a href="login.php" class="myButton">Login</a>
+                 
+  <button onclick="window.location.href='./login.php';" class="cookie-crumbs" >Login</button>
 
 
 
@@ -1082,114 +1101,18 @@ if(isset($_POST['add_featured'])){
       <p>Artisan Bakery • Fresh Daily • Premium Quality</p>
       <div class="action-buttons">
         <a href="#products" class="btn">Explore Menu</a>
-        <button class="btn" id="orderBtn">Order Now</button>
-        <button class="btn" id="findStoreBtn">Find Store</button>
-        <button class="btn" id="specialsBtn">Daily Specials</button>
+        <button onclick="window.location.href='../Customer/index.php';" class="btn">Order Now</button>
+        <button  onclick="window.location.href='../Customer/index.php';"class="btn">Find Store</button>
+        <button  onclick="window.location.href='../customer/index.php';"class="btn" >Daily Specials</button>
       </div>
     </div>
   </section>
-
-
-  <!-- s_Products Section -->
-  <section class="featured-product-carousel">
-    <button class="carousel-btn prev">&lt;</button>
-    <div class="featured-wrapper" id="featuredWrapper">
-      <?php foreach ($s_products as $product): ?>
-      <div class="featured-product">
-        <div class="featured-image">
-          <?php if(!empty($product['image'])): ?>
-          <img src="<?= $product['image'] ?>" alt="<?= $product['name'] ?>">
-          <?php else: ?>
-          🍔
-          <?php endif; ?>
-        </div>
-        <div class="featured-info">
-          <h2>
-            <?= $product['name'] ?>
-          </h2>
-          <p>
-            <?= $product['description'] ?>
-          </p>
-          <div class="featured-price">$
-            <?= $product['price'] ?>
-          </div>
-          <button class="buy-btn">Buy Now</button>
-        </div>
-      </div>
-      <?php endforeach; ?>
-    </div>
-    <button class="carousel-btn next">&gt;</button>
-  </section>
-
-
-  <!-- Products Section -->
-  <section class="section" id="products">
-    <h2>Our Products</h2>
-    <div class="products-grid" id="productsGrid">
-      <?php foreach ($products as $product): ?>
-      <div class="product-card">
-        <div class="product-image">
-          <?php if(!empty($product['image'])): ?>
-          <img src="<?= $product['image'] ?>" alt="<?= $product['name'] ?>"
-            style="width:100%; height:100%; object-fit:cover;">
-          <?php else: ?>
-          🍔
-          <?php endif; ?>
-        </div>
-        <div class="product-info">
-          <h3>
-            <?= $product['name'] ?>
-          </h3>
-          <p>
-            <?= $product['description'] ?>
-          </p>
-          <div class="product-price">$
-            <?= $product['price'] ?>
-          </div>
-        </div>
-      </div>
-      <?php endforeach; ?>
-    </div>
-  </section>
-
 
 
   <!-- Services Section -->
-  <section class="section" id="services">
-    <h2>Our Services</h2>
-    <div class="services-grid">
-      <div class="service-card">
-        <span class="service-icon">🚚</span>
-        <h3>Free Delivery</h3>
-        <p>Free delivery on orders over $30 within 5km radius</p>
-      </div>
-      <div class="service-card">
-        <span class="service-icon">👨‍🍳</span>
-        <h3>Custom Orders</h3>
-        <p>Personalized cakes and catering for special events</p>
-      </div>
-      <div class="service-card">
-        <span class="service-icon">📱</span>
-        <h3>Online Ordering</h3>
-        <p>Order ahead through our mobile app and skip the line</p>
-      </div>
-      <div class="service-card">
-        <span class="service-icon">🎓</span>
-        <h3>Baking Classes</h3>
-        <p>Learn from our master bakers in hands-on workshops</p>
-      </div>
-    </div>
-  </section>
 
-  <!-- Newsletter -->
-  <section class="newsletter" id="contact">
-    <h2>Stay Sweet with Our Newsletter</h2>
-    <p>Get exclusive offers, new product alerts, and baking tips</p>
-    <div class="newsletter-form">
-      <input type="email" id="newsletterEmail" placeholder="Enter your email">
-      <button type="submit" id="subscribeBtn">Subscribe</button>
-    </div>
-  </section>
+
+
 
   <script>
     // Create falling cupcakes for hero section
