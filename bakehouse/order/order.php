@@ -235,6 +235,10 @@ $stmt->close();
 $res2 = $conn->query("SELECT COUNT(*) AS total_orders FROM orders WHERE deleted_at IS NULL");
 $row2 = $res2->fetch_assoc();
 $totalOrders = (int)$row2['total_orders'];
+$res3 = $conn->query("SELECT COUNT(*) AS total_returns FROM orders WHERE status = 'Returned' AND deleted_at IS NULL");
+$row3 = $res3 ? $res3->fetch_assoc() : null; $totalReturns = (int)($row3['total_returns'] ?? 0);
+// total distinct customers from orders table 
+$res4 = $conn->query("SELECT COUNT(DISTINCT customer) AS total_customers FROM orders WHERE deleted_at IS NULL"); $row4 = $res4 ? $res4->fetch_assoc() : null; $totalCustomers = (int)($row4['total_customers'] ?? 0);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -274,9 +278,9 @@ $totalOrders = (int)$row2['total_orders'];
       <nav>
         <button class="salesbtn" disabled>Order</button>
         <div class="otherbtn">
-     <button class="Sbtn" onclick="window.location.href='stoke.html'">Stock</button>
-    <button class="Ubtn" onclick="window.location.href='sales.html'">Sales</button>
-    <button class="Bbtn" onclick="window.location.href='booking.html'">Booking</button>
+     <button class="Sbtn" onclick="window.location.href='../stoke/stock.php'">Stock</button>
+    <button class="Ubtn" onclick="window.location.href='../sales/index.php'">Sales</button>
+    <button class="Bbtn" onclick="window.location.href='../booking.php'">Booking</button>
         </div>
         <hr />
         <p>Order Management</p>
@@ -285,7 +289,6 @@ $totalOrders = (int)$row2['total_orders'];
           <button class="tab-btn" data-page="sales-export">Export Report</button>
           <button type="button" class="orderhistory" onclick="window.location.href='purchase_returns.php'">Purchase Returns</button>
           <button type="button" class="orderhistory" onclick="window.location.href='purchase_history.php'">Purchase History</button>
-          
         </div>
       </nav>
     </aside>
@@ -299,7 +302,7 @@ $totalOrders = (int)$row2['total_orders'];
          <div class="cards">
             <div class="card">
               <h3>Total Returns</h3>
-              <p id="cardTotal">Rs.0</p>
+              <p id="cardTotal"><?= $totalReturns ?></p>
             </div>
             <div class="card">
               <h3>Total Orders</h3>
@@ -307,7 +310,7 @@ $totalOrders = (int)$row2['total_orders'];
             </div>
             <div class="card">
               <h3>Total Customers</h3>
-              <p id="cardCustomers">0</p>
+              <p id="cardCustomers"><?= $totalCustomers ?></p>
             </div>
           </div>
         <div class="table-wrap">
