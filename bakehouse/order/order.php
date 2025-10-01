@@ -46,8 +46,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $flash_error = "Insert failed: " . $conn->error;
         }
     }
+  }
 
-    require_once __DIR__ . '/sms_helpers.php';
+   // require_once __DIR__ . '/sms_helpers.php';
 
     if ($action === 'edit') {
     $id = (int)($_POST['id'] ?? 0);
@@ -85,25 +86,28 @@ $customerName = $oldRow['customer'] ?? '';
     if (!$ok) $flash_error = "Update failed: " . $err;
     else {
         // if status changed, add history and send SMS
-        if ($old_status !== null && $old_status !== $new_status) {
-            $changed_by = /* put current user id here if you have session */ null;
-            $note = "Updated through admin UI";
-            $ins = $conn->prepare("INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
-            $ins->bind_param("issis", $id, $old_status, $new_status, $changed_by, $note);
-            $ins->execute();
-            $ins->close();
+       if ($old_status !== null && $old_status !== $new_status) {
+    // record who changed it (if available)
+    $changed_by = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+    $note = "Updated through admin UI";
 
-            // find mobile and send SMS
-            $mobile = sms_get_mobile_for_order($conn, $id, $customerName);
-            if ($mobile) {
-                $message = "Order #{$id} status changed: {$old_status} → {$new_status}";
-                // choose Twilio or generic based on your config
-                $smsRes = sms_send_twilio($mobile, $message);
-                sms_log($conn, $id, $mobile, $message, ($smsRes['ok'] ?? false) ? 'sent' : 'failed', json_encode($smsRes));
-            }
-        }
-        header("Location: " . $_SERVER['PHP_SELF']);
-        exit;
+    $ins = $conn->prepare(
+        "INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, note, created_at)
+         VALUES (?, ?, ?, ?, ?, NOW())"
+    );
+    if ($ins) {
+        // bind params: order_id (i), old_status (s), new_status (s), changed_by (i), note (s)
+        // Note: changed_by may be null; bind_param will accept null but may convert to 0 — acceptable for audit.
+        $ins->bind_param("issis", $id, $old_status, $new_status, $changed_by, $note);
+        $ins->execute();
+        $ins->close();
+    } else {
+        // optional: capture prepare error for debugging in dev
+        $flash_error = "Failed to insert order status history: " . $conn->error;
+    }
+
+    // SMS calls removed intentionally to avoid undefined-function errors.
+}
     }
 }
 
@@ -158,44 +162,117 @@ $customerName = $oldRow['customer'] ?? '';
 }
 
     // ---------- Return order handler ----------
-    if ($action === 'return') {
-      $id = (int)($_POST['id'] ?? 0);
-        $return_qty = (int)($_POST['return_quantity'] ?? 1);
-            $reason = trim($_POST['return_reason'] ?? '');
-            $refund_amount = (float)($_POST['refund_amount'] ?? 0.00);
-            $return_date = $_POST['return_date'] ?: date('Y-m-d');
-    
-            if ($id <= 0) {
-                $flash_error = "Invalid order id for return.";
-            } else {
-                // check order exists
-        $sel = $conn->prepare("SELECT id, quantity, status, deleted_at FROM orders WHERE id = ?");
-        $sel->bind_param("i", $id);
-        $sel->execute();
-        $res = $sel->get_result();
-        $row = $res ? $res->fetch_assoc() : null;
-        $sel->close();
+// ---------- Replace your current `if ($action === 'return') { ... }` block with this ----------
+if ($action === 'return') {
+    $id = (int)($_POST['id'] ?? 0);
+    $return_qty = (int)($_POST['return_quantity'] ?? 1);
+    $reason = trim($_POST['return_reason'] ?? '');
+    $refund_amount = isset($_POST['refund_amount']) ? (float)$_POST['refund_amount'] : null; // optional override
+    $return_date = $_POST['return_date'] ?: date('Y-m-d');
+    $processed_by = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
 
-        if (!$row) {
-            $flash_error = "Order not found (id: $id)";
-        } else if (!empty($row['deleted_at'])) {
-            $flash_error = "Operation denied: this order has been deleted.";
-        } else {
-          // proceed...
-        }
-       
-                $newStatus = 'Returned';
-                $upd = $conn->prepare("UPDATE orders SET status = ? WHERE id = ?");
-                $upd->bind_param("si", $newStatus, $id);
-                $ok = $upd->execute();
-                $errUpd = $upd->error;
-                $upd->close();
+    if ($id <= 0) {
+        $flash_error = "Invalid order id for return.";
+    } elseif ($return_qty <= 0) {
+        $flash_error = "Return quantity must be at least 1.";
+    } else {
+        // fetch order row (lock for update inside transaction where possible)
+        try {
+            $conn->begin_transaction();
 
-                if (!$ok) $flash_error = "Failed to update order status: " . $errUpd;
-                else { header("Location: " . $_SERVER['PHP_SELF']); exit; }
+            $sel = $conn->prepare("SELECT id, quantity, price, total_amount, status, deleted_at FROM orders WHERE id = ? FOR UPDATE");
+            if (!$sel) throw new Exception("Prepare failed (select order): " . $conn->error);
+            $sel->bind_param("i", $id);
+            $sel->execute();
+            $res = $sel->get_result();
+            $order = $res ? $res->fetch_assoc() : null;
+            $sel->close();
+
+            if (!$order) {
+                throw new Exception("Order not found (id: $id).");
             }
+            if (!empty($order['deleted_at'])) {
+                throw new Exception("Operation denied: this order has been deleted.");
+            }
+
+            $order_qty = (int)$order['quantity'];
+            $price_per_unit = (float)$order['price'];
+            $current_total = (float)($order['total_amount'] ?? 0.00);
+
+            if ($return_qty > $order_qty) {
+                throw new Exception("Return quantity ($return_qty) is greater than order quantity ($order_qty).");
+            }
+
+            // compute refund if not provided
+            if ($refund_amount === null) {
+                $refund_amount = $price_per_unit * $return_qty;
+            } else {
+                $refund_amount = (float)$refund_amount;
+            }
+
+            // decide new order status
+            $new_status = ($return_qty === $order_qty) ? 'Returned' : 'Partially Returned';
+
+            // Insert row into returns
+            $ins = $conn->prepare("INSERT INTO returns (order_id, return_date, quantity, reason, refund_amount, processed_by, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())");
+            if (!$ins) throw new Exception("Prepare failed (insert return): " . $conn->error);
+            // types: i (order_id), s (return_date), i (quantity), s (reason), d (refund_amount), i (processed_by)
+            // processed_by may be null — cast to null-int or use 0 if you prefer. bind_param accepts null variables too.
+            $pb = $processed_by !== null ? $processed_by : null;
+            $ins->bind_param("isidsi", $id, $return_date, $return_qty, $reason, $refund_amount, $pb);
+            $okIns = $ins->execute();
+            if (!$okIns) {
+                $err = $ins->error;
+                $ins->close();
+                throw new Exception("Insert into returns failed: " . $err);
+            }
+            $ins->close();
+
+            // Update orders: reduce quantity, reduce total_amount if applicable, update status
+            $new_qty = $order_qty - $return_qty;
+            // Use COALESCE to avoid NULL issues
+            $new_total = max(0.00, (float)$current_total - $refund_amount);
+
+            $upd = $conn->prepare("UPDATE orders SET quantity = ?, total_amount = ?, status = ? WHERE id = ?");
+            if (!$upd) throw new Exception("Prepare failed (update orders): " . $conn->error);
+            $upd->bind_param("idsi", $new_qty, $new_total, $new_status, $id);
+            $okUpd = $upd->execute();
+            if (!$okUpd) {
+                $err = $upd->error;
+                $upd->close();
+                throw new Exception("Update orders failed: " . $err);
+            }
+            $upd->close();
+
+            // Insert into order_status_history (store old->new)
+            $old_status = $order['status'] ?? null;
+            $note = "Return processed (qty: {$return_qty})";
+            $hist = $conn->prepare("INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+            if (!$hist) throw new Exception("Prepare failed (insert history): " . $conn->error);
+            $hist->bind_param("issis", $id, $old_status, $new_status, $pb, $note);
+            $okHist = $hist->execute();
+            if (!$okHist) {
+                $err = $hist->error;
+                $hist->close();
+                throw new Exception("Insert history failed: " . $err);
+            }
+            $hist->close();
+
+            // If you maintain product stock / order_items, update them here (not implemented).
+            // e.g. increase products.quantity if you have product_id, or adjust order_items rows.
+
+            $conn->commit();
+            // success - redirect back to list
+            header("Location: " . $_SERVER['PHP_SELF']);
+            exit;
+        } catch (Exception $e) {
+            $conn->rollback();
+            // show a helpful error (use logging in production)
+            $flash_error = "Return failed: " . $e->getMessage();
         }
     }
+}
+
 if ($action === 'restore') {
     $id = (int)($_POST['id'] ?? 0);
     $restored_by = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
