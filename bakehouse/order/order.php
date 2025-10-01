@@ -111,55 +111,93 @@ $customerName = $oldRow['customer'] ?? '';
     }
 }
 
-    if ($action === 'delete') {
+// ----------  Delete handler ----------
+if ($action === 'delete') {
     $id = (int)($_POST['id'] ?? 0);
     if ($id <= 0) {
         $flash_error = "Invalid order id.";
     } else {
-        // get current user id if you have sessions; else use NULL
         $deleted_by = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
 
-        $conn->begin_transaction();
         try {
-            // mark order as deleted
-            if ($deleted_by === null) {
-                $upd = $conn->prepare("UPDATE orders SET deleted_at = NOW(), deleted_by = NULL WHERE id = ? AND deleted_at IS NULL");
-                $upd->bind_param("i", $id);
-            } else {
-                $upd = $conn->prepare("UPDATE orders SET deleted_at = NOW(), deleted_by = ? WHERE id = ? AND deleted_at IS NULL");
-                $upd->bind_param("ii", $deleted_by, $id);
+            $conn->begin_transaction();
+
+            // Lock & fetch the order (for update)
+            $s2 = $conn->prepare("SELECT status, deleted_at FROM orders WHERE id = ? FOR UPDATE");
+            if (!$s2) throw new Exception("Prepare failed (select order): " . $conn->error);
+            $s2->bind_param("i", $id);
+            $s2->execute();
+            $res2 = $s2->get_result();
+            $orderRow = $res2 ? $res2->fetch_assoc() : null;
+            $s2->close();
+
+            if (!$orderRow) {
+                throw new Exception("Order not found (id: $id).");
             }
+            if (!empty($orderRow['deleted_at'])) {
+                throw new Exception("Order already deleted.");
+            }
+
+            // Check if orders table has deleted_by column
+            $colCheck = $conn->query("SHOW COLUMNS FROM orders LIKE 'deleted_by'");
+            $hasDeletedBy = ($colCheck && $colCheck->num_rows > 0);
+
+            // Build & execute update depending on whether deleted_by exists
+            if ($hasDeletedBy) {
+                if ($deleted_by === null) {
+                    // set deleted_by = NULL explicitly
+                    $upd = $conn->prepare("UPDATE orders SET deleted_at = NOW(), deleted_by = NULL WHERE id = ? AND deleted_at IS NULL");
+                    if (!$upd) throw new Exception("Prepare failed (update orders): " . $conn->error);
+                    $upd->bind_param("i", $id);
+                } else {
+                    $upd = $conn->prepare("UPDATE orders SET deleted_at = NOW(), deleted_by = ? WHERE id = ? AND deleted_at IS NULL");
+                    if (!$upd) throw new Exception("Prepare failed (update orders): " . $conn->error);
+                    $upd->bind_param("ii", $deleted_by, $id);
+                }
+            } else {
+                // fallback: only set deleted_at
+                $upd = $conn->prepare("UPDATE orders SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL");
+                if (!$upd) throw new Exception("Prepare failed (update orders): " . $conn->error);
+                $upd->bind_param("i", $id);
+            }
+
             $upd->execute();
             if ($upd->affected_rows <= 0) {
-                throw new Exception("Order not found or already deleted.");
+                // no row updated -> either id mismatch or already deleted
+                $upd->close();
+                throw new Exception("Update affected 0 rows (order may already be deleted).");
             }
             $upd->close();
 
-            // add audit history row (store old_status -> Deleted)
-            $ins = $conn->prepare("INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
-            $old_status = null;
-            // try to fetch old status for a useful note
-            $s2 = $conn->prepare("SELECT status FROM orders WHERE id = ?");
-            $s2->bind_param("i", $id); $s2->execute();
-            $r2 = $s2->get_result()->fetch_assoc(); $s2->close();
-            $old_status = $r2['status'] ?? null;
+            // insert history row
+            $old_status = $orderRow['status'] ?? null;
+            $new_status = 'Deleted';
             $note = "Order soft-deleted via admin UI";
+
             if ($deleted_by === null) {
-                $ins->bind_param("issis", $id, $old_status, $new_status = 'Deleted', $deleted_by, $note);
+                // insert with changed_by = NULL
+                $ins = $conn->prepare("INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, ?, ?, NULL, ?, NOW())");
+                if (!$ins) throw new Exception("Prepare failed (insert history): " . $conn->error);
+                $ins->bind_param("isss", $id, $old_status, $new_status, $note);
             } else {
-                $ins->bind_param("issis", $id, $old_status, $new_status = 'Deleted', $deleted_by, $note);
+                $ins = $conn->prepare("INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+                if (!$ins) throw new Exception("Prepare failed (insert history): " . $conn->error);
+                $ins->bind_param("issis", $id, $old_status, $new_status, $deleted_by, $note);
             }
             $ins->execute();
             $ins->close();
 
             $conn->commit();
-            header("Location: " . $_SERVER['PHP_SELF']); exit;
+            header("Location: " . $_SERVER['PHP_SELF']);
+            exit;
         } catch (Exception $e) {
             $conn->rollback();
+            // Show the error for debugging; in production log this instead.
             $flash_error = "Delete failed: " . $e->getMessage();
         }
     }
 }
+
 
     // ---------- Return order handler ----------
 // ---------- Replace your current `if ($action === 'return') { ... }` block with this ----------
