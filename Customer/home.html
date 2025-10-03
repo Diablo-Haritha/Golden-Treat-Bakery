@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Golden Treat - Premium Bakery</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Dancing+Script:wght@400;700&display=swap"
+    rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Righteous&display=swap" rel="stylesheet">
+  <link href="button.css" rel="stylesheet">
+ <style>
+  /* 23. Cookie Crumbs */
+  .cookie-crumbs {
+    background: 
+      radial-gradient(circle at 20% 30%, #8B4513 2px, transparent 2px),
+      radial-gradient(circle at 70% 20%, #A0522D 1px, transparent 1px),
+      radial-gradient(circle at 30% 80%, #CD853F 1px, transparent 1px),
+      radial-gradient(circle at 80% 70%, #D2691E 2px, transparent 2px),
+      linear-gradient(135deg, #190f00, #301b00);
+    color: #fff5eb;
+    padding: 10px;
+    padding-right: 20px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+    border: 2px dashed #181412;
+    border-radius: 25px;
+    font-size: 20px;
+    font-weight: 800;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.3s ease;
+    margin: 10px;
+  }
+
+  .cookie-crumbs::before {
+    content: '🍪';
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background: #8b45130b;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    animation: cookieRotate 3s linear infinite;
+  }
+
+  @keyframes cookieRotate {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .cookie-crumbs:hover {
+    background: linear-gradient(135deg, #ffeee74a, #D2B48C);
+    transform: translateY(-4px);
+    color: #301b00;
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    background-color: #FFE8B7; /* --bg */
+    font-family: 'Righteous', sans-serif;
+    color: #2C1810; /* --dark */
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="%23D4AF37" opacity="0.5"/></svg>'), auto;
+  }
+
+  .particles_home {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  .particle_home {
+    position: absolute;
+    background: #181412;
+    border-radius: 50%;
+    opacity: 0.1;
+    animation: float_home 6s ease-in-out infinite;
+  }
+
+  @keyframes float_home {
+    0%,
+    100% {
+      transform: translateY(0px) rotate(0deg);
+    }
+    50% {
+      transform: translateY(-20px) rotate(180deg);
+    }
+  }
+
+  .cupcake-particles_home {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .cupcake_home {
+    position: absolute;
+    font-size: 1.5rem;
+    opacity: 0.7;
+    animation: fall_home 5s linear infinite;
+  }
+
+  @keyframes fall_home {
+    0% {
+      transform: translateY(-100px) rotate(0deg);
+      opacity: 0.7;
+    }
+    100% {
+      transform: translateY(100vh) rotate(360deg);
+      opacity: 0.2;
+    }
+  }
+
+  nav_home {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(20px);
+    border-radius: 50px;
+    padding: 10px 30px;
+    box-shadow: 0 10px 30px rgba(212, 175, 55, 0.2); /* --shadow */
+    z-index: 1000;
+    transition: all 0.3s ease;
+  }
+
+  nav_home.scrolled_home {
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 15px 40px rgba(212, 175, 55, 0.3); /* --shadow-hover */
+  }
+
+  nav_home ul {
+    display: flex;
+    list-style: none;
+    gap: 30px;
+    align-items: center;
+  }
+
+  nav_home a {
+    text-decoration: none;
+    color: #2C1810; /* --dark */
+    font-weight: 500;
+    transition: all 0.3s ease;
+    position: relative;
+  }
+
+  nav_home a:hover {
+    color: #2C1810;
+    transform: translateY(-2px);
+  }
+
+  nav_home a::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: linear-gradient(135deg, #FFE8B7, #FFE5B4); /* --gradient-1 */
+    transition: width 0.3s ease;
+  }
+
+  nav_home a:hover::after {
+    width: 100%;
+  }
+
+  .hero_home {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    background: linear-gradient(135deg, #d3a748, #FFE5B4); /* --gradient-1 */
+    overflow: hidden;
+  }
+
+  .hero-content_home {
+    text-align: center;
+    z-index: 2;
+    opacity: 0;
+    animation: heroFadeIn_home 2s ease forwards 0.5s;
+  }
+
+  .hero_home h1 {
+    font-family: 'Righteous', sans-serif;
+    font-size: clamp(3rem, 8vw, 8rem);
+    font-weight: 700;
+    color: #2C1810;
+    margin-bottom: 20px;
+    text-shadow: 2px 2px 10px rgba(0, 0, 0, 0.3);
+    display: inline-flex;
+    align-items: center;
+    position: relative;
+  }
+
+  .hero_home h1 .word_home {
+    transition: transform 0.5s ease;
+    display: inline-block;
+  }
+
+  .hero_home h1 .welcome-message_home {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%) scale(0);
+    opacity: 0;
+    color: #FFFFFF; /* --white */
+    font-size: 0.5em;
+    transition: all 0.5s ease;
+  }
+
+  .hero_home h1:hover .word--golden_home {
+    transform: translateX(-180px);
+  }
+
+  .hero_home h1:hover .word--treat_home {
+    transform: translateX(100px);
+  }
+
+  .hero_home h1:hover .welcome-message_home {
+    transform: translateX(-50%) scale(1);
+    opacity: 1;
+  }
+
+  .hero_home p {
+    font-size: 1.2rem;
+    color: #FFFFFF; /* --white */
+    margin-bottom: 40px;
+    opacity: 0.9;
+  }
+
+  @keyframes heroFadeIn_home {
+    from {
+      opacity: 0;
+      transform: translateY(50px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .btn_home {
+    display: inline-block;
+    padding: 15px 40px;
+    background: #FFFFFF; /* --white */
+    color: #2C1810; /* --dark */
+    text-decoration: none;
+    border-radius: 50px;
+    font-weight: 600;
+    box-shadow: 0 10px 30px rgba(212, 175, 55, 0.2); /* --shadow */
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 1rem;
+  }
+
+  .btn_home:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 15px 40px rgba(212, 175, 55, 0.3); /* --shadow-hover */
+    padding: 20px 59px;
+  }
+
+  .btn_home::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #FFE8B7, #FFE5B4); /* --gradient-1 */
+    transition: left 0.5s ease;
+    z-index: -1;
+  }
+
+  .btn_home:hover::before {
+    left: 0;
+  }
+
+  .btn_home:hover {
+    color: #2C1810;
+    font-size: 1.5rem;
+  }
+
+  .action-buttons_home {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 30px;
+  }
+
+  .section_home {
+    padding: 100px 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+    opacity: 0;
+    transform: translateY(50px);
+    transition: all 0.8s ease;
+  }
+
+  .section_home.show_home {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .section_home h2 {
+    font-family: 'Dancing Script', cursive;
+    font-size: 3rem;
+    text-align: center;
+    margin-bottom: 60px;
+    color: #8B4513; /* --secondary */
+    position: relative;
+  }
+
+  .section_home h2::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100px;
+    height: 3px;
+    background: linear-gradient(135deg, #FFE8B7, #FFE5B4); /* --gradient-1 */
+    border-radius: 2px;
+  }
+
+  .floating-cart_home {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 30px rgba(212, 175, 55, 0.2); /* --shadow */
+    cursor: pointer;
+    z-index: 1000;
+    transition: all 0.3s ease;
+    animation: pulse_home 2s infinite;
+  }
+
+  .floating-cart_home:hover {
+    transform: scale(1.1);
+    box-shadow: 0 15px 40px rgba(212, 175, 55, 0.3); /* --shadow-hover */
+  }
+
+  @keyframes pulse_home {
+    0% {
+      box-shadow: 0 10px 30px rgba(212, 175, 55, 0.2);
+    }
+    50% {
+      box-shadow: 0 15px 40px rgba(212, 175, 55, 0.3);
+    }
+    100% {
+      box-shadow: 0 10px 30px rgba(212, 175, 55, 0.2);
+    }
+  }
+
+  .quick-actions_home {
+    position: fixed;
+    left: 30px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    z-index: 1000;
+  }
+
+  .quick-btn_home {
+    width: 60px;
+    height: 60px;
+    background: #FFFFFF; /* --white */
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 30px rgba(212, 175, 55, 0.2); /* --shadow */
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 1.2rem;
+  }
+
+  .quick-btn_home:hover {
+    transform: scale(1.1);
+    background: #D4AF37; /* --primary */
+    color: #FFFFFF; /* --white */
+  }
+
+  .newsletter_home {
+    background: linear-gradient(135deg, #8B4513, #D2691E); /* --gradient-2 */
+    color: #FFFFFF; /* --white */
+    text-align: center;
+    padding: 80px 20px;
+  }
+
+  .newsletter-form_home {
+    display: flex;
+    max-width: 400px;
+    margin: 30px auto;
+    gap: 10px;
+  }
+
+  .newsletter_home input {
+    flex: 1;
+    padding: 15px 20px;
+    border: none;
+    border-radius: 50px;
+    font-size: 1rem;
+  }
+
+  .newsletter_home button {
+    padding: 15px 30px;
+    background: #FFFFFF; /* --white */
+    color: #2C1810; /* --dark */
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+  }
+
+  @media (max-width: 768px) {
+    nav_home ul {
+      gap: 15px;
+    }
+
+    .hero_home h1 {
+      font-size: 3rem;
+    }
+
+    .action-buttons_home {
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .quick-actions_home {
+      display: none;
+    }
+
+    .products-grid_home {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .progress-bar_home {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 0%;
+    height: 3px;
+    background: linear-gradient(135deg, #FFE8B7, #FFE5B4); /* --gradient-1 */
+    z-index: 9999;
+    transition: width 0.3s ease;
+  }
+
+  .loading_home {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #FFFFFF; /* --white */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    opacity: 1;
+    transition: opacity 0.005s ease;
+  }
+
+  .loading_home.hidden_home {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .spinner_home {
+    width: 50px;
+    height: 50px;
+    border: 3px solid #FFE5B4; /* --accent */
+    border-top: 3px solid #D4AF37; /* --primary */
+    border-radius: 50%;
+    animation: spin_home 1s linear infinite;
+  }
+
+  @keyframes spin_home {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  .loginbtn_home {
+    position: fixed;
+    top: 10px;
+    right: 30px;
+    z-index: 1000;
+  }
+</style>
+</head>
+
+<body>
+  <!-- Loading screen -->
+  <div class="loading_home">
+    <div class="spinner_home"></div>
+  </div>
+  <!-- Progress bar -->
+  <div class="progress-bar_home"></div>
+  <!-- Animated particles -->
+  <div class="particles_home"></div>
+
+  <!-- Floating cart -->
+  <div class="loginbtn_home" id="floatingCart_home">
+    <button onclick="window.location.href='../bakehouse/login.php';" class="cookie-crumbs">Login</button>
+  </div>
+
+  <!-- Hero Section -->
+  <section class="hero_home" id="home">
+    <div class="cupcake-particles_home"></div>
+    <div class="hero-content_home">
+      <h1>
+        <span class="word_home word--golden_home">Golden</span>
+        <span class="welcome-message_home">Welcome</span>
+        <span class="word_home word--treat_home">Treat</span>
+      </h1>
+      <p>Artisan Bakery • Fresh Daily • Premium Quality</p>
+      <div class="action-buttons_home">
+        <a href="#products" class="btn_home">Explore Menu</a>
+        <button onclick="window.location.href='../Customer/index.php';" class="btn_home">Order Now</button>
+        <button onclick="window.location.href='../Customer/index.php';" class="btn_home">Find Store</button>
+        <button onclick="window.location.href='../customer/index.php';" class="btn_home">Daily Specials</button>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // Create falling cupcakes for hero section
+    function createCupcakes_home() {
+      const cupcakeContainer = document.querySelector('.cupcake-particles_home');
+      const items = ['🍕', '🥐', '🥖'];
+
+      for (let i = 0; i < 200; i++) {
+        const cupcake = document.createElement('div');
+        cupcake.className = 'cupcake_home';
+        cupcake.textContent = items[Math.floor(Math.random() * items.length)];
+        cupcake.style.left = Math.random() * 100 + '%';
+        cupcake.style.animationDelay = Math.random() * 5 + 's';
+        cupcake.style.animationDuration = (Math.random() * 3 + 4) + 's';
+        cupcakeContainer.appendChild(cupcake);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      createCupcakes_home();
+    });
+
+    // ---------- UTIL ----------
+    const api = (a, opt) => fetch(`?action=${a}`, opt);
+    const el = sel => document.querySelector(sel);
+
+    // Loading screen
+    window.addEventListener('load', () => {
+      setTimeout(() => el('.loading_home').classList.add('hidden_home'), 800);
+    });
+
+    // Particles
+    function createParticles_home() {
+      const wrap = el('.particles_home');
+      for (let i = 0; i < 50; i++) {
+        const d = document.createElement('div');
+        d.className = 'particle_home';
+        d.style.left = Math.random() * 100 + '%';
+        d.style.top = Math.random() * 100 + '%';
+        const size = Math.random() * 10 + 5;
+        d.style.width = size + 'px';
+        d.style.height = size + 'px';
+        d.style.animationDelay = Math.random() * 6 + 's';
+        d.style.animationDuration = (Math.random() * 3 + 3) + 's';
+        wrap.appendChild(d);
+      }
+    }
+
+    // Scroll progress
+    function updateProgressBar_home() {
+      const scrolled = window.pageYOffset;
+      const maxHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = (scrolled / maxHeight) * 100;
+      el('.progress-bar_home').style.width = progress + '%';
+    }
+
+    // Scroll animations
+    function animateOnScroll_home() {
+      document.querySelectorAll('.section_home').forEach(section => {
+        const rect = section.getBoundingClientRect();
+        if (rect.top < window.innerHeight * 0.8) section.classList.add('show_home');
+      });
+    }
+
+    // Nav scroll
+    function updateNav_home() {
+      const nav = document.querySelector('nav_home');
+      if (window.scrollY > 100) nav.classList.add('scrolled_home'); else nav.classList.remove('scrolled_home');
+    }
+
+    // Smooth scroll
+    document.querySelectorAll('nav_home a[href^="#"]').forEach(a => {
+      a.addEventListener('click', e => {
+        e.preventDefault();
+        const target = document.querySelector(a.getAttribute('href'));
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+
+    // Quick action buttons
+    document.querySelectorAll('.quick-btn_home').forEach((btn, index) => {
+      btn.addEventListener('click', () => {
+        const paths = ['login.php', 'profile.php', 'reviews.php', 'share.php'];
+        window.location.href = paths[index];
+      });
+    });
+
+    // Newsletter
+    if (el('#subscribeBtn_home')) {
+      el('#subscribeBtn_home').addEventListener('click', async (e) => {
+        e.preventDefault();
+        const email = el('#newsletterEmail_home').value.trim();
+        if (!email) return alert('Please enter your email address');
+        const r = await api('subscribe', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const data = await r.json();
+        if (data.ok) {
+          alert(`Thank you for subscribing with ${email}!`);
+          el('#newsletterEmail_home').value = '';
+        } else {
+          alert(data.msg || 'Subscription failed');
+        }
+      });
+    }
+
+    // Events
+    window.addEventListener('scroll', () => {
+      updateProgressBar_home();
+      animateOnScroll_home();
+      updateNav_home();
+    });
+
+    // Init
+    document.addEventListener('DOMContentLoaded', async () => {
+      createParticles_home();
+      animateOnScroll_home();
+      const r = await api('get_cart');
+      const d = await r.json();
+      if (d.ok) updateCartCount(d.cart || {});
+    });
+  </script>
+</body>
+
+</html>
