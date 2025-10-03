@@ -5,7 +5,7 @@ ob_start();
 
 // Database Configuration
 $host = 'localhost';
-$dbname = 'golden_treat_bakery';
+$dbname = 'golden_treat';
 $username = 'root';
 $password = '';
 

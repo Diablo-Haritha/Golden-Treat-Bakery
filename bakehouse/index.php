@@ -15,168 +15,6 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-// Fetch products (assume quantity column exists: ALTER TABLE products ADD quantity INT DEFAULT 0;)
-$products = [];
-$sql = "SELECT * FROM products";
-$result = $conn->query($sql);
-if ($result) {
-    while ($row = $result->fetch_assoc()) {
-        $products[] = $row;
-    }
-} else {
-    die("Error fetching products: " . $conn->error);
-}
-
-// Fetch s_products (featured, assume no quantity for featured)
-$s_products = [];
-$sql = "SELECT * FROM s_products";
-$result = $conn->query($sql);
-if ($result) {
-    while ($row = $result->fetch_assoc()) {
-        $s_products[] = $row;
-    }
-} else {
-    // Optional: only show error if table exists
-    // die("Error fetching s_products: " . $conn->error);
-}
-
-// Handle actions for JS API
-if (isset($_GET['action'])) {
-    header('Content-Type: application/json');
-    $action = $_GET['action'];
-
-    if ($action == 'list_products') {
-        echo json_encode(['products' => $products]);
-        exit;
-    } elseif ($action == 'add_to_cart') {
-        $data = json_decode(file_get_contents('php://input'), true);
-        $id = intval($data['product_id']);
-        $qty = intval($data['qty'] ?? 1);
-
-        // Find stock
-        $stock = 0;
-        foreach ($products as $p) {
-            if ($p['id'] == $id) {
-                $stock = intval($p['quantity']);
-                break;
-            }
-        }
-
-        $current = $_SESSION['cart'][$id] ?? 0;
-        $new_qty = $current + $qty;
-
-        if ($new_qty > $stock) {
-            echo json_encode(['ok' => false, 'msg' => 'Out of stock']);
-            exit;
-        }
-
-        if (!isset($_SESSION['cart'][$id])) $_SESSION['cart'][$id] = 0;
-        $_SESSION['cart'][$id] += $qty;
-        echo json_encode(['ok' => true, 'cart' => $_SESSION['cart']]);
-        exit;
-    } elseif ($action == 'set_cart_qty') {
-        $data = json_decode(file_get_contents('php://input'), true);
-        $id = intval($data['id']);
-        $qty = intval($data['qty']);
-
-        // Find stock
-        $stock = 0;
-        foreach ($products as $p) {
-            if ($p['id'] == $id) {
-                $stock = intval($p['quantity']);
-                break;
-            }
-        }
-
-        if ($qty > $stock) {
-            echo json_encode(['ok' => false, 'msg' => 'Out of stock']);
-            exit;
-        }
-
-        if ($qty <= 0) {
-            unset($_SESSION['cart'][$id]);
-        } else {
-            $_SESSION['cart'][$id] = $qty;
-        }
-        echo json_encode(['ok' => true, 'cart' => $_SESSION['cart']]);
-        exit;
-    } elseif ($action == 'get_cart') {
-        $items = [];
-        $total = 0;
-        foreach ($_SESSION['cart'] as $id => $qty) {
-            foreach ($products as $p) {
-                if ($p['id'] == $id) {
-                    $line_total = $p['price'] * $qty;
-                    $items[] = [
-                        'id' => $id,
-                        'name' => $p['name'],
-                        'qty' => $qty,
-                        'line_total' => $line_total,
-                        'emoji' => '🍰' // or from DB if added
-                    ];
-                    $total += $line_total;
-                    break;
-                }
-            }
-        }
-        echo json_encode(['ok' => true, 'items' => $items, 'total' => $total, 'cart' => $_SESSION['cart']]);
-        exit;
-    } elseif ($action == 'specials') {
-        $specials = array_map(function($p) {
-            return ['title' => $p['name'], 'details' => $p['description']];
-        }, $s_products);
-        echo json_encode(['ok' => true, 'specials' => $specials]);
-        exit;
-    } elseif ($action == 'subscribe') {
-        $data = json_decode(file_get_contents('php://input'), true);
-        $email = $data['email'];
-        // TODO: Insert into DB newsletter table
-        echo json_encode(['ok' => true]);
-        exit;
-    }
-}
-
-// Function to sanitize input
-function sanitize($data) {
-    return trim(htmlspecialchars($data));
-}
-
-// Add normal product
-if(isset($_POST['add_product'])){
-    $name = sanitize($_POST['name']);
-    $price = floatval($_POST['price']);
-    $description = sanitize($_POST['description']);
-    $image_path = sanitize($_POST['image']);
-    $quantity = intval($_POST['quantity']);
-
-    $stmt = $conn->prepare("INSERT INTO products (name, price, description, image_path, quantity) VALUES (?, ?, ?, ?, ?)");
-    if(!$stmt) die("Prepare failed: " . $conn->error);
-
-    $stmt->bind_param("sdssi", $name, $price, $description, $image_path, $quantity);
-    $stmt->execute();
-    $stmt->close();
-
-    echo "<script>alert('Product added successfully!'); window.location = '".$_SERVER['PHP_SELF']."';</script>";
-}
-
-// Add featured product (no quantity for featured)
-if(isset($_POST['add_featured'])){
-    $name = sanitize($_POST['name']);
-    $price = floatval($_POST['price']);
-    $description = sanitize($_POST['description']);
-    $image_path = sanitize($_POST['image']);
-
-    $stmt = $conn->prepare("INSERT INTO s_products (name, price, description, image_path) VALUES (?, ?, ?, ?)");
-    if(!$stmt) die("Prepare failed: " . $conn->error);
-
-    $stmt->bind_param("sdss", $name, $price, $description, $image_path);
-    $stmt->execute();
-    $stmt->close();
-
-    echo "<script>alert('Featured product added successfully!'); window.location = '".$_SERVER['PHP_SELF']."';</script>";
-}
-
-// ---------- PAGE (HTML + CSS + JS) ----------
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -191,187 +29,7 @@ if(isset($_POST['add_featured'])){
   <link href="https://fonts.googleapis.com/css2?family=Righteous&display=swap" rel="stylesheet">
   <link href="button.css" rel="stylesheet">
   <style>
-    .modal {
-      display: none;
-      position: fixed;
-      z-index: 10000;
-      padding-top: 100px;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
-      overflow: auto;
-      background-color: rgba(0, 0, 0, 0.5);
-    }
-
-    .modal-content {
-      background-color: #fff;
-      margin: auto;
-      padding: 30px;
-      border-radius: 20px;
-      width: 90%;
-      max-width: 500px;
-      position: relative;
-    }
-
-    .modal-content h2 {
-      margin-bottom: 20px;
-    }
-
-    .modal-content input,
-    .modal-content textarea {
-      width: 100%;
-      padding: 10px;
-      margin-bottom: 15px;
-      border-radius: 10px;
-      border: 1px solid #ccc;
-      font-family: inherit;
-    }
-
-    .modal-content button {
-      padding: 12px 25px;
-      border: none;
-      background: var(--primary);
-      color: #fff;
-      border-radius: 10px;
-      cursor: pointer;
-    }
-
-    .close {
-      position: absolute;
-      right: 15px;
-      top: 10px;
-      font-size: 2rem;
-      cursor: pointer;
-    }
-
-    .featured-product-carousel {
-      position: relative;
-      max-width: 1100px;
-      margin: 60px auto;
-      overflow: hidden;
-      border-radius: 24px;
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-    }
-
-    .featured-wrapper {
-      display: flex;
-      transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .featured-product {
-      min-width: 100%;
-      display: flex;
-      flex-wrap: wrap;
-      border-radius: 24px;
-      padding: 30px;
-      gap: 25px;
-      background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.05));
-      transition: transform 0.4s ease, box-shadow 0.4s ease;
-    }
-
-    .featured-product:hover {
-      transform: translateY(-8px) scale(1.02);
-      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25);
-    }
-
-    .featured-image {
-      flex: 1 1 420px;
-      min-width: 320px;
-      height: 340px;
-      border-radius: 20px;
-      overflow: hidden;
-      position: relative;
-    }
-
-    .featured-image img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      transition: transform 0.6s ease;
-    }
-
-    .featured-image:hover img {
-      transform: scale(1.08);
-    }
-
-    .featured-info {
-      flex: 1 1 420px;
-      min-width: 320px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-    }
-
-    .featured-info h2 {
-      font-size: 2.2rem;
-      font-weight: 700;
-      margin-bottom: 15px;
-      background: linear-gradient(90deg, var(--primary), #ff6f91);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .featured-info p {
-      font-size: 1rem;
-      line-height: 1.6;
-      margin-bottom: 25px;
-      color: #444;
-    }
-
-    .featured-price {
-      font-size: 2rem;
-      font-weight: 800;
-      background: linear-gradient(135deg, #ff6f91, var(--primary));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      margin-bottom: 25px;
-    }
-
-
-    .buy-btn {
-      padding: 12px 25px;
-      background: var(--primary);
-      color: #fff;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-    }
-
-    /* Carousel buttons */
-    .carousel-btn {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 2rem;
-      background: rgba(0, 0, 0, 0.2);
-      color: #fff;
-      border: none;
-      padding: 10px 15px;
-      cursor: pointer;
-      border-radius: 50%;
-      z-index: 10;
-    }
-
-    .carousel-btn.prev {
-      left: 10px;
-    }
-
-    .carousel-btn.next {
-      right: 10px;
-    }
-
-    /* Responsive */
-    @media (max-width: 768px) {
-      .featured-product {
-        flex-direction: column;
-        text-align: center;
-      }
-    }
-
+   
     :root {
       --bg: #FFE8B7;
       --primary: #D4AF37;
@@ -498,7 +156,7 @@ if(isset($_POST['add_featured'])){
     }
 
     nav a:hover {
-      color:#2C1810;
+      color: #2C1810;
       transform: translateY(-2px);
     }
 
@@ -788,8 +446,8 @@ if(isset($_POST['add_featured'])){
       position: fixed;
       bottom: 30px;
       right: 30px;
-     
-     
+
+
 
       display: flex;
       align-items: center;
@@ -806,10 +464,7 @@ if(isset($_POST['add_featured'])){
       box-shadow: var(--shadow-hover);
     }
 
-    .floating-cart::before {
-      
-      
-    }
+    .floating-cart::before {}
 
     @keyframes pulse {
       0% {
@@ -962,83 +617,21 @@ if(isset($_POST['add_featured'])){
       }
     }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 40px;
-    }
-
-    table th,
-    table td {
-      padding: 10px;
-      border: 1px solid #ccc;
-      text-align: left;
-    }
-
-    table th {
-      background: var(--light);
-    }
+  
 
     .loginbtn {
       position: fixed;
       top: 10px;
       right: 30px;
-      
 
-  
 
-  
+
+
+
       z-index: 1000;
-      
+
     }
 
-   .myButton {
-    display: inline-block;
-    padding: 12px 24px;
-    font-family: 'Arial', sans-serif;
-    font-size: 18px;
-    font-weight: bold;
-    color: #fff;
-    text-align: center;
-    text-decoration: none;
-    background: linear-gradient(135deg, #f1c40f 0%, #e67e22 100%);
-    border: 3px solid #d35400;
-    border-radius: 30px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-    cursor: pointer;
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-}
-
-.myButton:hover {
-    background: linear-gradient(135deg, #e67e22 0%, #f1c40f 100%);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
-    transform: translateY(-2px) scale(1.05);
-}
-
-.myButton:active {
-    transform: translateY(1px) scale(0.98);
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-}
-
-.myButton::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 0;
-    height: 0;
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    transition: width 0.4s ease, height 0.4s ease;
-}
-
-.myButton:hover::after {
-    width: 200px;
-    height: 200px;
-}
   </style>
 </head>
 
@@ -1070,21 +663,19 @@ if(isset($_POST['add_featured'])){
     <div class="quick-btn" title="Profile">👤</div>
     <div class="quick-btn" title="Reviews">⭐</div>
     <div class="quick-btn" title="Share">📤</div>
-                
-              
+
+
   </div>
 
   <!-- Floating cart -->
   <div class="floating-cart" id="floatingCart">
-   <?php include 'animation1.html'; ?>
+   
 
   </div>
   <!-- Floating cart -->
   <div class="loginbtn" id="floatingCart">
-                 
-  <button onclick="window.location.href='./login.php';" class="cookie-crumbs" >Login</button>
 
-
+    <button onclick="window.location.href='./login.php';" class="cookie-crumbs">Login</button>
 
   </div>
 
@@ -1102,8 +693,8 @@ if(isset($_POST['add_featured'])){
       <div class="action-buttons">
         <a href="#products" class="btn">Explore Menu</a>
         <button onclick="window.location.href='../Customer/index.php';" class="btn">Order Now</button>
-        <button  onclick="window.location.href='../Customer/index.php';"class="btn">Find Store</button>
-        <button  onclick="window.location.href='../customer/index.php';"class="btn" >Daily Specials</button>
+        <button onclick="window.location.href='../Customer/index.php';" class="btn">Find Store</button>
+        <button onclick="window.location.href='../customer/index.php';" class="btn">Daily Specials</button>
       </div>
     </div>
   </section>
@@ -1199,94 +790,7 @@ if(isset($_POST['add_featured'])){
       });
     });
 
-    // Render products from DB
-    async function loadProducts() {
-      const r = await api('list_products');
-      const data = await r.json();
-      const grid = el('#productsGrid');
-      grid.innerHTML = '';
-      (data.products || []).forEach(p => {
-        const card = document.createElement('div');
-        card.className = 'product-card';
-        card.innerHTML = `
-                    <div class="product-image">${p.emoji || '🍰'}</div>
-                    <div class="product-info">
-                        <h3>${p.name}</h3>
-                        <p>${p.description}</p>
-                        <div class="product-price">$${Number(p.price).toFixed(2)}</div>
-                        <button class="btn" data-id="${p.id}">${p.button_label || 'Add to Cart'}</button>
-                    </div>`;
-        card.addEventListener('click', () => viewProduct(p.slug || p.id));
-        card.querySelector('.btn').addEventListener('click', async (e) => {
-          e.stopPropagation();
-          await addToCart(p.id);
-          const btn = e.currentTarget;
-          const old = btn.textContent;
-          btn.textContent = 'Added! ✓';
-          btn.style.background = '#4CAF50';
-          btn.style.color = 'white';
-          setTimeout(() => {
-            btn.textContent = old;
-            btn.style.background = '';
-            btn.style.color = '';
-          }, 1200);
-          pulseCart();
-        });
-        grid.appendChild(card);
-      });
-    }
-
-    // Cart
-    function pulseCart() {
-      const cart = el('#floatingCart');
-      cart.style.animation = 'none'; cart.offsetHeight; cart.style.animation = 'pulse .5s ease';
-    }
-
-    async function addToCart(id, qty = 1) {
-      const r = await api('add_to_cart', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product_id: id, qty })
-      });
-      const data = await r.json();
-      if (data.ok) updateCartCount(data.cart);
-    }
-
-    async function showCart() {
-      const r = await api('get_cart');
-      const data = await r.json();
-      if (!data.ok) return alert('Cart error');
-      if (!data.items.length) return alert('Your cart is empty.');
-      const lines = data.items.map(i => `${i.emoji || '•'} ${i.name} x${i.qty} — $${i.line_total.toFixed(2)}`);
-      lines.push(`\nTotal: $${data.total.toFixed(2)}`);
-      alert(lines.join('\n'));
-    }
-
-    function updateCartCount(cartObj) {
-      let count = 0;
-      Object.values(cartObj || {}).forEach(n => count += Number(n || 0));
-      const b = el('#cartCount');
-      if (count > 0) { b.style.display = 'inline-block'; b.textContent = count; } else { b.style.display = 'none'; }
-    }
-
-    // Product interactions / hero buttons
-    function viewProduct(productType) { alert(`Viewing ${productType} details - This would open a product modal!`); }
-    el('#orderBtn').addEventListener('click', () => alert('Opening order system - This would redirect to ordering platform!'));
-    el('#findStoreBtn').addEventListener('click', () => alert('Opening store locator - This would show nearby stores!'));
-
-    // Specials
-    el('#specialsBtn').addEventListener('click', async () => {
-      const r = await api('specials');
-      const data = await r.json();
-      if (data.ok && data.specials.length) {
-        alert(data.specials.map(s => `• ${s.title}\n  ${s.details}`).join('\n\n'));
-      } else {
-        alert('No specials today — come back tomorrow!');
-      }
-    });
-
-    // Floating cart
-    el('#floatingCart').addEventListener('click', showCart);
+   
 
     // Quick action buttons
     document.querySelectorAll('.quick-btn').forEach((btn, index) => {
@@ -1325,28 +829,6 @@ if(isset($_POST['add_featured'])){
       // set initial cart count
       const r = await api('get_cart'); const d = await r.json(); if (d.ok) updateCartCount(d.cart || {});
     });
-
-
-
-
-    // Product interactions / hero buttons
-    function viewProduct(productType) { alert(`Viewing ${productType} details - This would open a product modal!`); }
-    // el('#orderBtn').addEventListener('click', () => alert('Opening order system - This would redirect to ordering platform!'));
-    // el('#findStoreBtn').addEventListener('click', () => alert('Opening store locator - This would show nearby stores!'));
-
-    // Specials
-    // el('#specialsBtn').addEventListener('click', async () => {
-    //     const r = await api('specials');
-    //     const data = await r.json();
-    //     if (data.ok && data.specials.length) {
-    //         alert(data.specials.map(s => `• ${s.title}\n  ${s.details}`).join('\n\n'));
-    //     } else {
-    //         alert('No specials today — come back tomorrow!');
-    //     }
-    // });
-
-    // Floating cart
-    el('#floatingCart').addEventListener('click', showCart);
 
     // Quick action buttons
     document.querySelectorAll('.quick-btn').forEach((btn, index) => {

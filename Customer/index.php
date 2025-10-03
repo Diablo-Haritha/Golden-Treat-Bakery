@@ -4,7 +4,7 @@ ob_start();
 
 // Database Configuration
 $host = 'localhost';
-$dbname = 'golden_treat_bakery';
+$dbname = 'golden_treat';
 $username = 'root';
 $password = '';
 
@@ -365,8 +365,8 @@ ob_end_flush();
             backdrop-filter: blur(10px);
             box-shadow: 0 2px 20px rgba(0,0,0,0.1);
             position: fixed;
-            top:40px;
-            right:20px;
+            top:10px;
+            left:20px;
             z-index: 1000;
             transition: all 0.3s ease;
             border-radius: 5cm;
@@ -1322,21 +1322,7 @@ ob_end_flush();
     </div>
 
     <main>
-        <section class="hero">
-            <div class="hero-content">
-                <h1 class="animated fadeIn">Freshly Baked Daily</h1>
-                <p class="animated fadeIn">Artisanal pastries, cakes, and breads made with love and the finest ingredients</p>
-                <a href="../bakehouse/index.php" class="btn btn-primary animated fadeIn">
-                    <i class="fas fa-arrow-down" ></i> Home
-                </a>
-                                <a href="#products" class="btn btn-primary animated fadeIn">
-                    <i class="fas fa-arrow-down"></i> Product
-                </a>
-                                <a href="#about" class="btn btn-primary animated fadeIn">
-                    <i class="fas fa-arrow-down"></i> About
-                </a>
-            </div>
-        </section>
+      <?php include 'home.html'; ?>
         
         <section id="products" class="all-products">
             <div class="container">
