@@ -1,16 +1,14 @@
 -- ============================================================
--- DATABASE: Golden Treat Bakery Management System
+-- DATABASE: Golden Treat Bakery Management System (Updated & Merged)
 -- ============================================================
 
-CREATE DATABASE golden_treat;
-
+CREATE DATABASE IF NOT EXISTS golden_treat;
 USE golden_treat;
 
 -- ============================================================
 -- TABLE: bookings
--- Stores customer table reservations
 -- ============================================================
-CREATE TABLE bookings (
+CREATE TABLE IF NOT EXISTS bookings (
     id INT AUTO_INCREMENT PRIMARY KEY,
     bookingId VARCHAR(50) UNIQUE NOT NULL,
     customerName VARCHAR(100) NOT NULL,
@@ -23,21 +21,15 @@ CREATE TABLE bookings (
 -- ============================================================
 -- BILLING SYSTEM
 -- ============================================================
-
--- Drop old tables if exist
 DROP TABLE IF EXISTS bill_items;
 DROP TABLE IF EXISTS bills;
 
--- TABLE: bills
--- Stores bill header information
 CREATE TABLE bills (
     id INT AUTO_INCREMENT PRIMARY KEY,
     customer_name VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
--- TABLE: bill_items
--- Stores individual items in each bill
 CREATE TABLE bill_items (
     id INT AUTO_INCREMENT PRIMARY KEY,
     bill_id INT NOT NULL,
@@ -53,7 +45,6 @@ INSERT INTO bills (customer_name) VALUES
 ('Nimali Silva'),
 ('Ruwan Jayasinghe');
 
--- Sample Data: Bill Items
 INSERT INTO bill_items (bill_id, item_name, price, qty) VALUES
 (1, 'Chocolate Cake', 1500.00, 1),
 (1, 'Soft Drink', 200.00, 2),
@@ -64,7 +55,6 @@ INSERT INTO bill_items (bill_id, item_name, price, qty) VALUES
 
 -- ============================================================
 -- TABLE: settings
--- Stores shop configuration and preferences
 -- ============================================================
 DROP TABLE IF EXISTS settings;
 
@@ -79,16 +69,14 @@ CREATE TABLE settings (
     vat_percent DECIMAL(5,2) DEFAULT 0.00
 );
 
--- Sample Data: Settings
-INSERT INTO settings (id, shop_name, shop_slogan, shop_tel, shop_email, shop_address, thank_note, vat_percent)
+INSERT INTO settings (shop_name, shop_slogan, shop_tel, shop_email, shop_address, thank_note, vat_percent)
 VALUES 
-(1, 'Golden Treat Bakery', 'Fresh & Tasty Every Day', '011-2345678', 'golden@example.com', '123 Main Street, Colombo', 'Thank you for visiting Golden Treat!', 8.00);
+('Golden Treat Bakery', 'Fresh & Tasty Every Day', '011-2345678', 'golden@example.com', '123 Main Street, Colombo', 'Thank you for visiting Golden Treat!', 8.00);
 
 -- ============================================================
 -- TABLE: stock
--- Manages inventory and stock levels
 -- ============================================================
-CREATE TABLE stock (
+CREATE TABLE IF NOT EXISTS stock (
   id INT(11) NOT NULL AUTO_INCREMENT,
   partNumber VARCHAR(50) NOT NULL,
   date DATE NOT NULL,
@@ -101,89 +89,81 @@ CREATE TABLE stock (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ============================================================
--- USER MANAGEMENT SYSTEM
+-- USER MANAGEMENT SYSTEM (UPDATED)
 -- ============================================================
-
--- Drop existing tables if needed
 DROP TABLE IF EXISTS users_log;
 DROP TABLE IF EXISTS users;
 
--- TABLE: users
--- Stores user accounts and profiles
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    full_name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
+    full_name VARCHAR(100) NOT NULL,  -- Updated: Shorter length to match simpler schema
+    email VARCHAR(100) UNIQUE NOT NULL,  -- Updated: Shorter length
     mobile VARCHAR(20),
     address VARCHAR(255),
     district VARCHAR(100),
-    role ENUM('customer','manager','admin') DEFAULT 'customer',
-    date_joined DATE NOT NULL,
+    role ENUM('admin','manager','customer') NOT NULL DEFAULT 'customer',  -- Updated: Order and NOT NULL DEFAULT
+    date_joined DATE DEFAULT CURDATE(),  -- Updated: DEFAULT CURDATE(), removed NOT NULL
     status ENUM('Active','Inactive') DEFAULT 'Active',
-    profile_picture VARCHAR(255),
-    last_login TIMESTAMP NULL,
-    password VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    profile_picture VARCHAR(255),  -- Retained from original
+    last_login TIMESTAMP NULL,  -- Retained from original
+    password VARCHAR(255) NOT NULL,  -- ⚠️ MUST BE HASHED IN APPLICATION (e.g., bcrypt)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  -- Retained from original
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP  -- Retained from original
 ) ENGINE=InnoDB;
 
--- TABLE: users_log
--- Audit trail for user changes
 CREATE TABLE IF NOT EXISTS users_log (
     log_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NULL,
     operation VARCHAR(50) NOT NULL,
-    full_name VARCHAR(255),
-    email VARCHAR(255),
+    full_name VARCHAR(100),  -- Updated: Shorter length
+    email VARCHAR(100),  -- Updated: Shorter length
     mobile VARCHAR(20),
-    address TEXT,
+    address VARCHAR(255),
     district VARCHAR(100),
-    role ENUM('customer', 'admin', 'manager'),
+    role ENUM('admin', 'manager', 'customer'),  -- Updated: Order to match users
     date_joined DATE,
-    profile_picture VARCHAR(255),
-    last_login TIMESTAMP NULL,
-    log_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    status ENUM('Active','Inactive'),  -- Added to match simpler schema
+    profile_picture VARCHAR(255),  -- Retained
+    last_login TIMESTAMP NULL,  -- Retained
+    log_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
--- Add foreign key
-ALTER TABLE users_log
-ADD CONSTRAINT fk_users_log_user_id
-FOREIGN KEY (user_id) REFERENCES users(id)
-ON DELETE SET NULL;
-
--- Drop existing triggers if any
-DROP TRIGGER IF EXISTS after_users_insert;
-DROP TRIGGER IF EXISTS after_users_update;
-DROP TRIGGER IF EXISTS after_users_delete;
-
--- TRIGGERS: User Audit Trail
+-- Triggers for user audit (Updated: Prefix and structure to match simpler schema)
 DELIMITER //
 
-CREATE TRIGGER after_users_insert
+CREATE TRIGGER trg_users_after_insert
 AFTER INSERT ON users
 FOR EACH ROW
 BEGIN
-    INSERT INTO users_log (user_id, operation, full_name, email, mobile, address, district, role, date_joined, profile_picture, last_login)
-    VALUES (NEW.id, 'INSERT', NEW.full_name, NEW.email, NEW.mobile, NEW.address, NEW.district, NEW.role, NEW.date_joined, NEW.profile_picture, NEW.last_login);
+    INSERT INTO users_log (user_id, operation, full_name, email, mobile, address, district, role, date_joined, status, profile_picture, last_login)
+    VALUES (NEW.id, 'INSERT', NEW.full_name, NEW.email, NEW.mobile, NEW.address, NEW.district, NEW.role, NEW.date_joined, NEW.status, NEW.profile_picture, NEW.last_login);
 END //
 
-CREATE TRIGGER after_users_update
+CREATE TRIGGER trg_users_after_update
 AFTER UPDATE ON users
 FOR EACH ROW
 BEGIN
-    INSERT INTO users_log (user_id, operation, full_name, email, mobile, address, district, role, date_joined, profile_picture, last_login)
-    VALUES (NEW.id, 'UPDATE', NEW.full_name, NEW.email, NEW.mobile, NEW.address, NEW.district, NEW.role, NEW.date_joined, NEW.profile_picture, NEW.last_login);
+    INSERT INTO users_log (user_id, operation, full_name, email, mobile, address, district, role, date_joined, status, profile_picture, last_login)
+    VALUES (NEW.id, 'UPDATE', NEW.full_name, NEW.email, NEW.mobile, NEW.address, NEW.district, NEW.role, NEW.date_joined, NEW.status, NEW.profile_picture, NEW.last_login);
 END //
 
-CREATE TRIGGER after_users_delete
-AFTER DELETE ON users
+CREATE TRIGGER trg_users_before_delete
+BEFORE DELETE ON users
 FOR EACH ROW
 BEGIN
-    INSERT INTO users_log (user_id, operation, full_name, email, mobile, address, district, role, date_joined, profile_picture, last_login)
-    VALUES (NULL, 'DELETE', OLD.full_name, OLD.email, OLD.mobile, OLD.address, OLD.district, OLD.role, OLD.date_joined, OLD.profile_picture, OLD.last_login);
+    INSERT INTO users_log (user_id, operation, full_name, email, mobile, address, district, role, date_joined, status, profile_picture, last_login)
+    VALUES (OLD.id, 'DELETE', OLD.full_name, OLD.email, OLD.mobile, OLD.address, OLD.district, OLD.role, OLD.date_joined, OLD.status, OLD.profile_picture, OLD.last_login);
 END //
 
 DELIMITER ;
+
+-- Sample Users (Updated: Use PASSWORD() for hashing example, but note to use bcrypt in app; adjusted fields)
+INSERT INTO users (full_name, email, mobile, address, district, role, date_joined, status, password)
+VALUES 
+('Admin User', 'admin@example.com', '0771234567', 'Colombo', 'Colombo', 'admin', CURDATE(), 'Active', PASSWORD('admin123')),
+('Manager User', 'manager@example.com', '0777654321', 'Kandy', 'Kandy', 'manager', CURDATE(), 'Active', PASSWORD('manager123')),
+('Customer User', 'customer@example.com', '0751239876', 'Galle', 'Galle', 'customer', CURDATE(), 'Active', PASSWORD('customer123'));
 
 -- Cleanup orphaned logs
 UPDATE users_log 
@@ -191,83 +171,82 @@ SET user_id = NULL
 WHERE user_id IS NOT NULL 
 AND user_id NOT IN (SELECT id FROM users);
 
--- Sample Data: Users
-INSERT INTO users (full_name, email, mobile, address, district, role, date_joined, status, password)
-VALUES 
-('Admin User', 'admin@example.com', '0771234567', 'Colombo', 'Colombo', 'admin', CURDATE(), 'Active', 'admin123'),
-('Manager User', 'manager@example.com', '0777654321', 'Kandy', 'Kandy', 'manager', CURDATE(), 'Active', 'manager123'),
-('Customer User', 'customer@example.com', '0751239876', 'Galle', 'Galle', 'customer', CURDATE(), 'Active', 'customer123');
-
 -- ============================================================
--- SALES MANAGEMENT SYSTEM
+-- SALES MANAGEMENT SYSTEM (UPDATED)
 -- ============================================================
-
--- TABLE: sales
--- Stores sales transactions
-CREATE TABLE IF NOT EXISTS sales (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  date DATE NOT NULL,
-  customer VARCHAR(100),
-  quantity INT,
-  total DECIMAL(10,2),
-  status VARCHAR(50),
-  user VARCHAR(50)
-) ENGINE=InnoDB;
-
--- Drop old triggers/logs
 DROP TRIGGER IF EXISTS trg_sales_after_insert;
 DROP TRIGGER IF EXISTS trg_sales_after_update;
 DROP TRIGGER IF EXISTS trg_sales_before_delete;
 DROP TABLE IF EXISTS sales_log;
+DROP TABLE IF EXISTS sales;
 
--- TABLE: sales_log
--- Audit trail for sales changes
+-- ✅ UPDATED: Incorporated changes - customer NOT NULL, quantity/total NOT NULL, added 'Returned' to status, added staff field, user_id NULL with FK
+CREATE TABLE sales (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  date DATE NOT NULL,
+  customer VARCHAR(100) NOT NULL,  -- Updated: NOT NULL
+  user_id INT NULL,               -- Links to users.id (for integrity)
+  quantity INT NOT NULL,  -- Updated: NOT NULL, removed DEFAULT
+  total DECIMAL(10,2) NOT NULL,  -- Updated: NOT NULL
+  status ENUM('Pending', 'Paid', 'Cancelled', 'Returned') DEFAULT 'Pending',  -- Updated: Added 'Returned'
+  staff VARCHAR(100) DEFAULT 'Admin',  -- Added: From simpler schema
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  -- Retained
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- Sales audit log (Updated: Added staff field)
 CREATE TABLE sales_log (
   log_id INT AUTO_INCREMENT PRIMARY KEY,
   sale_id INT NULL,
   operation VARCHAR(50) NOT NULL,
   date DATE,
   customer VARCHAR(100),
+  user_id INT NULL,
   quantity INT,
   total DECIMAL(10,2),
-  status VARCHAR(50),
-  user VARCHAR(50),
-  log_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  status ENUM('Pending','Paid','Cancelled','Returned'),  -- Updated: Added 'Returned'
+  staff VARCHAR(100),  -- Added
+  log_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
--- TRIGGERS: Sales Audit Trail
 DELIMITER $$
 
 CREATE TRIGGER trg_sales_after_insert AFTER INSERT ON sales
 FOR EACH ROW
 BEGIN
-  INSERT INTO sales_log (sale_id, operation, date, customer, quantity, total, status, user)
-  VALUES (NEW.id, 'INSERT', NEW.date, NEW.customer, NEW.quantity, NEW.total, NEW.status, NEW.user);
+  INSERT INTO sales_log (sale_id, operation, date, customer, user_id, quantity, total, status, staff)
+  VALUES (NEW.id, 'INSERT', NEW.date, NEW.customer, NEW.user_id, NEW.quantity, NEW.total, NEW.status, NEW.staff);
 END$$
 
 CREATE TRIGGER trg_sales_after_update AFTER UPDATE ON sales
 FOR EACH ROW
 BEGIN
-  INSERT INTO sales_log (sale_id, operation, date, customer, quantity, total, status, user)
-  VALUES (NEW.id, 'UPDATE', NEW.date, NEW.customer, NEW.quantity, NEW.total, NEW.status, NEW.user);
+  INSERT INTO sales_log (sale_id, operation, date, customer, user_id, quantity, total, status, staff)
+  VALUES (NEW.id, 'UPDATE', NEW.date, NEW.customer, NEW.user_id, NEW.quantity, NEW.total, NEW.status, NEW.staff);
 END$$
 
 CREATE TRIGGER trg_sales_before_delete BEFORE DELETE ON sales
 FOR EACH ROW
 BEGIN
-  INSERT INTO sales_log (sale_id, operation, date, customer, quantity, total, status, user)
-  VALUES (OLD.id, 'DELETE', OLD.date, OLD.customer, OLD.quantity, OLD.total, OLD.status, OLD.user);
+  INSERT INTO sales_log (sale_id, operation, date, customer, user_id, quantity, total, status, staff)
+  VALUES (OLD.id, 'DELETE', OLD.date, OLD.customer, OLD.user_id, OLD.quantity, OLD.total, OLD.status, OLD.staff);
 END$$
 
 DELIMITER ;
 
+-- Sample Sales Data (Updated: Adjusted to match new structure, using sample from simpler schema)
+INSERT INTO sales (date, customer, user_id, quantity, total, status, staff) VALUES
+(CURDATE(), 'John Doe', 1, 3, 1500.00, 'Paid', 'Admin User'),
+(CURDATE(), 'Jane Smith', 2, 2, 900.00, 'Pending', 'Admin User'),
+(CURDATE(), 'Walk-in Customer', NULL, 1, 500.00, 'Paid', 'Admin User');
+
 -- ============================================================
 -- PRODUCT & CUSTOMIZATION SYSTEM
 -- ============================================================
+-- (No changes needed — already well-structured)
 
--- TABLE: products
--- Stores bakery products catalog
-CREATE TABLE products (
+CREATE TABLE IF NOT EXISTS products (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
@@ -281,9 +260,7 @@ CREATE TABLE products (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- TABLE: customizations
--- Stores available product customization options
-CREATE TABLE customizations (
+CREATE TABLE IF NOT EXISTS customizations (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     price_adjustment DECIMAL(10, 2) DEFAULT 0,
@@ -291,9 +268,7 @@ CREATE TABLE customizations (
     is_active BOOLEAN DEFAULT 1
 );
 
--- TABLE: product_customizations
--- Links products to available customizations
-CREATE TABLE product_customizations (
+CREATE TABLE IF NOT EXISTS product_customizations (
     product_id INT,
     customization_id INT,
     PRIMARY KEY (product_id, customization_id),
@@ -301,9 +276,7 @@ CREATE TABLE product_customizations (
     FOREIGN KEY (customization_id) REFERENCES customizations(id) ON DELETE CASCADE
 );
 
--- TABLE: cart
--- Stores customer shopping cart items
-CREATE TABLE cart (
+CREATE TABLE IF NOT EXISTS cart (
     id INT AUTO_INCREMENT PRIMARY KEY,
     session_id VARCHAR(255) NOT NULL,
     product_id INT NOT NULL,
@@ -314,7 +287,7 @@ CREATE TABLE cart (
     FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 );
 
--- Sample Data: Products
+-- Sample data (unchanged)
 INSERT INTO products (name, description, price, category, is_daily_special, discount_percentage, visibility, stock_quantity) VALUES
 ('Chocolate Croissant', 'Flaky croissant filled with rich chocolate', 3.50, 'Pastries', 1, 0, 1, 50),
 ('Blueberry Muffin', 'Freshly baked muffin with juicy blueberries', 2.75, 'Muffins', 0, 10, 1, 30),
@@ -322,7 +295,6 @@ INSERT INTO products (name, description, price, category, is_daily_special, disc
 ('Vanilla Cupcake', 'Moist vanilla cupcake with buttercream frosting', 3.00, 'Cupcakes', 0, 0, 1, 40),
 ('Strawberry Tart', 'Buttery tart shell filled with pastry cream and fresh strawberries', 5.50, 'Tarts', 0, 15, 1, 20);
 
--- Sample Data: Customizations
 INSERT INTO customizations (name, price_adjustment, category, is_active) VALUES
 ('Extra Chocolate', 0.75, 'Toppings', 1),
 ('Almond Topping', 0.50, 'Toppings', 1),
@@ -335,7 +307,6 @@ INSERT INTO customizations (name, price_adjustment, category, is_active) VALUES
 ('Birthday Message', 1.00, 'Special', 1),
 ('Wedding Decoration', 3.00, 'Special', 1);
 
--- Sample Data: Product-Customization Links
 INSERT INTO product_customizations (product_id, customization_id) VALUES
 (1, 1), (1, 2), (1, 6), (1, 7), (1, 8),
 (2, 3), (2, 4), (2, 6), (2, 7), (2, 8),
@@ -346,9 +317,6 @@ INSERT INTO product_customizations (product_id, customization_id) VALUES
 -- ============================================================
 -- ORDER MANAGEMENT SYSTEM
 -- ============================================================
-
--- TABLE: orders
--- Stores customer orders
 CREATE TABLE IF NOT EXISTS orders (
     id INT AUTO_INCREMENT PRIMARY KEY,
     order_number VARCHAR(20) UNIQUE NOT NULL,
@@ -361,8 +329,6 @@ CREATE TABLE IF NOT EXISTS orders (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- TABLE: order_items
--- Stores individual items in each order
 CREATE TABLE IF NOT EXISTS order_items (
     id INT AUTO_INCREMENT PRIMARY KEY,
     order_id INT,
@@ -374,12 +340,136 @@ CREATE TABLE IF NOT EXISTS order_items (
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
 );
 
+-- ============================================================
+-- OTP SYSTEM (FIXED & RETAINED)
+-- ============================================================
+DROP TABLE IF EXISTS otps;
 
-
+-- ✅ FIXED: Added PRIMARY KEY + AUTO_INCREMENT (retained from original)
 CREATE TABLE otps (
-  id int(11) NOT NULL,
-  user_id int(11) NOT NULL,
-  otp varchar(6) NOT NULL,
-  expires_at datetime NOT NULL,
-  created_at timestamp NOT NULL DEFAULT current_timestamp()
+  id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  user_id INT(11) NOT NULL,
+  otp VARCHAR(6) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+
+
+
+
+
+
+
+
+
+-- ============================================================
+-- NEW TRIGGER: Auto-create Sale after New Order
+-- ============================================================
+
+-- This trigger fires AFTER INSERT on the 'orders' table.
+-- It automatically creates a corresponding entry in the 'sales' table.
+-- Assumptions:
+-- - Quantity is set to 1 (representing the entire order as a single "sale unit").
+-- - Status is mapped from order status (e.g., 'pending' -> 'Pending'; defaults to 'Pending' if no match).
+-- - User_id is set to NULL (no specific user linked; can be updated later).
+-- - Staff is set to 'Admin' (default).
+-- - Date is derived from the order's created_at.
+-- - If order_items are inserted after the order, the sale total is based on order.total_amount.
+-- - Note: For more accuracy (e.g., summing quantities from order_items), consider a stored procedure or application-level logic.
+-- - Additional triggers could be added for order updates to sync sales status.
+
+DELIMITER $$
+
+CREATE TRIGGER trg_orders_after_insert_auto_sale
+AFTER INSERT ON orders
+FOR EACH ROW
+BEGIN
+    DECLARE sale_status VARCHAR(20) DEFAULT 'Pending';
+    
+    -- Map order status to sales status (simple mapping)
+    CASE NEW.status
+        WHEN 'pending' THEN SET sale_status = 'Pending';
+        WHEN 'confirmed' THEN SET sale_status = 'Paid';  -- Assuming confirmed means paid/processed
+        WHEN 'preparing' THEN SET sale_status = 'Pending';
+        WHEN 'ready' THEN SET sale_status = 'Paid';
+        WHEN 'completed' THEN SET sale_status = 'Paid';
+        ELSE SET sale_status = 'Pending';
+    END CASE;
+    
+    -- Insert into sales
+    INSERT INTO sales (date, customer, user_id, quantity, total, status, staff, created_at)
+    VALUES (
+        DATE(NEW.created_at),  -- Use date from order creation
+        NEW.customer_name,     -- Customer from order
+        NULL,                  -- No specific user_id; can be linked later
+        1,                     -- Quantity: 1 for the entire order (adjust if needed)
+        NEW.total_amount,      -- Total from order
+        sale_status,           -- Mapped status
+        'Admin',               -- Default staff
+        NEW.created_at         -- Same timestamp as order
+    );
+END$$
+
+DELIMITER ;
+
+-- ============================================================
+-- OPTIONAL: Trigger for Order Status Updates (to sync Sales Status)
+-- ============================================================
+
+-- This trigger fires AFTER UPDATE on 'orders' to update the corresponding sale's status.
+-- Assumption: There is one sale per order (based on the insert trigger above).
+-- Links via a potential order_id in sales? Wait, sales doesn't have order_id.
+-- To make this work properly, we need to add an 'order_id' field to sales table for linking.
+-- For now, this is a placeholder; recommend adding 'order_id INT NULL FOREIGN KEY REFERENCES orders(id)' to sales.
+
+-- First, ALTER sales table to add order_id (if not exists)
+-- ALTER TABLE sales ADD COLUMN IF NOT EXISTS order_id INT NULL AFTER customer,
+-- ADD FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE SET NULL;
+
+-- Then, the trigger (uncomment after ALTER):
+/*
+DELIMITER $$
+
+CREATE TRIGGER trg_orders_after_update_sync_sale
+AFTER UPDATE ON orders
+FOR EACH ROW
+BEGIN
+    DECLARE sale_status VARCHAR(20) DEFAULT 'Pending';
+    
+    -- Map updated order status to sales status
+    CASE NEW.status
+        WHEN 'pending' THEN SET sale_status = 'Pending';
+        WHEN 'confirmed' THEN SET sale_status = 'Paid';
+        WHEN 'preparing' THEN SET sale_status = 'Pending';
+        WHEN 'ready' THEN SET sale_status = 'Paid';
+        WHEN 'completed' THEN SET sale_status = 'Paid';
+        ELSE SET sale_status = 'Pending';
+    END CASE;
+    
+    -- Update the linked sale (assumes order_id in sales)
+    UPDATE sales 
+    SET status = sale_status, 
+        updated_at = CURRENT_TIMESTAMP  -- If you add updated_at to sales
+    WHERE order_id = NEW.id;
+END$$
+
+DELIMITER ;
+*/
+
+-- ============================================================
+-- SAMPLE USAGE
+-- ============================================================
+
+-- Test: Insert a new order (this will auto-trigger a sale)
+INSERT INTO orders (order_number, customer_name, customer_email, customer_phone, total_amount, status) 
+VALUES ('ORD-001', 'Test Customer', 'test@example.com', '0770000000', 2500.00, 'pending');
+
+-- Verify: Check the auto-created sale
+SELECT * FROM sales WHERE customer = 'Test Customer' ORDER BY created_at DESC LIMIT 1;
+
+-- Clean up test data if needed
+DELETE FROM order_items WHERE order_id = LAST_INSERT_ID();  -- If items were added
+DELETE FROM orders WHERE order_number = 'ORD-001';
+DELETE FROM sales WHERE customer = 'Test Customer';
