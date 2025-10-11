@@ -546,6 +546,3 @@ BEGIN
 END$$
 
 DELIMITER ;
-
-
-read these codes dont do anything untill i say

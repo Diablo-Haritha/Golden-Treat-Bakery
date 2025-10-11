@@ -634,7 +634,7 @@
     <div class="header-middle-title">Stock Management</div>
   </div>
   <div class="header-right">
-    <button class="role-btn" onclick="window.location.href='../log.php'">Log</button>
+    <button class="role-btn" onclick="window.location.href='../stock_log.php'">Log</button>
     <button class="role-btn" onclick="window.location.href='../index.html'">Dashboard</button>
     <div class="user-icon"></div>
   </div>
