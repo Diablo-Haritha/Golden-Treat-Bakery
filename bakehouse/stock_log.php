@@ -240,6 +240,10 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
       gap: 10px;
     }
 
+    #btnSumDashboard{
+        color: black;
+    }
+
     .salebtn button {
       background: #30b6a2;
       border: none;
@@ -518,32 +522,52 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
       color: #991b1b;
     }
 
-    .popup {
-      display: none;
-      position: fixed;
-      z-index: 1000;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.6);
-      backdrop-filter: blur(8px);
-      align-items: center;
-      justify-content: center;
-    }
+   .popup {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    overflow: auto;
+}
 
     .popup-content {
-      background: rgba(255, 255, 255, 0.15);
-      backdrop-filter: blur(20px);
-      padding: 30px;
-      border-radius: 20px;
-      width: 400px;
-      max-width: 90%;
-      color: #fff;
-      text-align: left;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-      animation: fadeIn 0.3s ease-in-out;
-    }
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(20px);
+    padding: 30px;
+    border-radius: 20px;
+    width: 400px;
+    max-width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    color: #fff;
+    text-align: left;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.popup-content .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+}
+
+.card {
+    background: rgba(252, 252, 252, 0.635);
+    backdrop-filter: blur(12px);
+    border-radius: 20px;
+    padding: 15px;
+    text-align: center;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    transition: transform 0.3s, box-shadow 0.3s;
+    min-width: 100px;
+}
 
     .popup-content h2 {
       margin-top: 0;
@@ -559,6 +583,20 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     .popup-content li {
       margin: 8px 0;
     }
+
+    .card {
+    padding: 15px;
+}
+.card h3 {
+    font-size: 1.2rem;
+    margin-bottom: 8px;
+    color: #ffcc00;
+}
+.card p {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin: 8px 0;
+}
 
     .close {
       float: right;
