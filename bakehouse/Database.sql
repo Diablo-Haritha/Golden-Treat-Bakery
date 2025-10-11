@@ -487,7 +487,6 @@ DROP TABLE IF EXISTS stock_log;
 -- Create stock_log table
 CREATE TABLE stock_log (
     log_id INT AUTO_INCREMENT PRIMARY KEY,
-    stock_id INT NULL,
     operation VARCHAR(50) NOT NULL,
     partNumber VARCHAR(50),
     date DATE,
@@ -496,8 +495,7 @@ CREATE TABLE stock_log (
     category VARCHAR(100),
     status ENUM('In Stock','Low','Out of Stock'),
     unit VARCHAR(20),
-    log_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (stock_id) REFERENCES stock(id) ON DELETE SET NULL
+    log_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
 -- ============================================================
@@ -512,10 +510,10 @@ AFTER INSERT ON stock
 FOR EACH ROW
 BEGIN
     INSERT INTO stock_log (
-        stock_id, operation, partNumber, date, description, quantity, category, status, unit
+        operation, partNumber, date, description, quantity, category, status, unit
     )
     VALUES (
-        NEW.id, 'INSERT', NEW.partNumber, NEW.date, NEW.description, NEW.quantity, NEW.category, NEW.status, NEW.unit
+        'INSERT', NEW.partNumber, NEW.date, NEW.description, NEW.quantity, NEW.category, NEW.status, NEW.unit
     );
 END$$
 
@@ -525,10 +523,10 @@ AFTER UPDATE ON stock
 FOR EACH ROW
 BEGIN
     INSERT INTO stock_log (
-        stock_id, operation, partNumber, date, description, quantity, category, status, unit
+        operation, partNumber, date, description, quantity, category, status, unit
     )
     VALUES (
-        NEW.id, 'UPDATE', NEW.partNumber, NEW.date, NEW.description, NEW.quantity, NEW.category, NEW.status, NEW.unit
+        'UPDATE', NEW.partNumber, NEW.date, NEW.description, NEW.quantity, NEW.category, NEW.status, NEW.unit
     );
 END$$
 
@@ -538,10 +536,10 @@ BEFORE DELETE ON stock
 FOR EACH ROW
 BEGIN
     INSERT INTO stock_log (
-        stock_id, operation, partNumber, date, description, quantity, category, status, unit
+        operation, partNumber, date, description, quantity, category, status, unit
     )
     VALUES (
-        OLD.id, 'DELETE', OLD.partNumber, OLD.date, OLD.description, OLD.quantity, OLD.category, OLD.status, OLD.unit
+        'DELETE', OLD.partNumber, OLD.date, OLD.description, OLD.quantity, OLD.category, OLD.status, OLD.unit
     );
 END$$
 

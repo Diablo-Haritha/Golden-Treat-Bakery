@@ -14,7 +14,7 @@ try {
 }
 
 // Build SQL query with filters for stock_log
-$sql = "SELECT * FROM stock_log WHERE 1=1";
+$sql = "SELECT log_id, operation, partNumber, date, description, quantity, category, status, unit, log_timestamp FROM stock_log WHERE 1=1";
 $params = [];
 
 if (!empty($_GET['from'])) {
@@ -48,11 +48,10 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     header('Content-Type: text/csv');
     header('Content-Disposition: attachment; filename="stock_log_export.csv"');
     $output = fopen('php://output', 'w');
-    fputcsv($output, ['Log ID', 'Stock ID', 'Operation', 'Part Number', 'Date', 'Description', 'Quantity', 'Category', 'Status', 'Unit', 'Timestamp']);
+    fputcsv($output, ['Log ID', 'Operation', 'Part Number', 'Date', 'Description', 'Quantity', 'Category', 'Status', 'Unit', 'Timestamp']);
     foreach ($logEntries as $row) {
         fputcsv($output, [
             $row['log_id'],
-            $row['stock_id'] ?? 'N/A',
             $row['operation'],
             $row['partNumber'] ?? 'N/A',
             $row['date'] ?? 'N/A',
@@ -698,7 +697,6 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
               <thead>
                 <tr>
                   <th>Log ID</th>
-                  <th>Stock ID</th>
                   <th>Operation</th>
                   <th>Part Number</th>
                   <th>Date</th>
@@ -714,7 +712,6 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
                 <?php foreach ($logEntries as $row): ?>
                   <tr>
                     <td><?php echo htmlspecialchars($row['log_id']); ?></td>
-                    <td><?php echo htmlspecialchars($row['stock_id'] ?? 'N/A'); ?></td>
                     <td><span class="badge operation-<?php echo strtolower($row['operation']); ?>"><?php echo htmlspecialchars($row['operation']); ?></span></td>
                     <td><?php echo htmlspecialchars($row['partNumber'] ?? 'N/A'); ?></td>
                     <td><?php echo htmlspecialchars($row['date'] ?? 'N/A'); ?></td>
@@ -783,8 +780,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
         const filter = searchInput.value.toLowerCase();
         const rows = document.querySelectorAll('tbody tr');
         rows.forEach(row => {
-          const partNumber = row.cells[3].textContent.toLowerCase();
-          const description = row.cells[5].textContent.toLowerCase();
+          const partNumber = row.cells[2].textContent.toLowerCase();
+          const description = row.cells[4].textContent.toLowerCase();
           row.style.display = (partNumber.includes(filter) || description.includes(filter)) ? '' : 'none';
         });
       });
@@ -795,8 +792,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
       const tbody = table.querySelector('tbody');
       const rows = Array.from(tbody.querySelectorAll('tr'));
       
-      const isNumeric = ['quantity'].includes(['Log ID', 'Stock ID', 'Operation', 'Part Number', 'Date', 'Description', 'Quantity', 'Category', 'Status', 'Unit', 'Timestamp'][columnIndex]);
-      const isDate = columnIndex === 4 || columnIndex === 10; // Date and Timestamp columns
+      const isNumeric = ['quantity'].includes(['Log ID', 'Operation', 'Part Number', 'Date', 'Description', 'Quantity', 'Category', 'Status', 'Unit', 'Timestamp'][columnIndex]);
+      const isDate = columnIndex === 3 || columnIndex === 9; // Date and Timestamp columns
       
       rows.sort((a, b) => {
         let aVal = a.cells[columnIndex].textContent.trim();
