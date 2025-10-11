@@ -21,32 +21,33 @@ function refValues($arr){
 }
 
 // Handle POST actions: add / edit / delete
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
-    $action = $_POST['action'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? null;
 
     if ($action === 'add') {
-        $order_date = $_POST['order_date'] ?: null;
-        $customer   = trim($_POST['customer'] ?? '');
-        $product    = trim($_POST['product'] ?? '');
-        $quantity   = (int)($_POST['quantity'] ?? 1);
-        $price      = (float)($_POST['price'] ?? 0.00);
-        $status     = $_POST['status'] ?? 'Pending';
+// ensure required fields
+$order_date = !empty($_POST['order_date']) ? $_POST['order_date'] : date('Y-m-d');
+$customer   = trim($_POST['customer'] ?? '');
+$product    = trim($_POST['product'] ?? '');
+$quantity   = (int)($_POST['quantity'] ?? 1);
+$price      = (float)($_POST['price'] ?? 0.00);
+$status     = $_POST['status'] ?? 'Pending';
 
+$total_amount = $price * $quantity;
 
-        $stmt = $conn->prepare("INSERT INTO orders (order_date, customer, product, quantity, price, status) VALUES (?, ?, ?, ?, ?, ?)");
-        if($stmt){
-        $stmt->bind_param("sssids", $order_date, $customer, $product, $quantity, $price, $status);
-        $ok = $stmt->execute();
-        $err = $stmt->error;
-        $stmt->close();
-
-        if (!$ok) $flash_error = "Insert failed: " . $err;
-        else { header("Location: " . $_SERVER['PHP_SELF']); exit; }
-        } else{
-            $flash_error = "Insert failed: " . $conn->error;
-        }
-    }
-  }
+$stmt = $conn->prepare("INSERT INTO orders (order_date, customer, product, quantity, price, total_amount, status) VALUES (?, ?, ?, ?, ?, ?, ?)");
+if ($stmt) {
+    $stmt->bind_param("sssidds", $order_date, $customer, $product, $quantity, $price, $total_amount, $status);
+    $ok = $stmt->execute();
+    $err = $stmt->error;
+    $stmt->close();
+    if (!$ok) $flash_error = "Insert failed: " . $err;
+    else { header("Location: " . $_SERVER['PHP_SELF']); exit; }
+} else {
+    $flash_error = "Insert failed: " . $conn->error;
+ }
+}
+}
 
    // require_once __DIR__ . '/sms_helpers.php';
 
@@ -54,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
     $id = (int)($_POST['id'] ?? 0);
 
     // --- IMPORTANT: collect fields from POST (same as add) ---
-    $order_date = $_POST['order_date'] ?: null;
+    $order_date = !empty($_POST['order_date']) ? $_POST['order_date'] : ($oldRow['order_date'] ?? date('Y-m-d'));
     $customer   = trim($_POST['customer'] ?? '');
     $product    = trim($_POST['product'] ?? '');
     $quantity   = (int)($_POST['quantity'] ?? 1);
@@ -71,7 +72,9 @@ $sel->close();
 
 if (!$oldRow || !empty($oldRow['deleted_at'])) {
     $flash_error = "Order not found or has been deleted.";
-    // optionally redirect or halt
+    // stop further processing for this request
+    header("Location: " . $_SERVER['PHP_SELF']);
+    exit;
 }
 $old_status = $oldRow['status'] ?? null;
 $customerName = $oldRow['customer'] ?? '';
@@ -82,7 +85,7 @@ $customerName = $oldRow['customer'] ?? '';
     $ok = $stmt->execute();
     $err = $stmt->error;
     $stmt->close();
-
+  
     if (!$ok) $flash_error = "Update failed: " . $err;
     else {
         // if status changed, add history and send SMS
@@ -252,12 +255,9 @@ if ($action === 'return') {
             $new_status = ($return_qty === $order_qty) ? 'Returned' : 'Partially Returned';
 
             // Insert row into returns
-            $ins = $conn->prepare("INSERT INTO returns (order_id, return_date, quantity, reason, refund_amount, processed_by, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())");
-            if (!$ins) throw new Exception("Prepare failed (insert return): " . $conn->error);
-            // types: i (order_id), s (return_date), i (quantity), s (reason), d (refund_amount), i (processed_by)
-            // processed_by may be null — cast to null-int or use 0 if you prefer. bind_param accepts null variables too.
-            $pb = $processed_by !== null ? $processed_by : null;
-            $ins->bind_param("isidsi", $id, $return_date, $return_qty, $reason, $refund_amount, $pb);
+            $ins = $conn->prepare("INSERT INTO returns (order_id, return_date, quantity, reason, refund_amount, processed_by, created_at)VALUES (?, ?, ?, ?, ?, ?, NOW())");
+    $pb = $processed_by !== null ? (int)$processed_by : null;
+    $ins->bind_param("isisdi", $id, $return_date, $return_qty, $reason, $refund_amount, $pb);
             $okIns = $ins->execute();
             if (!$okIns) {
                 $err = $ins->error;
@@ -314,8 +314,24 @@ if ($action === 'return') {
 if ($action === 'restore') {
     $id = (int)($_POST['id'] ?? 0);
     $restored_by = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
-    $stmt = $conn->prepare("UPDATE orders SET deleted_at = NULL, deleted_by = NULL WHERE id = ? AND deleted_at IS NOT NULL");
-    $stmt->bind_param("i", $id);
+
+    // detect if deleted_by column exists
+    $colCheck = $conn->query("SHOW COLUMNS FROM orders LIKE 'deleted_by'");
+    $hasDeletedBy = ($colCheck && $colCheck->num_rows > 0);
+
+    if ($hasDeletedBy) {
+        if ($restored_by === null) {
+            $stmt = $conn->prepare("UPDATE orders SET deleted_at = NULL, deleted_by = NULL WHERE id = ? AND deleted_at IS NOT NULL");
+            $stmt->bind_param("i", $id);
+        } else {
+            $stmt = $conn->prepare("UPDATE orders SET deleted_at = NULL, deleted_by = ? WHERE id = ? AND deleted_at IS NOT NULL");
+            $stmt->bind_param("ii", $restored_by, $id);
+        }
+    } else {
+        $stmt = $conn->prepare("UPDATE orders SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL");
+        $stmt->bind_param("i", $id);
+    }
+
     $stmt->execute();
     if ($stmt->affected_rows > 0) {
         // insert history
@@ -323,13 +339,22 @@ if ($action === 'restore') {
         $note = "Order restored by admin";
         $old_status = 'Deleted';
         $new_status = 'Restored';
-        $ins->bind_param("issis", $id, $old_status, $new_status, $restored_by, $note);
-        $ins->execute();
-        $ins->close();
+        if ($ins) {
+            if ($restored_by === null) {
+                // bind with changed_by as NULL: use the 4-param form where column is provided as NULL in SQL
+                $ins = $conn->prepare("INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, ?, ?, NULL, ?, NOW())");
+                $ins->bind_param("isss", $id, $old_status, $new_status, $note);
+            } else {
+                $ins->bind_param("issis", $id, $old_status, $new_status, $restored_by, $note);
+            }
+            $ins->execute();
+            $ins->close();
+        }
     }
     $stmt->close();
     header("Location: " . $_SERVER['PHP_SELF']); exit;
 }
+
 
 // Fetch orders for display
 $sql = "SELECT id, order_date, customer, product, quantity, price, status
