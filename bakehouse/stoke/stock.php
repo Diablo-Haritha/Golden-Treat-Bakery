@@ -760,7 +760,20 @@
       <div><label>Last Updated</label><input id="fDate" type="date"></div>
       <div class="full"><label>Description</label><input id="fDescription" type="text"></div>
       <div><label>Quantity</label><input id="fQuantity" type="number"></div>
-      <div><label>Unit</label><input id="fUnit" type="text"></div>
+      <div>
+  <label>Unit</label>
+  <select id="fUnit">
+    <option value="">--Select Unit--</option>
+    <option value="pcs">pcs</option>
+    <option value="kg">kg</option>
+    <option value="g">g</option>
+    <option value="ltr">ltr</option>
+    <option value="ml">ml</option>
+    <option value="box">box</option>
+    <option value="pack">pack</option>
+  </select>
+</div>
+
       <div><label>Category</label><input id="fCategory" type="text"></div>
       <div>
         <label>Status</label>
