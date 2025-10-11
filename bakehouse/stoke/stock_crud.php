@@ -28,6 +28,12 @@ if (in_array($action, ['add', 'edit'])) {
         echo json_encode(['success' => false, 'msg' => 'Description must not contain numbers']);
         exit;
     }
+
+    // Quantity must be a non-negative number
+    if (!is_numeric($_POST['quantity']) || $_POST['quantity'] < 0) {
+        echo json_encode(['success' => false, 'msg' => 'Quantity must be a non-negative number']);
+        exit;
+    }
 }
 
 // ADD
