@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Oct 11, 2025 at 09:23 AM
+-- Generation Time: Oct 02, 2025 at 03:26 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -130,22 +130,21 @@ CREATE TABLE `orders` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `mobile` varchar(32) DEFAULT NULL,
   `order_summary` longtext DEFAULT NULL,
-  `deleted_at` datetime DEFAULT NULL,
-  `deleted_by` int(11) DEFAULT NULL
+  `deleted_at` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `orders`
 --
 
-INSERT INTO `orders` (`id`, `order_number`, `user_id`, `order_date`, `customer`, `product`, `quantity`, `original_quantity`, `price`, `total_amount`, `original_price`, `status`, `created_at`, `updated_at`, `mobile`, `order_summary`, `deleted_at`, `deleted_by`) VALUES
-(1, NULL, NULL, '2025-09-01', 'Alice Fernando', 'Chocolate Cake', 1, 1, 2500.00, 0.00, 2500.00, 'Order Received', '2025-09-04 10:38:03', '2025-09-13 06:54:07', NULL, NULL, NULL, NULL),
-(2, NULL, NULL, '2025-09-02', 'Brian Silva', 'Blueberry Muffins (6 pack)', 2, 2, 1800.00, 0.00, 1800.00, 'Payment Confirmed', '2025-09-04 10:38:03', '2025-09-13 06:54:07', NULL, NULL, NULL, NULL),
-(3, NULL, NULL, '2025-09-02', 'Chathuri Perera', 'Butter Croissant', 9, 12, 2400.00, 0.00, 2400.00, 'Partially Returned', '2025-09-04 10:38:03', '2025-10-01 10:34:17', NULL, NULL, NULL, NULL),
-(4, NULL, NULL, '2025-09-03', 'Dilshan Jayawardena', 'Vanilla Cupcakes (12 pack)', 1, 1, 2200.00, 0.00, 2200.00, 'Order Received', '2025-09-04 10:38:03', '2025-10-01 10:37:01', NULL, NULL, NULL, NULL),
-(6, NULL, NULL, '2025-09-03', 'Fathima Rahman', 'Strawberry Tart', 2, 2, 3000.00, 0.00, 3000.00, 'Ready for Pickup', '2025-09-04 10:38:03', '2025-10-01 10:49:23', NULL, NULL, '2025-10-01 16:19:23', NULL),
-(7, NULL, NULL, '2025-09-04', 'Gihan Abeysekera', 'Fruit Loaf', 1, 1, 1500.00, 0.00, 1500.00, 'Out for Delivery', '2025-09-04 10:38:03', '2025-09-13 06:54:07', NULL, NULL, NULL, NULL),
-(10, NULL, NULL, '2025-09-04', 'Janani De Silva', 'Brownies', 8, 8, 1600.00, 0.00, 1600.00, 'Cancelled', '2025-09-04 10:38:03', '2025-09-15 07:07:23', NULL, NULL, NULL, NULL);
+INSERT INTO `orders` (`id`, `order_number`, `user_id`, `order_date`, `customer`, `product`, `quantity`, `original_quantity`, `price`, `total_amount`, `original_price`, `status`, `created_at`, `updated_at`, `mobile`, `order_summary`, `deleted_at`) VALUES
+(1, NULL, NULL, '2025-09-01', 'Alice Fernando', 'Chocolate Cake', 1, 1, 2500.00, 0.00, 2500.00, 'Order Received', '2025-09-04 10:38:03', '2025-09-13 06:54:07', NULL, NULL, NULL),
+(2, NULL, NULL, '2025-09-02', 'Brian Silva', 'Blueberry Muffins (6 pack)', 2, 2, 1800.00, 0.00, 1800.00, 'Payment Confirmed', '2025-09-04 10:38:03', '2025-09-13 06:54:07', NULL, NULL, NULL),
+(3, NULL, NULL, '2025-09-02', 'Chathuri Perera', 'Butter Croissant', 9, 12, 2400.00, 0.00, 2400.00, 'Partially Returned', '2025-09-04 10:38:03', '2025-10-01 10:34:17', NULL, NULL, NULL),
+(4, NULL, NULL, '2025-09-03', 'Dilshan Jayawardena', 'Vanilla Cupcakes (12 pack)', 1, 1, 2200.00, 0.00, 2200.00, 'Order Received', '2025-09-04 10:38:03', '2025-10-01 10:37:01', NULL, NULL, NULL),
+(6, NULL, NULL, '2025-09-03', 'Fathima Rahman', 'Strawberry Tart', 2, 2, 3000.00, 0.00, 3000.00, 'Ready for Pickup', '2025-09-04 10:38:03', '2025-10-01 10:49:23', NULL, NULL, '2025-10-01 16:19:23'),
+(7, NULL, NULL, '2025-09-04', 'Gihan Abeysekera', 'Fruit Loaf', 1, 1, 1500.00, 0.00, 1500.00, 'Out for Delivery', '2025-09-04 10:38:03', '2025-09-13 06:54:07', NULL, NULL, NULL),
+(10, NULL, NULL, '2025-09-04', 'Janani De Silva', 'Brownies', 8, 8, 1600.00, 0.00, 1600.00, 'Cancelled', '2025-09-04 10:38:03', '2025-09-15 07:07:23', NULL, NULL, NULL);
 
 -- --------------------------------------------------------
 
