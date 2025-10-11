@@ -51,7 +51,7 @@
 .header-right {
   display: flex;
   align-items: center;
-  gap: 8px; /* reduce spacing between buttons */
+  gap: 8px; 
 }
 
 .role-btn {
@@ -102,12 +102,6 @@
       padding: 8px 10px;
       border: 1px solid #d1d5db;
       border-radius: 8px
-    }
-
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 12px
     }
 
     .role-btn {
