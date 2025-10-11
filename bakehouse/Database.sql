@@ -473,3 +473,79 @@ SELECT * FROM sales WHERE customer = 'Test Customer' ORDER BY created_at DESC LI
 DELETE FROM order_items WHERE order_id = LAST_INSERT_ID();  -- If items were added
 DELETE FROM orders WHERE order_number = 'ORD-001';
 DELETE FROM sales WHERE customer = 'Test Customer';
+
+-- ============================================================
+-- STOCK AUDIT LOG
+-- ============================================================
+
+-- Drop previous triggers/log table if they exist
+DROP TRIGGER IF EXISTS trg_stock_after_insert;
+DROP TRIGGER IF EXISTS trg_stock_after_update;
+DROP TRIGGER IF EXISTS trg_stock_before_delete;
+DROP TABLE IF EXISTS stock_log;
+
+-- Create stock_log table
+CREATE TABLE stock_log (
+    log_id INT AUTO_INCREMENT PRIMARY KEY,
+    stock_id INT NULL,
+    operation VARCHAR(50) NOT NULL,
+    partNumber VARCHAR(50),
+    date DATE,
+    description VARCHAR(255),
+    quantity INT,
+    category VARCHAR(100),
+    status ENUM('In Stock','Low','Out of Stock'),
+    unit VARCHAR(20),
+    log_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (stock_id) REFERENCES stock(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- STOCK TRIGGERS
+-- ============================================================
+
+DELIMITER $$
+
+-- AFTER INSERT: Log new stock records
+CREATE TRIGGER trg_stock_after_insert
+AFTER INSERT ON stock
+FOR EACH ROW
+BEGIN
+    INSERT INTO stock_log (
+        stock_id, operation, partNumber, date, description, quantity, category, status, unit
+    )
+    VALUES (
+        NEW.id, 'INSERT', NEW.partNumber, NEW.date, NEW.description, NEW.quantity, NEW.category, NEW.status, NEW.unit
+    );
+END$$
+
+-- AFTER UPDATE: Log changes to stock records
+CREATE TRIGGER trg_stock_after_update
+AFTER UPDATE ON stock
+FOR EACH ROW
+BEGIN
+    INSERT INTO stock_log (
+        stock_id, operation, partNumber, date, description, quantity, category, status, unit
+    )
+    VALUES (
+        NEW.id, 'UPDATE', NEW.partNumber, NEW.date, NEW.description, NEW.quantity, NEW.category, NEW.status, NEW.unit
+    );
+END$$
+
+-- BEFORE DELETE: Log stock records before deletion
+CREATE TRIGGER trg_stock_before_delete
+BEFORE DELETE ON stock
+FOR EACH ROW
+BEGIN
+    INSERT INTO stock_log (
+        stock_id, operation, partNumber, date, description, quantity, category, status, unit
+    )
+    VALUES (
+        OLD.id, 'DELETE', OLD.partNumber, OLD.date, OLD.description, OLD.quantity, OLD.category, OLD.status, OLD.unit
+    );
+END$$
+
+DELIMITER ;
+
+
+read these codes dont do anything untill i say
