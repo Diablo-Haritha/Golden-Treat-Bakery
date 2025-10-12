@@ -1,97 +1,77 @@
 <?php
-// Set timezone to match login.php
-date_default_timezone_set('Asia/Kolkata');
+session_start();
+ob_start();
 
-// Database connection
+// Database Configuration
+$host = 'localhost';
+$dbname = 'golden_treat';
+$username = 'root';
+$password = '';
 try {
-    $pdo = new PDO('mysql:host=localhost;dbname=golden_treat', 'root', '');
+    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     die("Connection failed: " . $e->getMessage());
 }
 
-// Session handling
-session_set_cookie_params([
-    'lifetime' => 0,
-    'path' => '/',
-    'secure' => false,
-    'httponly' => true,
-    'samesite' => 'Strict'
-]);
-session_start();
+// Initialize variables
+$order = null;
+$orderItems = [];
+$message = '';
+$messageType = '';
 
-// Check if user is logged in
-if (!isset($_SESSION['email']) || !isset($_SESSION['user_id'])) {
-    header("Location: login.php");
-    exit();
+// Check for order_number in query parameter
+if (!isset($_GET['order_number']) || empty($_GET['order_number'])) {
+    $message = "❌ Invalid or missing order number.";
+    $messageType = 'error';
+} else {
+    $orderNumber = trim($_GET['order_number']);
+    $sessionId = session_id();
+    $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+
+    // Fetch order details (for logged-in user or guest session)
+    $query = "SELECT * FROM orders WHERE order_number = ?";
+    $params = [$orderNumber];
+    
+    if ($userId) {
+        $query .= " AND (user_id = ? OR user_id IS NULL)";
+        $params[] = $userId;
+    } else {
+        $query .= " AND user_id IS NULL";
+    }
+
+    $stmt = $pdo->prepare($query);
+    $stmt->execute($params);
+    $order = $stmt->fetch();
+
+    if ($order) {
+        // Fetch order items
+        $stmt = $pdo->prepare("SELECT * FROM order_items WHERE order_id = ?");
+        $stmt->execute([$order['id']]);
+        $orderItems = $stmt->fetchAll();
+        
+        // If no order items found, set a message
+        if (empty($orderItems)) {
+            $message = "⚠️ No items found for this order.";
+            $messageType = 'warning';
+        }
+    } else {
+        $message = "❌ Order not found or you do not have access to this order.";
+        $messageType = 'error';
+    }
 }
 
-// Session timeout (30 minutes)
-if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > 1800)) {
-    session_unset();
-    session_destroy();
-    header("Location: login.php");
-    exit();
-}
-$_SESSION['last_activity'] = time();
-
-// Create tables if they don't exist
-try {
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS users (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            full_name VARCHAR(255) NOT NULL,
-            email VARCHAR(255) UNIQUE NOT NULL,
-            mobile VARCHAR(20),
-            address VARCHAR(255),
-            district VARCHAR(100),
-            password VARCHAR(255) NOT NULL,
-            role ENUM('customer', 'admin', 'manager') DEFAULT 'customer',
-            date_joined DATE
-        )
-    ");
-
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS orders (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            order_number VARCHAR(20) UNIQUE NOT NULL,
-            customer_name VARCHAR(255) NOT NULL,
-            customer_email VARCHAR(255) NOT NULL,
-            customer_phone VARCHAR(20),
-            total_amount DECIMAL(10, 2) NOT NULL,
-            status ENUM('pending', 'confirmed', 'preparing', 'ready', 'completed') DEFAULT 'pending',
-            user_id INT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        )
-    ");
-} catch (PDOException $e) {
-    die("Table creation failed: " . $e->getMessage());
+function getCustomizationNames($pdo, $customizationJson) {
+    $customizationIds = json_decode($customizationJson, true) ?: [];
+    if (empty($customizationIds)) return [];
+    $placeholders = str_repeat('?,', count($customizationIds) - 1) . '?';
+    $stmt = $pdo->prepare("SELECT name, price_adjustment FROM customizations WHERE id IN ($placeholders)");
+    $stmt->execute($customizationIds);
+    return $stmt->fetchAll();
 }
 
-// Fetch user_id using email
-$user_email = $_SESSION['email'];
-$user_id = $_SESSION['user_id'];
-$stmt = $pdo->prepare("SELECT id FROM users WHERE email = ? AND id = ?");
-$stmt->execute([$user_email, $user_id]);
-$user = $stmt->fetch(PDO::FETCH_ASSOC);
-
-if (!$user) {
-    session_unset();
-    session_destroy();
-    die("User not found for email: " . htmlspecialchars($user_email));
-}
-
-// Fetch orders for the user
-$stmt = $pdo->prepare("SELECT id, order_number, created_at, status, total_amount, customer_name, customer_email, customer_phone 
-                       FROM orders 
-                       WHERE user_id = ? 
-                       ORDER BY created_at DESC");
-$stmt->execute([$user_id]);
-$orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-$message = empty($orders) ? "No orders found. Start shopping!" : "";
+ob_end_flush();
 ?>
 
 <!DOCTYPE html>
@@ -99,399 +79,463 @@ $message = empty($orders) ? "No orders found. Start shopping!" : "";
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Golden Treat - My Orders</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Dancing+Script:wght@400;700&family=Righteous&display=swap" rel="stylesheet">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <title>Order Details - Golden Treat Bakery</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #FFE8B7;
-            --primary: #D4AF37;
-            --secondary: #8B4513;
-            --accent: #FFE5B4;
-            --dark: #2C1810;
-            --light: #FFF8F0;
-            --white: #FFFFFF;
-            --gradient-1: linear-gradient(135deg, #D4AF37, #FFE5B4);
-            --gradient-2: linear-gradient(135deg, #8B4513, #D2691E);
-            --shadow: 0 10px 30px rgba(212, 175, 55, 0.2);
-            --shadow-hover: 0 15px 40px rgba(212, 175, 55, 0.3);
-            --radius: 20px;
+            --primary: #8B4513;
+            --primary-light: #A0522D;
+            --secondary: #e0c99d;
+            --accent: #d4af37;
+            --light: #f8f4e9;
+            --dark: #333;
+            --success: #28a745;
+            --warning: #ffc107;
+            --danger: #dc3545;
+            --text: #444;
+            --border: #ddd;
+            --shadow: 0 4px 6px rgba(0,0,0,0.1);
+            --shadow-lg: 0 10px 30px rgba(0,0,0,0.15);
         }
-
+        body {
+            font-family: 'Poppins', sans-serif;
+            line-height: 1.6;
+            color: var(--text);
+            background: linear-gradient(135deg, #FFE8B7 0%, #fff8e1 100%);
+            min-height: 100vh;
+            margin: 0;
+        }
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-
-        html, body {
-            width: 100%;
-            height: 100%;
-            overflow-x: hidden;
-            font-family: 'Poppins', sans-serif;
-            color: var(--dark);
-            background: var(--bg);
-            position: relative;
+        .container {
+            width: 90%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 15px;
         }
-
-        .frosting-bg {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 0;
-            background: var(--gradient-1);
-            animation: spreadFrosting 15s ease-in-out infinite;
-            overflow: hidden;
-        }
-
-        @keyframes spreadFrosting {
-            0% { background: linear-gradient(135deg, #FFE8B7, #D4AF37); }
-            50% { background: linear-gradient(225deg, #FFE5B4, #D2691E); }
-            100% { background: linear-gradient(135deg, #FFE8B7, #D4AF37); }
-        }
-
-        .sprinkles {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 1;
-            pointer-events: none;
-            overflow: hidden;
-        }
-
-        .sprinkle {
-            position: absolute;
-            width: 8px;
-            height: 2px;
-            background: linear-gradient(90deg, var(--primary), #ff6f91);
-            border-radius: 2px;
-            opacity: 0.6;
-            animation: fall 4s linear infinite;
-        }
-
-        @keyframes fall {
-            0% { transform: translateY(-10vh) rotate(0deg); opacity: 0.6; }
-            100% { transform: translateY(110vh) rotate(360deg); opacity: 0.2; }
-        }
-
-        .message {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--white);
-            color: var(--dark);
-            padding: 12px 20px;
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            z-index: 4;
-            font-size: 0.9rem;
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+        .animated { animation-duration: 0.6s; animation-fill-mode: both; }
+        .fadeIn { animation-name: fadeIn; }
+        .slideIn { animation-name: slideIn; }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: white;
+            text-decoration: none;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
             text-align: center;
-            max-width: 90%;
-            width: 300px;
-            opacity: 0;
-            animation: fadeInOut 3s ease forwards;
-        }
-
-        .message.error {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        .message.success {
-            background: #d1fae5;
-            color: #065f46;
-        }
-
-        @keyframes fadeInOut {
-            0% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
-            10% { opacity: 1; transform: translateX(-50%) translateY(0); }
-            90% { opacity: 1; transform: translateX(-50%) translateY(0); }
-            100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
-        }
-
-        .header {
-            background: var(--white);
-            padding: 15px 20px;
             box-shadow: var(--shadow);
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+        .btn-primary { background: linear-gradient(135deg, var(--primary), var(--primary-light)); }
+        .btn-success { background: linear-gradient(135deg, var(--success), #34ce57); }
+        header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+            position: fixed;
+            top: 10px;
+            left: 20px;
+            z-index: 1000;
+            transition: all 0.3s ease;
+            border-radius: 5cm;
+        }
+        .navbar {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            z-index: 2;
+            padding: 5px 0;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .logo span { color: var(--accent); }
+        .nav-links {
+            display: flex;
+            list-style: none;
+            gap: 30px;
+        }
+        .nav-links a {
+            text-decoration: none;
+            color: var(--dark);
+            font-weight: 500;
+            transition: all 0.3s ease;
             position: relative;
         }
-
-        .header h1 {
-            font-family: 'Dancing Script', cursive;
-            font-size: 2rem;
-            color: var(--secondary);
+        .nav-links a:hover { color: var(--primary); }
+        .nav-links a:after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 2px;
+            bottom: -5px;
+            left: 0;
+            background: var(--primary);
+            transition: width 0.3s ease;
         }
-
-        .back-btn {
-            background: var(--gradient-1);
-            color: var(--white);
-            border: none;
-            padding: 10px 15px;
-            border-radius: var(--radius);
-            cursor: pointer;
-            font-size: 0.9rem;
-            transition: transform 0.3s ease;
+        .nav-links a:hover:after { width: 100%; }
+        .section-title {
+            text-align: center;
+            margin: 60px 0 40px;
+            font-size: 2.5rem;
+            color: var(--primary);
+            position: relative;
         }
-
-        .back-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-hover);
+        .section-title:after {
+            content: '';
+            display: block;
+            width: 100px;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            margin: 15px auto;
+            border-radius: 2px;
         }
-
-        .container {
-            max-width: 1200px;
-            margin: 20px auto;
-            padding: 20px;
-            background: var(--white);
-            border-radius: var(--radius);
+        .order-container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
             box-shadow: var(--shadow);
-            z-index: 2;
-            position: relative;
+            margin: 120px auto 60px;
+            max-width: 800px;
         }
-
-        .orders-section h2 {
-            font-family: 'Dancing Script', cursive;
-            font-size: 2rem;
-            color: var(--secondary);
-            text-align: center;
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--secondary);
         }
-
-        .no-orders {
-            text-align: center;
-            color: var(--secondary);
+        .order-details p {
+            margin: 10px 0;
             font-size: 1.1rem;
-            padding: 40px;
         }
-
-        .orders-table {
-            width: 100%;
-            border-collapse: collapse;
+        .order-details strong {
+            color: var(--primary);
+            margin-right: 10px;
+        }
+        .order-items {
+            margin: 20px 0;
+        }
+        .order-item {
+            display: flex;
+            padding: 15px 0;
+            border-bottom: 1px solid var(--border);
+            align-items: center;
+        }
+        .order-item-image {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--secondary), #e8d4a6);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-size: 1.2rem;
+        }
+        .order-item-details { flex: 1; }
+        .order-item-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: var(--dark);
+        }
+        .order-item-customizations {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        .order-item-customization {
+            display: inline-block;
+            background: var(--light);
+            padding: 4px 10px;
+            border-radius: 15px;
+            margin-right: 5px;
+            margin-bottom: 5px;
+            font-size: 0.8rem;
+        }
+        .order-item-price {
+            font-weight: bold;
+            color: var(--primary);
+        }
+        .order-total {
+            display: flex;
+            justify-content: space-between;
+            font-size: 1.3rem;
+            font-weight: bold;
+            padding: 20px 0;
+            border-top: 2px solid var(--secondary);
             margin-top: 20px;
         }
-
-        .orders-table th,
-        .orders-table td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid var(--accent);
-        }
-
-        .orders-table th {
-            background: var(--gradient-1);
-            color: var(--white);
-            font-weight: 600;
-        }
-
-        .orders-table tr:hover {
-            background: var(--light);
-        }
-
-        .status-pending { color: #ff9800; font-weight: bold; }
-        .status-confirmed { color: #4caf50; font-weight: bold; }
-        .status-preparing { color: #2196f3; font-weight: bold; }
-        .status-ready { color: #9c27b0; font-weight: bold; }
-        .status-completed { color: #4caf50; font-weight: bold; }
-
-        .order-details {
-            cursor: pointer;
-            color: var(--primary);
-            text-decoration: underline;
-        }
-
-        .order-details:hover {
-            color: var(--secondary);
-        }
-
-        .modal {
-            display: none;
+        .message {
             position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
+            top: 100px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 10px;
+            color: white;
+            font-weight: 600;
+            z-index: 3000;
+            animation: slideIn 0.3s ease, fadeIn 0.3s ease;
+            box-shadow: var(--shadow-lg);
         }
-
-        .modal-content {
-            background-color: var(--white);
-            margin: 5% auto;
-            padding: 20px;
-            border-radius: var(--radius);
-            width: 80%;
-            max-width: 600px;
-            box-shadow: var(--shadow-hover);
+        .message.success { background: linear-gradient(135deg, var(--success), #34ce57); }
+        .message.error { background: linear-gradient(135deg, var(--danger), #e4606d); }
+        .message.warning { background: linear-gradient(135deg, var(--warning), #ffd760); }
+        footer {
+            background: linear-gradient(135deg, var(--dark), #2c2c2c);
+            color: white;
+            padding: 60px 0 20px;
+            margin-top: 80px;
         }
-
-        .close {
-            color: var(--secondary);
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
+        .footer-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 40px;
+            margin-bottom: 40px;
         }
-
-        .close:hover {
-            color: var(--primary);
+        .footer-column h3 {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            color: var(--accent);
         }
-
+        .footer-column ul { list-style: none; }
+        .footer-column ul li { margin-bottom: 10px; }
+        .footer-column ul li a {
+            color: #ccc;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        .footer-column ul li a:hover { color: white; }
+        .social-links {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .social-links a {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+            color: white;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        .social-links a:hover {
+            background: var(--accent);
+            transform: translateY(-3px);
+        }
+        .copyright {
+            text-align: center;
+            padding-top: 20px;
+            border-top: 1px solid #444;
+            color: #aaa;
+            font-size: 0.9rem;
+        }
         @media (max-width: 768px) {
-            .header {
-                padding: 10px;
-            }
-
-            .header h1 {
-                font-size: 1.5rem;
-            }
-
-            .container {
-                margin: 10px;
-                padding: 15px;
-            }
-
-            .orders-table th,
-            .orders-table td {
-                padding: 8px;
-                font-size: 0.9rem;
-            }
-
-            .modal-content {
-                width: 95%;
-                margin: 10% auto;
-            }
+            .navbar { flex-direction: column; gap: 15px; }
+            .nav-links { gap: 15px; }
+            .order-container { padding: 20px; }
+            .order-item { flex-direction: column; text-align: center; }
+            .order-item-image { margin-bottom: 15px; }
+            .footer-content { grid-template-columns: 1fr; text-align: center; }
         }
     </style>
 </head>
 <body>
-    <div class="frosting-bg"></div>
-    <div class="sprinkles"></div>
-
+    <!-- Message Display -->
     <?php if (!empty($message)): ?>
-        <div class="message error">
-            <?php echo htmlspecialchars($message); ?>
+        <div class="message <?php echo $messageType; ?> animated">
+            <?php echo $message; ?>
         </div>
+        <script>
+            setTimeout(() => {
+                document.querySelector('.message')?.remove();
+            }, 5000);
+        </script>
     <?php endif; ?>
 
-    <div class="header">
-        <h1>My Orders</h1>
-        <button class="back-btn" onclick="window.location.href='index.php'"><i class="fas fa-arrow-left"></i> Back to Home</button>
-    </div>
+    <header>
+        <div class="container">
+            <nav class="navbar">
+                <a href="index.php" class="logo animated fadeIn">
+                    <i class="fas fa-cookie-bite"></i>
+                    Golden <span>Treat</span>
+                </a>
+                <ul class="nav-links">
+                    <li><a href="index.php#products">Products</a></li>
+                    <li><a href="index.php#about">About</a></li>
+                    <li><a href="index.php#contact">Contact</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
 
-    <div class="container">
-        <div class="orders-section">
-            <h2>Your Recent Orders</h2>
-            <div id="orders-list">
-                <?php if (!empty($orders)): ?>
-                    <table class="orders-table">
-                        <thead>
-                            <tr>
-                                <th>Order Number</th>
-                                <th>Date</th>
-                                <th>Status</th>
-                                <th>Total</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($orders as $order): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars($order['order_number']); ?></td>
-                                    <td><?php echo htmlspecialchars($order['created_at']); ?></td>
-                                    <td><span class="status-<?php echo htmlspecialchars($order['status']); ?>"><?php echo htmlspecialchars($order['status']); ?></span></td>
-                                    <td>$<?php echo number_format($order['total_amount'], 2); ?></td>
-                                    <td><span class="order-details" onclick="showOrderDetails(<?php echo $order['id']; ?>)">View Details</span></td>
-                                </tr>
+    <main>
+        <section class="order-section">
+            <div class="container">
+                <h2 class="section-title animated fadeIn">
+                    <i class="fas fa-shopping-bag"></i> Order Details
+                </h2>
+                <div class="order-container animated fadeIn">
+                    <?php if ($order): ?>
+                        <div class="order-header">
+                            <h2>Order #<?php echo htmlspecialchars($order['order_number']); ?></h2>
+                            <a href="index.php" class="btn btn-primary">
+                                <i class="fas fa-arrow-left"></i> Back to Shop
+                            </a>
+                        </div>
+                        <div class="order-details">
+                            <p><strong>Customer Name:</strong> <?php echo htmlspecialchars($order['customer_name']); ?></p>
+                            <p><strong>Email:</strong> <?php echo htmlspecialchars($order['customer_email']); ?></p>
+                            <?php if (!empty($order['customer_phone'])): ?>
+                                <p><strong>Phone:</strong> <?php echo htmlspecialchars($order['customer_phone']); ?></p>
+                            <?php endif; ?>
+                            <p><strong>Order Date:</strong> <?php echo date('F j, Y, g:i A', strtotime($order['created_at'])); ?></p>
+                        </div>
+                        <div class="order-items">
+                            <h3 style="color: var(--primary); margin-bottom: 15px;">Order Items</h3>
+                            <?php foreach ($orderItems as $item): 
+                                $customizations = getCustomizationNames($pdo, $item['customizations']);
+                            ?>
+                                <div class="order-item">
+                                    <div class="order-item-image">
+                                        <i class="fas fa-bread-slice"></i>
+                                    </div>
+                                    <div class="order-item-details">
+                                        <div class="order-item-name"><?php echo htmlspecialchars($item['product_name']); ?></div>
+                                        <?php if (!empty($customizations)): ?>
+                                            <div class="order-item-customizations">
+                                                <?php foreach ($customizations as $cust): ?>
+                                                    <span class="order-item-customization">
+                                                        <?php echo htmlspecialchars($cust['name']); ?> (+Rs. <?php echo number_format($cust['price_adjustment'], 2); ?>)
+                                                    </span>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        <?php endif; ?>
+                                        <div class="order-item-price">
+                                            Rs. <?php echo number_format($item['unit_price'], 2); ?> × <?php echo $item['quantity']; ?> = Rs. <?php echo number_format($item['unit_price'] * $item['quantity'], 2); ?>
+                                        </div>
+                                    </div>
+                                </div>
                             <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                <?php else: ?>
-                    <p class="no-orders">No orders found. Start shopping!</p>
-                <?php endif; ?>
+                        </div>
+                        <div class="order-total">
+                            <span>Total Amount:</span>
+                            <span>Rs. <?php echo number_format($order['total_amount'], 2); ?></span>
+                        </div>
+                    <?php else: ?>
+                        <div class="no-order" style="text-align: center; padding: 40px; color: #666;">
+                            <i class="fas fa-shopping-bag" style="font-size: 4rem; margin-bottom: 20px; color: var(--secondary);"></i>
+                            <h3>No order details available</h3>
+                            <p>Please check the order number or return to the shop.</p>
+                            <a href="index.php" class="btn btn-primary">
+                                <i class="fas fa-arrow-left"></i> Back to Shop
+                            </a>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer id="contact">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-column">
+                    <h3>Golden Treat Bakery</h3>
+                    <p>Freshly baked goods made with love and the finest ingredients.</p>
+                    <div class="social-links">
+                        <a href="#"><i class="fab fa-facebook-f"></i></a>
+                        <a href="#"><i class="fab fa-instagram"></i></a>
+                        <a href="#"><i class="fab fa-twitter"></i></a>
+                        <a href="#"><i class="fab fa-tiktok"></i></a>
+                    </div>
+                </div>
+                <div class="footer-column">
+                    <h3>Quick Links</h3>
+                    <ul>
+                        <li><a href="index.php#products">Our Products</a></li>
+                        <li><a href="index.php#about">About Us</a></li>
+                        <li><a href="index.php#contact">Contact</a></li>
+                        <li><a href="admin.php">Admin Panel</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h3>Contact Info</h3>
+                    <ul>
+                        <li><i class="fas fa-map-marker-alt"></i> No.12,Kuliyapitiya,Kurunegala</li>
+                        <li><i class="fas fa-phone"></i> (+94) xxx xx xxx</li>
+                        <li><i class="fas fa-envelope"></i> info@goldentreat.com</li>
+                        <li><i class="fas fa-clock"></i> Mon-Sat: 6AM-8PM, Sun: 7AM-6PM</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="copyright">
+                &copy; 2024 Golden Treat Bakery. All rights reserved. | Made By 404 Error
             </div>
         </div>
-    </div>
-
-    <div id="order-modal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h3 id="modal-order-title">Order Details</h3>
-            <p><strong>Order Number:</strong> <span id="modal-order-number"></span></p>
-            <p><strong>Date:</strong> <span id="modal-order-date"></span></p>
-            <p><strong>Customer Name:</strong> <span id="modal-customer-name"></span></p>
-            <p><strong>Customer Email:</strong> <span id="modal-customer-email"></span></p>
-            <p><strong>Customer Phone:</strong> <span id="modal-customer-phone"></span></p>
-            <p><strong>Total Amount:</strong> <span id="modal-total-amount"></span></p>
-            <p><strong>Status:</strong> <span id="modal-status"></span></p>
-        </div>
-    </div>
+    </footer>
 
     <script>
-        function createSprinkles() {
-            const sprinkleContainer = document.querySelector('.sprinkles');
-            for (let i = 0; i < 100; i++) {
-                const sprinkle = document.createElement('div');
-                sprinkle.className = 'sprinkle';
-                sprinkle.style.left = Math.random() * 100 + '%';
-                sprinkle.style.animationDelay = Math.random() * 4 + 's';
-                sprinkle.style.animationDuration = (Math.random() * 2 + 3) + 's';
-                sprinkleContainer.appendChild(sprinkle);
-            }
-        }
+        // Smooth scroll for navigation links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
 
-        function showMessage(text, isError = false) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${isError ? 'error' : 'success'}`;
-            messageDiv.textContent = text;
-            document.body.appendChild(messageDiv);
-            setTimeout(() => messageDiv.remove(), 3000);
-        }
-
-        function showOrderDetails(orderId) {
-            const orders = <?php echo json_encode($orders); ?>;
-            const order = orders.find(o => o.id == orderId);
-            if (order) {
-                document.getElementById('modal-order-number').textContent = order.order_number;
-                document.getElementById('modal-order-date').textContent = order.created_at;
-                document.getElementById('modal-customer-name').textContent = order.customer_name;
-                document.getElementById('modal-customer-email').textContent = order.customer_email;
-                document.getElementById('modal-customer-phone').textContent = order.customer_phone || 'N/A';
-                document.getElementById('modal-total-amount').textContent = `$${parseFloat(order.total_amount).toFixed(2)}`;
-                document.getElementById('modal-status').textContent = order.status;
-                document.getElementById('modal-status').className = `status-${order.status}`;
-                document.getElementById('modal-order-title').textContent = `Order #${order.order_number}`;
-                document.getElementById('order-modal').style.display = 'block';
+        // Header scroll effect
+        window.addEventListener('scroll', () => {
+            const header = document.querySelector('header');
+            if (window.scrollY > 100) {
+                header.style.background = 'rgba(255, 255, 255, 0.98)';
+                header.style.boxShadow = '0 2px 30px rgba(0,0,0,0.15)';
             } else {
-                showMessage('Order not found.', true);
+                header.style.background = 'rgba(255, 255, 255, 0.95)';
+                header.style.boxShadow = '0 2px 20px rgba(0,0,0,0.1)';
             }
-        }
+        });
 
-        document.querySelector('.close').onclick = function() {
-            document.getElementById('order-modal').style.display = 'none';
-        };
+        // Intersection Observer for animations
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.animationPlayState = 'running';
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
 
-        window.onclick = function(event) {
-            const modal = document.getElementById('order-modal');
-            if (event.target == modal) {
-                modal.style.display = 'none';
-            }
-        };
-
-        document.addEventListener('DOMContentLoaded', function() {
-            createSprinkles();
-            <?php if (!empty($message)): ?>
-                showMessage('<?php echo htmlspecialchars($message); ?>', true);
-            <?php endif; ?>
+        document.querySelectorAll('.animated').forEach(el => {
+            el.style.animationPlayState = 'paused';
+            observer.observe(el);
         });
     </script>
 </body>
