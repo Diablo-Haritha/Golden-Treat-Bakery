@@ -1,4 +1,5 @@
 <?php
+// profile.php - Corrected version
 session_start();
 
 // Check if user is logged in
@@ -434,34 +435,6 @@ if (!isset($_SESSION['user_id'])) {
             opacity: 1;
         }
 
-        /* Orders */
-        .orders {
-            margin-top: 15px;
-        }
-
-        .orders h3 {
-            color: var(--secondary);
-            font-family: 'Dancing Script', cursive;
-            font-size: 1.6rem;
-            margin-bottom: 8px;
-        }
-
-        /* Scrollable Order History */
-        .order-history {
-            max-height: 150px;
-            overflow-y: auto;
-            margin-top: 8px;
-            border: 2px solid var(--accent);
-            border-radius: var(--radius);
-            padding: 5px;
-            background: var(--white);
-        }
-
-        .order-history p {
-            color: var(--secondary);
-            margin: 4px 0;
-        }
-
         /* Analytics */
         .analytics {
             margin-top: 15px;
@@ -545,9 +518,6 @@ if (!isset($_SESSION['user_id'])) {
                 padding: 6px;
                 font-size: 0.8rem;
             }
-            .orders h3 {
-                font-size: 1.4rem;
-            }
             .analytics .card {
                 padding: 8px;
             }
@@ -595,25 +565,15 @@ if (!isset($_SESSION['user_id'])) {
                 </div>
             </form>
 
-            <!-- Orders -->
-            <div class="orders">
-                <h3>Order History</h3>
-                <div class="order-history" id="order-history"></div>
-            </div>
-
             <!-- Analytics -->
             <div class="analytics">
                 <div class="card">Days since last login: <span id="days-since"></span></div>
-                <div class="card">Total Orders Placed: <span id="total-orders"></span></div>
-                <div class="card">Total Amount Spent: <span id="total-spent"></span></div>
-                <div class="card">Next Recommended Product: <span id="recommended-product"></span></div>
             </div>
 
             <!-- Social / Quick Actions -->
             <div class="social">
                 <button><i class="fas fa-share-alt"></i> Share Profile</button>
                 <button><i class="fas fa-star"></i> Reviews & Ratings</button>
-                <button onclick="downloadInvoice()"><i class="fas fa-download"></i> Download Invoice</button>
             </div>
         </div>
     </div>
@@ -691,10 +651,10 @@ if (!isset($_SESSION['user_id'])) {
             setTimeout(() => messageDiv.remove(), 3000);
         }
 
-        // Fetch user data and orders
+        // Fetch user data
         function fetchUserData() {
             $.ajax({
-                url: 'profile_api.php',
+                url: 'profile_api.php', // Ensure this path is correct relative to profile.php
                 type: 'GET',
                 dataType: 'json',
                 success: function(response) {
@@ -711,16 +671,6 @@ if (!isset($_SESSION['user_id'])) {
                         if (user.profile_picture) {
                             document.getElementById('profile-img').src = user.profile_picture;
                         }
-
-                        const orders = response.orders || [];
-                        const orderHistory = document.getElementById('order-history');
-                        orderHistory.innerHTML = orders.length > 0
-                            ? orders.map(order => `<p>#${order.order_id} - ${order.product_name} - ${order.order_date} - ${order.status}</p>`).join('')
-                            : '<p>No orders found.</p>';
-
-                        document.getElementById('total-orders').textContent = response.total_orders || '0';
-                        document.getElementById('total-spent').textContent = response.total_spent ? `$${response.total_spent}` : '$0';
-                        document.getElementById('recommended-product').textContent = response.recommended_product || 'None';
 
                         // Calculate days since last login
                         const lastLogin = user.last_login ? new Date(user.last_login) : new Date();
@@ -919,73 +869,6 @@ if (!isset($_SESSION['user_id'])) {
                         console.error('Delete error:', status, error, xhr.responseText);
                     }
                 });
-            }
-        }
-
-        // Download invoice
-        function downloadInvoice() {
-            try {
-                if (!window.jspdf || !window.jspdf.jsPDF) {
-                    showMessage('Error: jsPDF library not loaded.', true);
-                    return;
-                }
-
-                $.ajax({
-                    url: 'profile_api.php',
-                    type: 'GET',
-                    dataType: 'json',
-                    success: function(response) {
-                        console.log('Invoice data response:', response);
-                        if (response.status === 'success') {
-                            const { jsPDF } = window.jspdf;
-                            const doc = new jsPDF();
-
-                            const user = response.user;
-                            const orders = response.orders || [];
-                            const totalSpent = response.total_spent || '0.00';
-
-                            doc.setFontSize(18);
-                            doc.text('Golden Treat Invoice', 20, 20);
-
-                            doc.setFontSize(12);
-                            doc.text('Customer Details:', 20, 40);
-                            doc.text(`Name: ${user.full_name || 'Unknown'}`, 20, 50);
-                            doc.text(`Email: ${user.email || 'Unknown'}`, 20, 60);
-                            doc.text(`Address: ${user.address || 'Unknown'}, ${user.district || 'Unknown'}`, 20, 70);
-                            doc.text(`Date Joined: ${user.date_joined || 'Unknown'}`, 20, 80);
-
-                            doc.text('Order History:', 20, 100);
-                            const tableColumn = ['Order ID', 'Product', 'Date', 'Status'];
-                            const tableRows = orders.map(order => [order.order_id, order.product_name, order.order_date, order.status]);
-                            doc.autoTable({
-                                startY: 110,
-                                head: [tableColumn],
-                                body: tableRows,
-                                theme: 'grid',
-                                styles: { fontSize: 10 },
-                                headStyles: { fillColor: [212, 175, 55] },
-                                margin: { left: 20, right: 20 }
-                            });
-
-                            doc.text(`Total Amount Spent: $${totalSpent}`, 20, doc.lastAutoTable.finalY + 20);
-
-                            doc.setFontSize(10);
-                            doc.text('Thank you for your business!', 20, doc.lastAutoTable.finalY + 40);
-                            doc.text('Golden Treat', 20, doc.lastAutoTable.finalY + 50);
-
-                            doc.save(`Invoice_${user.full_name || 'User'}_${new Date().toISOString().split('T')[0]}.pdf`);
-                        } else {
-                            showMessage(response.message, true);
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        showMessage('Error fetching data for invoice: ' + (xhr.responseJSON?.message || 'Unknown error'), true);
-                        console.error('Invoice error:', status, error, xhr.responseText);
-                    }
-                });
-            } catch (error) {
-                console.error('Error generating invoice:', error);
-                showMessage('Error generating invoice.', true);
             }
         }
 

@@ -1,6 +1,8 @@
 <?php
+// profile_api.php - Updated version to fix profile picture display issue
 session_start();
 header('Content-Type: application/json');
+header('Cache-Control: no-cache, no-store, must-revalidate');
 
 // Enable error reporting for debugging (disable in production)
 ini_set('display_errors', 1);
@@ -47,6 +49,19 @@ if ($stmt->get_result()->num_rows === 0) {
 }
 $stmt->close();
 
+// Auto-add missing columns if needed
+$check_col = "SHOW COLUMNS FROM users LIKE 'last_login'";
+$col_result = $conn->query($check_col);
+if ($col_result->num_rows == 0) {
+    $conn->query("ALTER TABLE users ADD COLUMN last_login TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP");
+}
+
+$check_col2 = "SHOW COLUMNS FROM users LIKE 'profile_picture'";
+$col_result2 = $conn->query($check_col2);
+if ($col_result2->num_rows == 0) {
+    $conn->query("ALTER TABLE users ADD COLUMN profile_picture VARCHAR(255) DEFAULT NULL");
+}
+
 // Update last_login on fetch
 $update_login_query = "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?";
 $stmt = $conn->prepare($update_login_query);
@@ -56,11 +71,11 @@ if ($stmt) {
     $stmt->close();
 }
 
-// Base URL for your project
-$base_url = '/bakery/bk/'; // Relative path
-$server_base_url = 'http://localhost/bakery/bk/'; // Absolute URL for responses
+// Base URL for your project (adjust if needed)
+$base_url = ''; // Relative path - empty for same directory
+$server_base_url = 'http://localhost/bakery/bk/'; // Absolute URL for responses - adjust to your path
 
-// Handle GET request (Read user data and orders)
+// Handle GET request (Read user data)
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     // Fetch user data
     $user_query = "SELECT full_name, email, mobile, address, district, date_joined, last_login, profile_picture 
@@ -83,61 +98,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         exit();
     }
 
-    // Ensure profile_picture is a valid URL
-    if ($user['profile_picture'] && file_exists($user['profile_picture'])) {
-        $user['profile_picture'] = $server_base_url . $user['profile_picture']; // e.g., http://localhost/bakery/bk/Uploads/1_1634567890_image.jpg
-        error_log("Profile picture path set to: " . $user['profile_picture']);
+    // Ensure profile_picture is a valid URL with cache-busting
+    if ($user['profile_picture'] && file_exists($_SERVER['DOCUMENT_ROOT'] . '/bakery/bk/' . $user['profile_picture'])) {
+        $user['profile_picture'] = $server_base_url . $user['profile_picture'] . '?t=' . time();
+        error_log("Profile picture exists at: " . $_SERVER['DOCUMENT_ROOT'] . '/bakery/bk/' . $user['profile_picture']);
     } else {
         $user['profile_picture'] = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=140&q=80';
         error_log("Profile picture not found, using default: " . $user['profile_picture']);
     }
-
-    // Fetch orders
-    $order_query = "SELECT order_id, product_name, order_date, status 
-                    FROM orders WHERE user_id = ? ORDER BY order_date DESC";
-    $stmt = $conn->prepare($order_query);
-    if (!$stmt) {
-        error_log("Prepare failed for orders: " . $conn->error);
-        echo json_encode(['status' => 'error', 'message' => 'Order query preparation failed']);
-        exit();
-    }
-    $stmt->bind_param('i', $user_id);
-    $stmt->execute();
-    $order_result = $stmt->get_result();
-    $orders = [];
-    while ($row = $order_result->fetch_assoc()) {
-        $orders[] = $row;
-    }
-    $stmt->close();
-
-    // Calculate total orders and total spent
-    $total_orders = count($orders);
-    $total_spent_query = "SELECT SUM(total_amount) as total_spent FROM orders WHERE user_id = ?";
-    $stmt = $conn->prepare($total_spent_query);
-    if (!$stmt) {
-        error_log("Prepare failed for total spent: " . $conn->error);
-        echo json_encode(['status' => 'error', 'message' => 'Total spent query preparation failed']);
-        exit();
-    }
-    $stmt->bind_param('i', $user_id);
-    $stmt->execute();
-    $total_spent_result = $stmt->get_result();
-    $total_spent = $total_spent_result->fetch_assoc()['total_spent'] ?? 0;
-    $stmt->close();
-
-    // Simple recommendation logic
-    $recommended_product = !empty($orders) ? $orders[0]['product_name'] : 'Red Velvet Cake';
 
     // Initialize session full_name if not set
     $_SESSION['full_name'] = $_SESSION['full_name'] ?? $user['full_name'];
 
     echo json_encode([
         'status' => 'success',
-        'user' => $user,
-        'orders' => $orders,
-        'total_orders' => $total_orders,
-        'total_spent' => number_format((float)$total_spent, 2, '.', ''),
-        'recommended_product' => $recommended_product
+        'user' => $user
     ]);
 }
 
@@ -236,7 +211,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit();
         }
 
-        $upload_dir = 'Uploads/';
+        $upload_dir = $_SERVER['DOCUMENT_ROOT'] . '/bakery/bk/Uploads/';
         if (!is_dir($upload_dir)) {
             if (!mkdir($upload_dir, 0755, true)) {
                 error_log("Failed to create directory: $upload_dir");
@@ -252,8 +227,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->bind_param('i', $user_id);
             $stmt->execute();
             $old_picture = $stmt->get_result()->fetch_assoc()['profile_picture'];
-            if ($old_picture && file_exists($old_picture)) {
-                if (!unlink($old_picture)) {
+            if ($old_picture && file_exists($_SERVER['DOCUMENT_ROOT'] . '/bakery/bk/' . $old_picture)) {
+                if (!unlink($_SERVER['DOCUMENT_ROOT'] . '/bakery/bk/' . $old_picture)) {
                     error_log("Failed to delete old profile picture: $old_picture");
                 }
             }
@@ -262,9 +237,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $file_extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
         $file_name = $user_id . '_' . time() . '.' . $file_extension;
-        $file_path = $upload_dir . $file_name;
+        $file_path = 'Uploads/' . $file_name; // Relative path for DB storage
+        $full_file_path = $upload_dir . $file_name; // Absolute path for file operations
 
-        if (move_uploaded_file($file['tmp_name'], $file_path)) {
+        if (move_uploaded_file($file['tmp_name'], $full_file_path)) {
             // Update database with new profile picture path
             $update_query = "UPDATE users SET profile_picture = ? WHERE id = ?";
             $stmt = $conn->prepare($update_query);
@@ -275,7 +251,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $stmt->bind_param('si', $file_path, $user_id);
             if ($stmt->execute()) {
-                $full_url = $server_base_url . $file_path;
+                $full_url = $server_base_url . $file_path . '?t=' . time();
                 error_log("Profile picture uploaded: $full_url");
                 echo json_encode(['status' => 'success', 'message' => 'Profile picture updated', 'profile_picture' => $full_url]);
             } else {
@@ -284,25 +260,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $stmt->close();
         } else {
-            error_log("File move failed for: $file_path");
+            error_log("File move failed for: $full_file_path");
             echo json_encode(['status' => 'error', 'message' => 'Error saving profile picture']);
         }
     } elseif ($action === 'logout') {
         session_destroy();
         echo json_encode(['status' => 'success', 'message' => 'Logged out']);
     } elseif ($action === 'delete') {
-        // Delete orders first due to foreign key constraint
-        $delete_orders_query = "DELETE FROM orders WHERE user_id = ?";
-        $stmt = $conn->prepare($delete_orders_query);
-        if (!$stmt) {
-            error_log("Prepare failed for delete orders: " . $conn->error);
-            echo json_encode(['status' => 'error', 'message' => 'Delete orders query preparation failed']);
-            exit();
-        }
-        $stmt->bind_param('i', $user_id);
-        $stmt->execute();
-        $stmt->close();
-
         // Delete profile picture if exists
         $old_picture_query = "SELECT profile_picture FROM users WHERE id = ?";
         $stmt = $conn->prepare($old_picture_query);
@@ -310,8 +274,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->bind_param('i', $user_id);
             $stmt->execute();
             $old_picture = $stmt->get_result()->fetch_assoc()['profile_picture'];
-            if ($old_picture && file_exists($old_picture)) {
-                if (!unlink($old_picture)) {
+            if ($old_picture && file_exists($_SERVER['DOCUMENT_ROOT'] . '/bakery/bk/' . $old_picture)) {
+                if (!unlink($_SERVER['DOCUMENT_ROOT'] . '/bakery/bk/' . $old_picture)) {
                     error_log("Failed to delete profile picture: $old_picture");
                 }
             }

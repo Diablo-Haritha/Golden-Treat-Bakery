@@ -109,57 +109,32 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action'])) {
             $email = mysqli_real_escape_string($conn, $_POST['login-email']);
             $password = mysqli_real_escape_string($conn, $_POST['login-password']);
 
-            // Check for too many login attempts (optional rate limiting)
-            $attempt_window = date('Y-m-d H:i:s', strtotime('-15 minutes'));
-            $sql = "SELECT COUNT(*) as attempts FROM login_attempts WHERE email = ? AND attempt_time > ?";
+            $sql = "SELECT * FROM users WHERE email = ?";
             $stmt = $conn->prepare($sql);
-            $stmt->bind_param("ss", $email, $attempt_window);
+            $stmt->bind_param("s", $email);
             $stmt->execute();
             $result = $stmt->get_result();
-            $row = $result->fetch_assoc();
-            if ($row['attempts'] >= 5) {
-                $message = "Too many login attempts. Please try again in 15 minutes.";
-            } else {
-                $sql = "SELECT * FROM users WHERE email = ?";
-                $stmt = $conn->prepare($sql);
-                $stmt->bind_param("s", $email);
-                $stmt->execute();
-                $result = $stmt->get_result();
-                if ($result->num_rows > 0) {
-                    $row = $result->fetch_assoc();
-                    if (password_verify($password, $row['password'])) {
-                        session_regenerate_id(true); // Regenerate session ID
-                        $_SESSION['user_id'] = $row['id'];
-                        $_SESSION['role'] = $row['role'];
-                        $_SESSION['full_name'] = $row['full_name'];
-                        $_SESSION['last_activity'] = time();
+            if ($result->num_rows > 0) {
+                $row = $result->fetch_assoc();
+                if (password_verify($password, $row['password'])) {
+                    session_regenerate_id(true); // Regenerate session ID
+                    $_SESSION['user_id'] = $row['id'];
+                    $_SESSION['role'] = $row['role'];
+                    $_SESSION['full_name'] = $row['full_name'];
+                    $_SESSION['last_activity'] = time();
 
-                        // Clear login attempts on success
-                        $stmt = $conn->prepare("DELETE FROM login_attempts WHERE email = ?");
-                        $stmt->bind_param("s", $email);
-                        $stmt->execute();
-
-                        if (in_array($row['role'], ['admin', 'manager'])) {
-                            header("Location: adminproduct.php");
-                            exit();
-                        } else {
-                            header("Location: index.php");
-                            exit();
-                        }
+                    if (in_array($row['role'], ['admin', 'manager'])) {
+                        header("Location: adminproduct.php");
+                        exit();
                     } else {
-                        // Log failed attempt
-                        $stmt = $conn->prepare("INSERT INTO login_attempts (email, attempt_time) VALUES (?, NOW())");
-                        $stmt->bind_param("s", $email);
-                        $stmt->execute();
-                        $message = "Incorrect password!";
+                        header("Location: ../Customer/index.php");
+                        exit();
                     }
                 } else {
-                    // Log failed attempt
-                    $stmt = $conn->prepare("INSERT INTO login_attempts (email, attempt_time) VALUES (?, NOW())");
-                    $stmt->bind_param("s", $email);
-                    $stmt->execute();
-                    $message = "Email not found!";
+                    $message = "Incorrect password!";
                 }
+            } else {
+                $message = "Email not found!";
             }
             $stmt->close();
         } elseif ($_POST['action'] == 'send_otp') {
