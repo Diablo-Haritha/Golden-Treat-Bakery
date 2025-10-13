@@ -240,7 +240,7 @@ foreach ($rows as $r) {
                         data-order-id="<?= htmlspecialchars($r['order_id']) ?>"
                         data-order-date="<?= htmlspecialchars($r['order_date']) ?>"
                         data-return-date="<?= htmlspecialchars($r['return_date']) ?>"
-                        data-customer="<?= htmlspecialchars($r['customer_name']) ?>"
+                        data-customer_name="<?= htmlspecialchars($r['customer_name']) ?>"
                         data-product="<?= htmlspecialchars($r['product']) ?>"
                         data-returned-quantity="<?= htmlspecialchars($r['returned_quantity']) ?>"
                         data-refund-amount="<?= htmlspecialchars(number_format((float)$r['refund_amount'],2)) ?>"

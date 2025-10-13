@@ -374,6 +374,25 @@ CREATE TABLE IF NOT EXISTS order_items (
   INDEX idx_order_items_product_id (product_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `order_status_history` (
+  `id_new` int(11) NOT NULL,
+  `id` int(11) NOT NULL,
+  `order_id` int(11) NOT NULL,
+  `old_status` varchar(64) DEFAULT NULL,
+  `new_status` varchar(64) DEFAULT NULL,
+  `changed_by` int(11) DEFAULT NULL,
+  `note` text DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `order_status_history` (`id_new`, `id`, `order_id`, `old_status`, `new_status`, `changed_by`, `note`, `created_at`) VALUES
+(1, 0, 3, 'Queued for Baking', 'Completed', NULL, 'Updated through admin UI', '2025-10-01 15:52:03'),
+(2, 0, 3, 'Returned', 'Partially Returned', NULL, 'Return processed (qty: 1)', '2025-10-01 16:04:17'),
+(3, 0, 4, 'In Preparation', 'Order Received', NULL, 'Updated through admin UI', '2025-10-01 16:07:01'),
+(4, 0, 6, 'Ready for Pickup', 'Deleted', NULL, 'Order soft-deleted via admin UI', '2025-10-01 16:19:23'),
+(5, 0, 7, 'Out for Delivery', 'Deleted', NULL, 'Order soft-deleted via admin UI', '2025-10-11 13:10:19');
+
+
 -- ============================================================
 -- OTP SYSTEM (FIXED & RETAINED)
 -- ============================================================
