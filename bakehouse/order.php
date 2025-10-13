@@ -7,68 +7,110 @@ $host = 'localhost';
 $dbname = 'golden_treat';
 $username = 'root';
 $password = '';
+
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    die("Connection failed: " . $e->getMessage());
+    error_log("Database connection failed: " . $e->getMessage());
+    die("Connection failed. Please try again later.");
 }
 
 // Initialize variables
-$order = null;
-$orderItems = [];
+$orders = [];
 $message = '';
 $messageType = '';
+$userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
 
-// Check for order_number in query parameter
-if (!isset($_GET['order_number']) || empty($_GET['order_number'])) {
-    $message = "❌ Invalid or missing order number.";
-    $messageType = 'error';
-} else {
-    $orderNumber = trim($_GET['order_number']);
-    $sessionId = session_id();
-    $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
-
-    // Fetch order details (for logged-in user or guest session)
-    $query = "SELECT * FROM orders WHERE order_number = ?";
-    $params = [$orderNumber];
-    
-    if ($userId) {
-        $query .= " AND (user_id = ? OR user_id IS NULL)";
-        $params[] = $userId;
-    } else {
-        $query .= " AND user_id IS NULL";
-    }
-
-    $stmt = $pdo->prepare($query);
-    $stmt->execute($params);
-    $order = $stmt->fetch();
-
-    if ($order) {
-        // Fetch order items
-        $stmt = $pdo->prepare("SELECT * FROM order_items WHERE order_id = ?");
-        $stmt->execute([$order['id']]);
-        $orderItems = $stmt->fetchAll();
-        
-        // If no order items found, set a message
-        if (empty($orderItems)) {
-            $message = "⚠️ No items found for this order.";
-            $messageType = 'warning';
-        }
-    } else {
-        $message = "❌ Order not found or you do not have access to this order.";
-        $messageType = 'error';
+// Validate user_id if set
+if ($userId) {
+    $stmt = $pdo->prepare("SELECT id, email FROM users WHERE id = ?");
+    $stmt->execute([$userId]);
+    $user = $stmt->fetch();
+    if (!$user) {
+        // Invalid user_id, clear session
+        unset($_SESSION['user_id']);
+        $userId = null;
+        $message = "⚠️ Your session is invalid. Please log in again.";
+        $messageType = 'warning';
     }
 }
 
+// If not logged in, redirect or show message
+if (!$userId) {
+    header('Location: login.php?redirect=order.php');
+    exit;
+} else {
+    try {
+        // Fetch all orders for the logged-in user
+        $stmt = $pdo->prepare("
+            SELECT o.*, COUNT(oi.id) as item_count 
+            FROM orders o 
+            LEFT JOIN order_items oi ON o.id = oi.order_id 
+            WHERE o.user_id = ? 
+            GROUP BY o.id 
+            ORDER BY o.created_at DESC
+        ");
+        $stmt->execute([$userId]);
+        $orders = $stmt->fetchAll();
+
+        if (empty($orders)) {
+            $message = "📭 No orders found. Start shopping to place your first order!";
+            $messageType = 'info';
+        }
+    } catch (PDOException $e) {
+        $message = "❌ An error occurred while fetching your orders. Please try again.";
+        $messageType = 'error';
+        error_log("Orders fetch error: " . $e->getMessage() . " | user_id=$userId");
+    }
+}
+
+/**
+ * Fetch order items summary for a specific order (limited for preview)
+ * @param PDO $pdo Database connection
+ * @param int $orderId Order ID
+ * @return array Array of order items (limited to 3 for preview)
+ */
+function getOrderItemsPreview($pdo, $orderId) {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT oi.*, p.name as product_name 
+            FROM order_items oi 
+            LEFT JOIN products p ON oi.product_name = p.name 
+            WHERE oi.order_id = ? 
+            ORDER BY oi.id 
+            LIMIT 3
+        ");
+        $stmt->execute([$orderId]);
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("Order items preview error: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Fetch customization names for order items
+ * @param PDO $pdo Database connection
+ * @param string $customizationJson JSON string of customization IDs
+ * @return array Array of customization names and price adjustments
+ */
 function getCustomizationNames($pdo, $customizationJson) {
     $customizationIds = json_decode($customizationJson, true) ?: [];
-    if (empty($customizationIds)) return [];
-    $placeholders = str_repeat('?,', count($customizationIds) - 1) . '?';
-    $stmt = $pdo->prepare("SELECT name, price_adjustment FROM customizations WHERE id IN ($placeholders)");
-    $stmt->execute($customizationIds);
-    return $stmt->fetchAll();
+    if (empty($customizationIds)) {
+        return [];
+    }
+    
+    try {
+        $placeholders = str_repeat('?,', count($customizationIds) - 1) . '?';
+        $stmt = $pdo->prepare("SELECT id, name, price_adjustment FROM customizations WHERE id IN ($placeholders) AND is_active = 1");
+        $stmt->execute($customizationIds);
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("Customization fetch error: " . $e->getMessage());
+        return [];
+    }
 }
 
 ob_end_flush();
@@ -79,7 +121,7 @@ ob_end_flush();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order Details - Golden Treat Bakery</title>
+    <title>My Orders - Golden Treat Bakery</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -93,6 +135,7 @@ ob_end_flush();
             --success: #28a745;
             --warning: #ffc107;
             --danger: #dc3545;
+            --info: #17a2b8;
             --text: #444;
             --border: #ddd;
             --shadow: 0 4px 6px rgba(0,0,0,0.1);
@@ -142,6 +185,7 @@ ob_end_flush();
         .btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
         .btn-primary { background: linear-gradient(135deg, var(--primary), var(--primary-light)); }
         .btn-success { background: linear-gradient(135deg, var(--success), #34ce57); }
+        .btn-info { background: linear-gradient(135deg, var(--info), #20c997); }
         header {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
@@ -209,82 +253,96 @@ ob_end_flush();
             margin: 15px auto;
             border-radius: 2px;
         }
-        .order-container {
+        .orders-container {
             background: white;
             border-radius: 20px;
             padding: 30px;
             box-shadow: var(--shadow);
             margin: 120px auto 60px;
-            max-width: 800px;
+        }
+        .orders-list {
+            margin-top: 20px;
+        }
+        .order-card {
+            border: 1px solid var(--border);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            background: var(--light);
+        }
+        .order-card:hover {
+            box-shadow: var(--shadow);
+            transform: translateY(-2px);
         }
         .order-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid var(--secondary);
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
         }
-        .order-details p {
-            margin: 10px 0;
-            font-size: 1.1rem;
-        }
-        .order-details strong {
-            color: var(--primary);
-            margin-right: 10px;
-        }
-        .order-items {
-            margin: 20px 0;
-        }
-        .order-item {
-            display: flex;
-            padding: 15px 0;
-            border-bottom: 1px solid var(--border);
-            align-items: center;
-        }
-        .order-item-image {
-            width: 60px;
-            height: 60px;
-            background: linear-gradient(135deg, var(--secondary), #e8d4a6);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 15px;
-            font-size: 1.2rem;
-        }
-        .order-item-details { flex: 1; }
-        .order-item-name {
+        .order-number {
+            font-size: 1.3rem;
             font-weight: bold;
-            margin-bottom: 5px;
-            color: var(--dark);
+            color: var(--primary);
         }
-        .order-item-customizations {
+        .order-status {
+            padding: 6px 12px;
+            border-radius: 20px;
             font-size: 0.9rem;
+            font-weight: 600;
+            color: white;
+        }
+        .order-status.pending { background: var(--warning); }
+        .order-status.confirmed { background: var(--success); }
+        .order-status.shipped { background: var(--info); }
+        .order-status.delivered { background: var(--success); }
+        .order-status.cancelled { background: var(--danger); }
+        .order-meta {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            font-size: 0.95rem;
             color: #666;
-            margin-bottom: 8px;
         }
-        .order-item-customization {
-            display: inline-block;
-            background: var(--light);
-            padding: 4px 10px;
-            border-radius: 15px;
-            margin-right: 5px;
-            margin-bottom: 5px;
-            font-size: 0.8rem;
+        .order-preview {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
         }
-        .order-item-price {
-            font-weight: bold;
-            color: var(--primary);
+        .preview-item {
+            background: white;
+            padding: 8px 12px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            color: var(--text);
+            box-shadow: var(--shadow);
         }
         .order-total {
             display: flex;
             justify-content: space-between;
-            font-size: 1.3rem;
+            align-items: center;
+            font-size: 1.2rem;
             font-weight: bold;
-            padding: 20px 0;
-            border-top: 2px solid var(--secondary);
-            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid var(--border);
+        }
+        .order-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .no-orders {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        .no-orders i {
+            font-size: 4rem;
+            color: var(--secondary);
+            margin-bottom: 20px;
         }
         .message {
             position: fixed;
@@ -301,6 +359,7 @@ ob_end_flush();
         .message.success { background: linear-gradient(135deg, var(--success), #34ce57); }
         .message.error { background: linear-gradient(135deg, var(--danger), #e4606d); }
         .message.warning { background: linear-gradient(135deg, var(--warning), #ffd760); }
+        .message.info { background: linear-gradient(135deg, var(--info), #20c997); }
         footer {
             background: linear-gradient(135deg, var(--dark), #2c2c2c);
             color: white;
@@ -357,9 +416,9 @@ ob_end_flush();
         @media (max-width: 768px) {
             .navbar { flex-direction: column; gap: 15px; }
             .nav-links { gap: 15px; }
-            .order-container { padding: 20px; }
-            .order-item { flex-direction: column; text-align: center; }
-            .order-item-image { margin-bottom: 15px; }
+            .orders-container { padding: 20px; }
+            .order-header { flex-direction: column; align-items: flex-start; }
+            .order-actions { flex-direction: column; width: 100%; }
             .footer-content { grid-template-columns: 1fr; text-align: center; }
         }
     </style>
@@ -367,8 +426,8 @@ ob_end_flush();
 <body>
     <!-- Message Display -->
     <?php if (!empty($message)): ?>
-        <div class="message <?php echo $messageType; ?> animated">
-            <?php echo $message; ?>
+        <div class="message <?php echo htmlspecialchars($messageType); ?> animated">
+            <?php echo htmlspecialchars($message); ?>
         </div>
         <script>
             setTimeout(() => {
@@ -388,71 +447,77 @@ ob_end_flush();
                     <li><a href="index.php#products">Products</a></li>
                     <li><a href="index.php#about">About</a></li>
                     <li><a href="index.php#contact">Contact</a></li>
+                    <li><a href="orders.php">My Orders</a></li>
+                    <?php if ($userId): ?>
+                        <li><a href="logout.php">Logout</a></li>
+                    <?php else: ?>
+                        <li><a href="login.php">Login</a></li>
+                    <?php endif; ?>
                 </ul>
             </nav>
         </div>
     </header>
 
     <main>
-        <section class="order-section">
+        <section class="orders-section">
             <div class="container">
                 <h2 class="section-title animated fadeIn">
-                    <i class="fas fa-shopping-bag"></i> Order Details
+                    <i class="fas fa-shopping-bag"></i> My Orders
                 </h2>
-                <div class="order-container animated fadeIn">
-                    <?php if ($order): ?>
-                        <div class="order-header">
-                            <h2>Order #<?php echo htmlspecialchars($order['order_number']); ?></h2>
-                            <a href="index.php" class="btn btn-primary">
-                                <i class="fas fa-arrow-left"></i> Back to Shop
-                            </a>
-                        </div>
-                        <div class="order-details">
-                            <p><strong>Customer Name:</strong> <?php echo htmlspecialchars($order['customer_name']); ?></p>
-                            <p><strong>Email:</strong> <?php echo htmlspecialchars($order['customer_email']); ?></p>
-                            <?php if (!empty($order['customer_phone'])): ?>
-                                <p><strong>Phone:</strong> <?php echo htmlspecialchars($order['customer_phone']); ?></p>
-                            <?php endif; ?>
-                            <p><strong>Order Date:</strong> <?php echo date('F j, Y, g:i A', strtotime($order['created_at'])); ?></p>
-                        </div>
-                        <div class="order-items">
-                            <h3 style="color: var(--primary); margin-bottom: 15px;">Order Items</h3>
-                            <?php foreach ($orderItems as $item): 
-                                $customizations = getCustomizationNames($pdo, $item['customizations']);
+                <div class="orders-container animated fadeIn">
+                    <?php if (!empty($orders)): ?>
+                        <div class="orders-list">
+                            <?php foreach ($orders as $order): 
+                                $orderItemsPreview = getOrderItemsPreview($pdo, $order['id']);
+                                $status = $order['status'] ?? 'Pending';
                             ?>
-                                <div class="order-item">
-                                    <div class="order-item-image">
-                                        <i class="fas fa-bread-slice"></i>
+                                <div class="order-card">
+                                    <div class="order-header">
+                                        <div class="order-number">Order #<?php echo htmlspecialchars($order['order_number']); ?></div>
+                                        <span class="order-status <?php echo strtolower($status); ?>"><?php echo htmlspecialchars(ucfirst($status)); ?></span>
                                     </div>
-                                    <div class="order-item-details">
-                                        <div class="order-item-name"><?php echo htmlspecialchars($item['product_name']); ?></div>
-                                        <?php if (!empty($customizations)): ?>
-                                            <div class="order-item-customizations">
-                                                <?php foreach ($customizations as $cust): ?>
-                                                    <span class="order-item-customization">
-                                                        <?php echo htmlspecialchars($cust['name']); ?> (+Rs. <?php echo number_format($cust['price_adjustment'], 2); ?>)
-                                                    </span>
-                                                <?php endforeach; ?>
-                                            </div>
-                                        <?php endif; ?>
-                                        <div class="order-item-price">
-                                            Rs. <?php echo number_format($item['unit_price'], 2); ?> × <?php echo $item['quantity']; ?> = Rs. <?php echo number_format($item['unit_price'] * $item['quantity'], 2); ?>
+                                    <div class="order-meta">
+                                        <span><i class="fas fa-calendar"></i> <?php echo date('F j, Y, g:i A', strtotime($order['created_at'])); ?></span>
+                                        <span><i class="fas fa-boxes"></i> <?php echo $order['item_count']; ?> item<?php echo $order['item_count'] > 1 ? 's' : ''; ?></span>
+                                    </div>
+                                    <?php if (!empty($orderItemsPreview)): ?>
+                                        <div class="order-preview">
+                                            <?php foreach ($orderItemsPreview as $item): 
+                                                $customizations = getCustomizationNames($pdo, $item['customizations']);
+                                                $previewText = htmlspecialchars($item['product_name']);
+                                                if (!empty($customizations)) {
+                                                    $previewText .= ' (';
+                                                    foreach ($customizations as $cust) {
+                                                        $previewText .= htmlspecialchars($cust['name']) . ', ';
+                                                    }
+                                                    $previewText = rtrim($previewText, ', ') . ')';
+                                                }
+                                            ?>
+                                                <div class="preview-item"><?php echo $previewText; ?> × <?php echo (int)$item['quantity']; ?></div>
+                                            <?php endforeach; ?>
+                                            <?php if (count($orderItemsPreview) < $order['item_count']): ?>
+                                                <div class="preview-item">... +<?php echo $order['item_count'] - count($orderItemsPreview); ?> more</div>
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php endif; ?>
+                                    <div class="order-total">
+                                        <span>Total: Rs. <?php echo number_format($order['total_amount'], 2); ?></span>
+                                        <div class="order-actions">
+                                            <a href="order.php?order_number=<?php echo urlencode($order['order_number']); ?>" class="btn btn-info" style="padding: 8px 16px; font-size: 0.9rem;">
+                                                <i class="fas fa-eye"></i> View Details
+                                            </a>
                                         </div>
                                     </div>
                                 </div>
                             <?php endforeach; ?>
                         </div>
-                        <div class="order-total">
-                            <span>Total Amount:</span>
-                            <span>Rs. <?php echo number_format($order['total_amount'], 2); ?></span>
-                        </div>
                     <?php else: ?>
-                        <div class="no-order" style="text-align: center; padding: 40px; color: #666;">
-                            <i class="fas fa-shopping-bag" style="font-size: 4rem; margin-bottom: 20px; color: var(--secondary);"></i>
-                            <h3>No order details available</h3>
-                            <p>Please check the order number or return to the shop.</p>
+                        <div class="no-orders">
+                            <i class="fas fa-shopping-bag"></i>
+                            <h3>No Orders Yet</h3>
+                            <p>Start exploring our delicious treats and place your first order!</p>
                             <a href="index.php" class="btn btn-primary">
-                                <i class="fas fa-arrow-left"></i> Back to Shop
+                                <i class="fas fa-shopping-cart"></i> Start Shopping
                             </a>
                         </div>
                     <?php endif; ?>
@@ -480,13 +545,14 @@ ob_end_flush();
                         <li><a href="index.php#products">Our Products</a></li>
                         <li><a href="index.php#about">About Us</a></li>
                         <li><a href="index.php#contact">Contact</a></li>
+                        <li><a href="orders.php">My Orders</a></li>
                         <li><a href="admin.php">Admin Panel</a></li>
                     </ul>
                 </div>
                 <div class="footer-column">
                     <h3>Contact Info</h3>
                     <ul>
-                        <li><i class="fas fa-map-marker-alt"></i> No.12,Kuliyapitiya,Kurunegala</li>
+                        <li><i class="fas fa-map-marker-alt"></i> No.12, Kuliyapitiya, Kurunegala</li>
                         <li><i class="fas fa-phone"></i> (+94) xxx xx xxx</li>
                         <li><i class="fas fa-envelope"></i> info@goldentreat.com</li>
                         <li><i class="fas fa-clock"></i> Mon-Sat: 6AM-8PM, Sun: 7AM-6PM</li>
@@ -494,7 +560,7 @@ ob_end_flush();
                 </div>
             </div>
             <div class="copyright">
-                &copy; 2024 Golden Treat Bakery. All rights reserved. | Made By 404 Error
+                &copy; 2025 Golden Treat Bakery. All rights reserved. | Made By 404 Error
             </div>
         </div>
     </footer>
