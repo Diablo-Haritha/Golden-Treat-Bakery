@@ -6,7 +6,7 @@ date_default_timezone_set('Asia/Kolkata');
 require 'config.php'; // Create a config.php file with sensitive data
 
 // Composer autoloader
-require 'vendor/autoload.php';
+require '../vendor/autoload.php';
 
 // Import PHPMailer classes
 use PHPMailer\PHPMailer\PHPMailer;
@@ -44,241 +44,231 @@ if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > 
 }
 $_SESSION['last_activity'] = time(); // Update last activity time
 
-// Generate CSRF token if not set
-if (!isset($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
+// Initialize message
+$message = "";
 
-$message = ""; // For success/error messages
+// Debug session data (remove in production)
+error_log("Session data: " . print_r($_SESSION, true));
 
 // Handle form submissions and AJAX requests
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action'])) {
-    // Validate CSRF token
-    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
-        if (in_array($_POST['action'], ['send_otp', 'verify_otp', 'reset_password'])) {
-            echo json_encode(['status' => 'error', 'message' => 'CSRF token validation failed!']);
-            exit();
+    if ($_POST['action'] == 'register') {
+        // Registration logic
+        $fullName = mysqli_real_escape_string($conn, $_POST['reg-fullname']);
+        $email = mysqli_real_escape_string($conn, $_POST['reg-email']);
+        $mobile = mysqli_real_escape_string($conn, $_POST['reg-mobile']);
+        $address = mysqli_real_escape_string($conn, $_POST['reg-address']);
+        $district = mysqli_real_escape_string($conn, $_POST['reg-district']);
+        $password = mysqli_real_escape_string($conn, $_POST['reg-password']);
+        $confirmPassword = mysqli_real_escape_string($conn, $_POST['reg-confirm-password']);
+        $role = 'customer';
+        $dateJoined = date('Y-m-d');
+
+        if ($password !== $confirmPassword) {
+            $message = "Passwords do not match!";
+        } elseif (strlen($password) < 8 || !preg_match("/[A-Za-z].*[0-9]|[0-9].*[A-Za-z]/", $password)) {
+            $message = "Password must be at least 8 characters long and contain letters and numbers!";
         } else {
-            $message = "CSRF token validation failed!";
-        }
-    } else {
-        // Regenerate CSRF token for next request
-        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-
-        if ($_POST['action'] == 'register') {
-            // Registration logic
-            $fullName = mysqli_real_escape_string($conn, $_POST['reg-fullname']);
-            $email = mysqli_real_escape_string($conn, $_POST['reg-email']);
-            $mobile = mysqli_real_escape_string($conn, $_POST['reg-mobile']);
-            $address = mysqli_real_escape_string($conn, $_POST['reg-address']);
-            $district = mysqli_real_escape_string($conn, $_POST['reg-district']);
-            $password = mysqli_real_escape_string($conn, $_POST['reg-password']);
-            $confirmPassword = mysqli_real_escape_string($conn, $_POST['reg-confirm-password']);
-            $role = 'customer';
-            $dateJoined = date('Y-m-d');
-
-            if ($password !== $confirmPassword) {
-                $message = "Passwords do not match!";
-            } elseif (strlen($password) < 8 || !preg_match("/[A-Za-z].*[0-9]|[0-9].*[A-Za-z]/", $password)) {
-                $message = "Password must be at least 8 characters long and contain letters and numbers!";
-            } else {
-                $checkEmail = "SELECT * FROM users WHERE email = ?";
-                $stmt = $conn->prepare($checkEmail);
-                $stmt->bind_param("s", $email);
-                $stmt->execute();
-                $result = $stmt->get_result();
-                if ($result->num_rows > 0) {
-                    $message = "Email already registered!";
-                } else {
-                    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-                    $sql = "INSERT INTO users (full_name, email, mobile, address, district, password, role, date_joined) 
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-                    $stmt = $conn->prepare($sql);
-                    $stmt->bind_param("ssssssss", $fullName, $email, $mobile, $address, $district, $hashedPassword, $role, $dateJoined);
-                    if ($stmt->execute()) {
-                        $message = "Registration successful! Please log in.";
-                    } else {
-                        $message = "Registration failed. Please try again.";
-                        error_log("SQL Error (register): " . $conn->error);
-                    }
-                }
-                $stmt->close();
-            }
-        } elseif ($_POST['action'] == 'login') {
-            // Login logic
-            $email = mysqli_real_escape_string($conn, $_POST['login-email']);
-            $password = mysqli_real_escape_string($conn, $_POST['login-password']);
-
-            $sql = "SELECT * FROM users WHERE email = ?";
-            $stmt = $conn->prepare($sql);
+            $checkEmail = "SELECT * FROM users WHERE email = ?";
+            $stmt = $conn->prepare($checkEmail);
             $stmt->bind_param("s", $email);
             $stmt->execute();
             $result = $stmt->get_result();
             if ($result->num_rows > 0) {
-                $row = $result->fetch_assoc();
-                if (password_verify($password, $row['password'])) {
-                    session_regenerate_id(true); // Regenerate session ID
-                    $_SESSION['user_id'] = $row['id'];
-                    $_SESSION['role'] = $row['role'];
-                    $_SESSION['full_name'] = $row['full_name'];
-                    $_SESSION['last_activity'] = time();
-
-                    if (in_array($row['role'], ['admin', 'manager'])) {
-                        header("Location: adminproduct.php");
-                        exit();
-                    } else {
-                        header("Location: ../Customer/index.php");
-                        exit();
-                    }
-                } else {
-                    $message = "Incorrect password!";
-                }
+                $message = "Email already registered!";
             } else {
-                $message = "Email not found!";
+                $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+                $sql = "INSERT INTO users (full_name, email, mobile, address, district, password, role, date_joined) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                $stmt = $conn->prepare($sql);
+                $stmt->bind_param("ssssssss", $fullName, $email, $mobile, $address, $district, $hashedPassword, $role, $dateJoined);
+                if ($stmt->execute()) {
+                    $message = "Registration successful! Please log in.";
+                } else {
+                    $message = "Registration failed. Please try again.";
+                    error_log("SQL Error (register): " . $conn->error);
+                }
             }
             $stmt->close();
-        } elseif ($_POST['action'] == 'send_otp') {
-            // Send OTP logic
-            $email = mysqli_real_escape_string($conn, $_POST['email']);
-            $sql = "SELECT id FROM users WHERE email = ?";
+        }
+    } elseif ($_POST['action'] == 'login') {
+        // Login logic
+        $email = mysqli_real_escape_string($conn, $_POST['login-email']);
+        $password = mysqli_real_escape_string($conn, $_POST['login-password']);
+
+        $sql = "SELECT id, full_name, password, role FROM users WHERE email = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($result->num_rows > 0) {
+            $row = $result->fetch_assoc();
+            if (password_verify($password, $row['password'])) {
+                session_regenerate_id(true); // Prevent session fixation
+                $_SESSION['user_id'] = (int)$row['id']; // Ensure user_id is an integer
+                $_SESSION['role'] = $row['role'];
+                $_SESSION['full_name'] = $row['full_name'];
+                $_SESSION['last_activity'] = time();
+                $_SESSION['session_id'] = session_id(); // Store session ID for guest order linking
+
+                error_log("Login successful: user_id={$_SESSION['user_id']}, session_id={$_SESSION['session_id']}");
+
+                if (in_array($row['role'], ['admin', 'manager'])) {
+                    header("Location: adminproduct.php");
+                    exit();
+                } else {
+                    // Redirect to index.php with user_id for cart/order linking
+                    header("Location: ../Customer/index.php");
+                    exit();
+                }
+            } else {
+                $message = "Incorrect password!";
+            }
+        } else {
+            $message = "Email not found!";
+        }
+        $stmt->close();
+    } elseif ($_POST['action'] == 'send_otp') {
+        // Send OTP logic
+        $email = mysqli_real_escape_string($conn, $_POST['email']);
+        $sql = "SELECT id FROM users WHERE email = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($result->num_rows > 0) {
+            $user = $result->fetch_assoc();
+            $user_id = $user['id'];
+            $otp = sprintf("%06d", mt_rand(100000, 999999));
+
+            // Clear previous OTPs
+            $stmt = $conn->prepare("DELETE FROM otps WHERE user_id = ?");
+            $stmt->bind_param("i", $user_id);
+            $stmt->execute();
+
+            // Store new OTP
+            $sql = "INSERT INTO otps (user_id, otp, expires_at) VALUES (?, ?, NOW() + INTERVAL 10 MINUTE)";
             $stmt = $conn->prepare($sql);
-            $stmt->bind_param("s", $email);
+            $stmt->bind_param("is", $user_id, $otp);
+            if ($stmt->execute()) {
+                $mail = new PHPMailer(true);
+                try {
+                    $mail->SMTPDebug = SMTP::DEBUG_OFF;
+                    $mail->isSMTP();
+                    $mail->Host = 'smtp.gmail.com';
+                    $mail->SMTPAuth = true;
+                    $mail->Username = SMTP_USERNAME; // From config.php
+                    $mail->Password = SMTP_PASSWORD; // From config.php
+                    $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                    $mail->Port = 587;
+
+                    $mail->setFrom(SMTP_USERNAME, 'Golden Treat');
+                    $mail->addAddress($email);
+                    $mail->isHTML(true);
+                    $mail->Subject = 'Golden Treat Password Reset OTP';
+                    $mail->Body = "Dear User,<br>Your OTP for password reset is: <strong>$otp</strong><br>This OTP is valid for 10 minutes.<br><br>Best regards,<br>Golden Treat Team";
+                    $mail->send();
+                    echo json_encode(['status' => 'success', 'message' => 'OTP sent to your email!']);
+                } catch (Exception $e) {
+                    error_log("PHPMailer Error: " . $mail->ErrorInfo);
+                    echo json_encode(['status' => 'error', 'message' => 'Failed to send OTP. Please try again.']);
+                }
+            } else {
+                error_log("SQL Error (insert OTP): " . $conn->error);
+                echo json_encode(['status' => 'error', 'message' => 'Error storing OTP. Please try again.']);
+            }
+        } else {
+            error_log("No user found for email=$email");
+            echo json_encode(['status' => 'error', 'message' => 'Email not found!']);
+        }
+        $stmt->close();
+        exit();
+    } elseif ($_POST['action'] == 'verify_otp') {
+        // Verify OTP logic
+        $email = mysqli_real_escape_string($conn, $_POST['email']);
+        $otp = trim(mysqli_real_escape_string($conn, $_POST['otp']));
+
+        error_log("Verifying OTP: email=$email, otp=$otp");
+
+        $sql = "SELECT id FROM users WHERE email = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($result->num_rows > 0) {
+            $user = $result->fetch_assoc();
+            $user_id = $user['id'];
+
+            $sql = "SELECT otp, expires_at FROM otps WHERE user_id = ? AND otp = ? AND expires_at > NOW()";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("is", $user_id, $otp);
             $stmt->execute();
             $result = $stmt->get_result();
-            if ($result->num_rows > 0) {
-                $user = $result->fetch_assoc();
-                $user_id = $user['id'];
-                $otp = sprintf("%06d", mt_rand(100000, 999999));
 
-                // Clear previous OTPs
+            if ($result->num_rows > 0) {
                 $stmt = $conn->prepare("DELETE FROM otps WHERE user_id = ?");
                 $stmt->bind_param("i", $user_id);
                 $stmt->execute();
-
-                // Store new OTP
-                $sql = "INSERT INTO otps (user_id, otp, expires_at) VALUES (?, ?, NOW() + INTERVAL 10 MINUTE)";
-                $stmt = $conn->prepare($sql);
-                $stmt->bind_param("is", $user_id, $otp);
-                if ($stmt->execute()) {
-                    $mail = new PHPMailer(true);
-                    try {
-                        $mail->SMTPDebug = SMTP::DEBUG_OFF;
-                        $mail->isSMTP();
-                        $mail->Host = 'smtp.gmail.com';
-                        $mail->SMTPAuth = true;
-                        $mail->Username = SMTP_USERNAME; // From config.php
-                        $mail->Password = SMTP_PASSWORD; // From config.php
-                        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-                        $mail->Port = 587;
-
-                        $mail->setFrom(SMTP_USERNAME, 'Golden Treat');
-                        $mail->addAddress($email);
-                        $mail->isHTML(true);
-                        $mail->Subject = 'Golden Treat Password Reset OTP';
-                        $mail->Body = "Dear User,<br>Your OTP for password reset is: <strong>$otp</strong><br>This OTP is valid for 10 minutes.<br><br>Best regards,<br>Golden Treat Team";
-                        $mail->send();
-                        echo json_encode(['status' => 'success', 'message' => 'OTP sent to your email!']);
-                    } catch (Exception $e) {
-                        error_log("PHPMailer Error: " . $mail->ErrorInfo);
-                        echo json_encode(['status' => 'error', 'message' => 'Failed to send OTP. Please try again.']);
-                    }
-                } else {
-                    error_log("SQL Error (insert OTP): " . $conn->error);
-                    echo json_encode(['status' => 'error', 'message' => 'Error storing OTP. Please try again.']);
-                }
+                echo json_encode(['status' => 'success', 'message' => 'OTP verified successfully!']);
             } else {
-                error_log("No user found for email=$email");
-                echo json_encode(['status' => 'error', 'message' => 'Email not found!']);
-            }
-            $stmt->close();
-            exit();
-        } elseif ($_POST['action'] == 'verify_otp') {
-            // Verify OTP logic
-            $email = mysqli_real_escape_string($conn, $_POST['email']);
-            $otp = trim(mysqli_real_escape_string($conn, $_POST['otp']));
-
-            error_log("Verifying OTP: email=$email, otp=$otp");
-
-            $sql = "SELECT id FROM users WHERE email = ?";
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param("s", $email);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            if ($result->num_rows > 0) {
-                $user = $result->fetch_assoc();
-                $user_id = $user['id'];
-
-                $sql = "SELECT otp, expires_at FROM otps WHERE user_id = ? AND otp = ? AND expires_at > NOW()";
+                $sql = "SELECT otp, expires_at FROM otps WHERE user_id = ?";
                 $stmt = $conn->prepare($sql);
-                $stmt->bind_param("is", $user_id, $otp);
+                $stmt->bind_param("i", $user_id);
                 $stmt->execute();
-                $result = $stmt->get_result();
-
-                if ($result->num_rows > 0) {
-                    $stmt = $conn->prepare("DELETE FROM otps WHERE user_id = ?");
-                    $stmt->bind_param("i", $user_id);
-                    $stmt->execute();
-                    echo json_encode(['status' => 'success', 'message' => 'OTP verified successfully!']);
-                } else {
-                    $sql = "SELECT otp, expires_at FROM otps WHERE user_id = ?";
-                    $stmt = $conn->prepare($sql);
-                    $stmt->bind_param("i", $user_id);
-                    $stmt->execute();
-                    $debug_result = $stmt->get_result();
-                    if ($debug_result->num_rows > 0) {
-                        $debug_row = $debug_result->fetch_assoc();
-                        error_log("Debug OTP: otp=" . $debug_row['otp'] . ", Expires: " . $debug_row['expires_at']);
-                        if ($debug_row['expires_at'] <= date('Y-m-d H:i:s')) {
-                            echo json_encode(['status' => 'error', 'message' => 'OTP has expired! Please request a new one.']);
-                        } else {
-                            echo json_encode(['status' => 'error', 'message' => 'Invalid OTP entered!']);
-                        }
+                $debug_result = $stmt->get_result();
+                if ($debug_result->num_rows > 0) {
+                    $debug_row = $debug_result->fetch_assoc();
+                    error_log("Debug OTP: otp=" . $debug_row['otp'] . ", Expires: " . $debug_row['expires_at']);
+                    if ($debug_row['expires_at'] <= date('Y-m-d H:i:s')) {
+                        echo json_encode(['status' => 'error', 'message' => 'OTP has expired! Please request a new one.']);
                     } else {
-                        error_log("No OTP found for user_id=$user_id");
-                        echo json_encode(['status' => 'error', 'message' => 'No OTP found! Please request a new one.']);
+                        echo json_encode(['status' => 'error', 'message' => 'Invalid OTP entered!']);
                     }
-                }
-            } else {
-                error_log("No user found for email=$email");
-                echo json_encode(['status' => 'error', 'message' => 'Email not found!']);
-            }
-            $stmt->close();
-            exit();
-        } elseif ($_POST['action'] == 'reset_password') {
-            // Reset password logic
-            $email = mysqli_real_escape_string($conn, $_POST['email']);
-            $new_password = mysqli_real_escape_string($conn, $_POST['new_password']);
-
-            if (strlen($new_password) < 8 || !preg_match("/[A-Za-z].*[0-9]|[0-9].*[A-Za-z]/", $new_password)) {
-                echo json_encode(['status' => 'error', 'message' => 'Password must be at least 8 characters long and contain letters and numbers!']);
-                exit();
-            }
-
-            $sql = "SELECT id FROM users WHERE email = ?";
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param("s", $email);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            if ($result->num_rows > 0) {
-                $user = $result->fetch_assoc();
-                $user_id = $user['id'];
-                $hashedPassword = password_hash($new_password, PASSWORD_DEFAULT);
-
-                $sql = "UPDATE users SET password = ? WHERE id = ?";
-                $stmt = $conn->prepare($sql);
-                $stmt->bind_param("si", $hashedPassword, $user_id);
-                if ($stmt->execute()) {
-                    echo json_encode(['status' => 'success', 'message' => 'Password reset successful! Redirecting to login...']);
                 } else {
-                    error_log("SQL Error (reset password): " . $conn->error);
-                    echo json_encode(['status' => 'error', 'message' => 'Error updating password. Please try again.']);
+                    error_log("No OTP found for user_id=$user_id");
+                    echo json_encode(['status' => 'error', 'message' => 'No OTP found! Please request a new one.']);
                 }
-            } else {
-                echo json_encode(['status' => 'error', 'message' => 'Email not found!']);
             }
-            $stmt->close();
+        } else {
+            error_log("No user found for email=$email");
+            echo json_encode(['status' => 'error', 'message' => 'Email not found!']);
+        }
+        $stmt->close();
+        exit();
+    } elseif ($_POST['action'] == 'reset_password') {
+        // Reset password logic
+        $email = mysqli_real_escape_string($conn, $_POST['email']);
+        $new_password = mysqli_real_escape_string($conn, $_POST['new_password']);
+
+        if (strlen($new_password) < 8 || !preg_match("/[A-Za-z].*[0-9]|[0-9].*[A-Za-z]/", $new_password)) {
+            echo json_encode(['status' => 'error', 'message' => 'Password must be at least 8 characters long and contain letters and numbers!']);
             exit();
         }
+
+        $sql = "SELECT id FROM users WHERE email = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($result->num_rows > 0) {
+            $user = $result->fetch_assoc();
+            $user_id = $user['id'];
+            $hashedPassword = password_hash($new_password, PASSWORD_DEFAULT);
+
+            $sql = "UPDATE users SET password = ? WHERE id = ?";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("si", $hashedPassword, $user_id);
+            if ($stmt->execute()) {
+                echo json_encode(['status' => 'success', 'message' => 'Password reset successful! Redirecting to login...']);
+            } else {
+                error_log("SQL Error (reset password): " . $conn->error);
+                echo json_encode(['status' => 'error', 'message' => 'Error updating password. Please try again.']);
+            }
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'Email not found!']);
+        }
+        $stmt->close();
+        exit();
     }
 }
 
@@ -293,7 +283,7 @@ $conn->close();
     <title>Golden Treat - Login & Register</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Dancing+Script:wght@400;700&family=Righteous&display=swap" rel="stylesheet">
     <style>
-        /* CSS remains unchanged from the original */
+        /* CSS remains unchanged */
         :root {
             --bg: #FFE8B7;
             --primary: #D4AF37;
@@ -788,7 +778,7 @@ $conn->close();
     </style>
 </head>
 <body>
-    <button style="position: absolute; top: 10px; left: 10px; padding: 8px 16px; font-size: 14px; color: #fff; background: orange; border: none; border-radius: 4px; cursor: pointer; z-index: 6;" onmouseover="this.style.background='orange'" onmouseout="this.style.background='orange'" onclick="window.location.href='index.php'">← Back</button>
+    <button style="position: absolute; top: 10px; left: 10px; padding: 8px 16px; font-size: 14px; color: #fff; background: orange; border: none; border-radius: 4px; cursor: pointer; z-index: 6;" onmouseover="this.style.background='orange'" onmouseout="this.style.background='orange'" onclick="window.location.href='../Customer/index.php'">← Back</button>
     <div class="frosting-bg"></div>
     <div class="sprinkles"></div>
     <div class="sprinkle-burst" id="sprinkle-burst"></div>
@@ -806,7 +796,6 @@ $conn->close();
                 <input type="email" name="login-email" id="login-email" placeholder="Email" required>
                 <input type="password" name="login-password" id="login-password" placeholder="Password" required>
                 <input type="hidden" name="action" value="login">
-                <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                 <button type="submit">Login 🍰</button>
                 <div class="forgot-password" onclick="showForgotPasswordPopup()">Forgot Password?</div>
                 <div class="switch" onclick="showRegister()">Don't have an account? Register here</div>
@@ -822,7 +811,6 @@ $conn->close();
                 <input type="password" name="reg-password" id="reg-password" placeholder="Password (8+ chars, letters & numbers)" required>
                 <input type="password" name="reg-confirm-password" id="reg-confirm-password" placeholder="Confirm Password" required>
                 <input type="hidden" name="action" value="register">
-                <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                 <button type="submit">Register 🥐</button>
                 <div class="switch" onclick="showLogin()">Already have an account? Login here</div>
             </form>
@@ -857,8 +845,6 @@ $conn->close();
     </div>
 
     <script>
-        const csrfToken = "<?php echo $_SESSION['csrf_token']; ?>";
-
         function createSprinkles() {
             const sprinkleContainer = document.querySelector('.sprinkles');
             for (let i = 0; i < 100; i++) {
@@ -950,7 +936,7 @@ $conn->close();
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
-                    body: `action=send_otp&email=${encodeURIComponent(email)}&csrf_token=${encodeURIComponent(csrfToken)}`
+                    body: `action=send_otp&email=${encodeURIComponent(email)}`
                 });
                 const text = await response.text();
                 console.log('Send OTP Raw response:', text);
@@ -985,7 +971,7 @@ $conn->close();
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
-                    body: `action=verify_otp&email=${encodeURIComponent(email)}&otp=${encodeURIComponent(otp)}&csrf_token=${encodeURIComponent(csrfToken)}`
+                    body: `action=verify_otp&email=${encodeURIComponent(email)}&otp=${encodeURIComponent(otp)}`
                 });
                 const text = await response.text();
                 console.log('Verify OTP Raw response:', text);
@@ -1036,7 +1022,7 @@ $conn->close();
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
-                    body: `action=reset_password&email=${encodeURIComponent(email)}&new_password=${encodeURIComponent(newPassword)}&csrf_token=${encodeURIComponent(csrfToken)}`
+                    body: `action=reset_password&email=${encodeURIComponent(email)}&new_password=${encodeURIComponent(newPassword)}`
                 });
                 const text = await response.text();
                 console.log('Reset Password Raw response:', text);
