@@ -1,0 +1,61 @@
+-- 1) create order_items (supports customization JSON if needed)
+CREATE TABLE IF NOT EXISTS order_items (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  order_id INT NOT NULL,
+  product_name VARCHAR(255) NOT NULL,
+  product_id INT NULL,
+  sku VARCHAR(100) DEFAULT NULL,
+  quantity INT NOT NULL DEFAULT 1,
+  unit_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  total_price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  customizations JSON DEFAULT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_order_id (order_id),
+  CONSTRAINT fk_orderitems_orders FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 2) migrate existing denormalized rows into order_items
+INSERT INTO order_items (order_id, product_name, product_id, quantity, unit_price, total_price, created_at)
+SELECT id AS order_id,
+       product AS product_name,
+       NULL AS product_id,
+       COALESCE(quantity,1) AS quantity,
+       COALESCE(price,0.00) AS unit_price,
+       COALESCE(price,0.00) * COALESCE(quantity,1) AS total_price,
+       created_at
+FROM orders;
+
+-- 3) recalc orders.total_amount from order_items
+UPDATE orders o
+SET total_amount = (
+  SELECT IFNULL(SUM(total_price),0) FROM order_items it WHERE it.order_id = o.id
+);
+
+-- 4) sanity checks (select some samples)
+SELECT o.id, o.order_number, o.total_amount, it.product_name, it.quantity, it.unit_price
+FROM orders o
+LEFT JOIN order_items it ON it.order_id = o.id
+ORDER BY o.id LIMIT 30;
+====================================================
+Optional cleanup (do this only after you confirm migration)
+
+ALTER TABLE orders
+  DROP COLUMN product,
+  DROP COLUMN quantity,
+  DROP COLUMN price;
+====================================================
+Example queries after normalization
+
+SELECT o.*, JSON_ARRAYAGG(JSON_OBJECT(
+  'product', it.product_name, 'qty', it.quantity, 'unit_price', it.unit_price, 'total', it.total_price
+)) AS items
+FROM orders o
+JOIN order_items it ON it.order_id = o.id
+WHERE o.id = 5
+GROUP BY o.id;
+
+Sales per product:
+SELECT product_name, SUM(quantity) AS sold, SUM(total_price) AS revenue
+FROM order_items
+GROUP BY product_name
+ORDER BY revenue DESC;
