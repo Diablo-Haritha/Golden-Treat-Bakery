@@ -322,7 +322,7 @@ CREATE TABLE `orders` (
   `order_number` varchar(64) DEFAULT NULL,
   `user_id` int(11) DEFAULT NULL,
   `order_date` date NOT NULL,
-  `customer` varchar(100) NOT NULL,
+  `customer_name` varchar(100) NOT NULL,
   `product` varchar(100) NOT NULL,
   `quantity` int(11) NOT NULL DEFAULT 1,
   `original_quantity` int(11) NOT NULL DEFAULT 0,
@@ -338,7 +338,7 @@ CREATE TABLE `orders` (
   `deleted_by` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO `orders` (`id`, `order_number`, `user_id`, `order_date`, `customer`, `product`, `quantity`, `original_quantity`, `price`, `total_amount`, `original_price`, `status`, `created_at`, `updated_at`, `mobile`, `order_summary`, `deleted_at`, `deleted_by`) VALUES
+INSERT INTO `orders` (`id`, `order_number`, `user_id`, `order_date`, `customer_name`, `product`, `quantity`, `original_quantity`, `price`, `total_amount`, `original_price`, `status`, `created_at`, `updated_at`, `mobile`, `order_summary`, `deleted_at`, `deleted_by`) VALUES
 (1, 'ORD-000001', NULL, '2025-09-01', 'Alice Fernando', 'Chocolate Cake', 1, 1, 2500.00, 2500.00, 2500.00, 'Order Received', '2025-09-04 05:08:03', '2025-10-13 09:30:17', NULL, NULL, NULL, NULL),
 (2, 'ORD-000002', NULL, '2025-09-02', 'Brian Silva', 'Blueberry Muffins (6 pack)', 2, 2, 1800.00, 3600.00, 1800.00, 'Payment Confirmed', '2025-09-04 05:08:03', '2025-10-13 09:30:17', NULL, NULL, NULL, NULL),
 (3, 'ORD-000003', NULL, '2025-09-02', 'Chathuri Perera', 'Butter Croissant', 9, 12, 2400.00, 21600.00, 2400.00, 'Partially Returned', '2025-09-04 05:08:03', '2025-10-13 09:30:17', NULL, NULL, NULL, NULL),
@@ -435,7 +435,7 @@ BEGIN
 END$$
 
 DELIMITER ;
-
+/*
 -- ============================================================
 -- OPTIONAL: Trigger for Order Status Updates (to sync Sales Status)
 -- ============================================================
@@ -451,7 +451,7 @@ DELIMITER ;
 -- ADD FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE SET NULL;
 
 -- Then, the trigger (uncomment after ALTER):
-/*
+
 DELIMITER $$
 
 CREATE TRIGGER trg_orders_after_update_sync_sale
@@ -569,7 +569,7 @@ DELIMITER ;
 
 
 ---------------------------------------------------------------------
-
+/*
 CREATE TABLE `orders` (
   `id` int(11) NOT NULL,
   `order_number` varchar(12) NOT NULL,
@@ -582,7 +582,7 @@ CREATE TABLE `orders` (
   `session_id` varchar(255) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
+*/
 
 CREATE TABLE `order_items` (
   `id` int(11) NOT NULL,

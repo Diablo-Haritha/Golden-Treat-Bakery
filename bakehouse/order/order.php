@@ -3,7 +3,7 @@
 $host = "localhost";
 $user = "root";
 $pass = "";
-$db   = "golden_treat";
+$db   = "backup1";
 
 $conn = new mysqli($host, $user, $pass, $db);
 if ($conn->connect_error) {
@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'add') {
 // ensure required fields
 $order_date = !empty($_POST['order_date']) ? $_POST['order_date'] : date('Y-m-d');
-$customer   = trim($_POST['customer'] ?? '');
+$customer   = trim($_POST['customer_name'] ?? '');
 $product    = trim($_POST['product'] ?? '');
 $quantity   = (int)($_POST['quantity'] ?? 1);
 $price      = (float)($_POST['price'] ?? 0.00);
@@ -35,7 +35,7 @@ $status     = $_POST['status'] ?? 'Pending';
 
 $total_amount = $price * $quantity;
 
-$stmt = $conn->prepare("INSERT INTO orders (order_date, customer, product, quantity, price, total_amount, status) VALUES (?, ?, ?, ?, ?, ?, ?)");
+$stmt = $conn->prepare("INSERT INTO orders (order_date, customer_name, product, quantity, price, total_amount, status) VALUES (?, ?, ?, ?, ?, ?, ?)");
 if ($stmt) {
     $stmt->bind_param("sssidds", $order_date, $customer, $product, $quantity, $price, $total_amount, $status);
     $ok = $stmt->execute();
@@ -56,14 +56,14 @@ if ($stmt) {
 
     // --- IMPORTANT: collect fields from POST (same as add) ---
     $order_date = !empty($_POST['order_date']) ? $_POST['order_date'] : ($oldRow['order_date'] ?? date('Y-m-d'));
-    $customer   = trim($_POST['customer'] ?? '');
+    $customer   = trim($_POST['customer_name'] ?? '');
     $product    = trim($_POST['product'] ?? '');
     $quantity   = (int)($_POST['quantity'] ?? 1);
     $price      = (float)($_POST['price'] ?? 0.00);
     $new_status = $_POST['status'] ?? 'Pending';
 
     // fetch old status
-    $sel = $conn->prepare("SELECT status, customer, deleted_at FROM orders WHERE id = ? LIMIT 1");
+    $sel = $conn->prepare("SELECT status, customer_name, deleted_at FROM orders WHERE id = ? LIMIT 1");
 $sel->bind_param("i", $id);
 $sel->execute();
 $resOld = $sel->get_result();
@@ -80,7 +80,7 @@ $old_status = $oldRow['status'] ?? null;
 $customerName = $oldRow['customer'] ?? '';
 
     // perform update (existing code)
-    $stmt = $conn->prepare("UPDATE orders SET order_date = ?, customer = ?, product = ?, quantity = ?, price = ?, status = ? WHERE id = ?");
+    $stmt = $conn->prepare("UPDATE orders SET order_date = ?, customer_name = ?, product = ?, quantity = ?, price = ?, status = ? WHERE id = ?");
     $stmt->bind_param("sssidsi", $order_date, $customer, $product, $quantity, $price, $new_status, $id);
     $ok = $stmt->execute();
     $err = $stmt->error;
@@ -357,7 +357,7 @@ if ($action === 'restore') {
 
 
 // Fetch orders for display
-$sql = "SELECT id, order_date, customer, product, quantity, price, status
+$sql = "SELECT id, order_date, customer_name, product, quantity, price, status
         FROM orders
         WHERE deleted_at IS NULL
         ORDER BY id DESC";
@@ -378,7 +378,7 @@ $totalOrders = (int)$row2['total_orders'];
 $res3 = $conn->query("SELECT COUNT(*) AS total_returns FROM orders WHERE status = 'Returned' AND deleted_at IS NULL");
 $row3 = $res3 ? $res3->fetch_assoc() : null; $totalReturns = (int)($row3['total_returns'] ?? 0);
 // total distinct customers from orders table 
-$res4 = $conn->query("SELECT COUNT(DISTINCT customer) AS total_customers FROM orders WHERE deleted_at IS NULL"); $row4 = $res4 ? $res4->fetch_assoc() : null; $totalCustomers = (int)($row4['total_customers'] ?? 0);
+$res4 = $conn->query("SELECT COUNT(DISTINCT customer_name) AS total_customers FROM orders WHERE deleted_at IS NULL"); $row4 = $res4 ? $res4->fetch_assoc() : null; $totalCustomers = (int)($row4['total_customers'] ?? 0);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -472,7 +472,7 @@ $res4 = $conn->query("SELECT COUNT(DISTINCT customer) AS total_customers FROM or
             <?php else: foreach($orders as $o): ?>
               <tr>
                 <td><?= htmlspecialchars($o['id']) ?></td>
-                <td><?= htmlspecialchars($o['customer']) ?></td>
+                <td><?= htmlspecialchars($o['customer_name']) ?></td>
                 <td><?= htmlspecialchars($o['product']) ?></td>
                 <td><?= (int)$o['quantity'] ?></td>
                 <td><?= number_format((float)$o['price'], 2) ?></td>
@@ -483,7 +483,7 @@ $res4 = $conn->query("SELECT COUNT(DISTINCT customer) AS total_customers FROM or
                     type="button"
                     data-id="<?= htmlspecialchars($o['id']) ?>"
                     data-order-date="<?= htmlspecialchars($o['order_date']) ?>"
-                    data-customer="<?= htmlspecialchars($o['customer']) ?>"
+                    data-customer_name="<?= htmlspecialchars($o['customer_name']) ?>"
                     data-product="<?= htmlspecialchars($o['product']) ?>"
                     data-quantity="<?= (int)$o['quantity'] ?>"
                     data-price="<?= htmlspecialchars($o['price']) ?>"
@@ -496,7 +496,7 @@ $res4 = $conn->query("SELECT COUNT(DISTINCT customer) AS total_customers FROM or
                     type="button"
                     data-id="<?= htmlspecialchars($o['id']) ?>"
                     data-order-date="<?= htmlspecialchars($o['order_date']) ?>"
-                    data-customer="<?= htmlspecialchars($o['customer']) ?>"
+                    data-customer="<?= htmlspecialchars($o['customer_name']) ?>"
                     data-product="<?= htmlspecialchars($o['product']) ?>"
                     data-quantity="<?= (int)$o['quantity'] ?>"
                     data-price="<?= htmlspecialchars($o['price']) ?>"

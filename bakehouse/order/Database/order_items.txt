@@ -59,3 +59,47 @@ SELECT product_name, SUM(quantity) AS sold, SUM(total_price) AS revenue
 FROM order_items
 GROUP BY product_name
 ORDER BY revenue DESC;
+
+-- ============================================================
+-- OPTIONAL: Trigger for Order Status Updates (to sync Sales Status)
+-- ============================================================
+
+-- This trigger fires AFTER UPDATE on 'orders' to update the corresponding sale's status.
+-- Assumption: There is one sale per order (based on the insert trigger above).
+-- Links via a potential order_id in sales? Wait, sales doesn't have order_id.
+-- To make this work properly, we need to add an 'order_id' field to sales table for linking.
+-- For now, this is a placeholder; recommend adding 'order_id INT NULL FOREIGN KEY REFERENCES orders(id)' to sales.
+
+-- First, ALTER sales table to add order_id (if not exists)
+-- ALTER TABLE sales ADD COLUMN IF NOT EXISTS order_id INT NULL AFTER customer,
+-- ADD FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE SET NULL;
+
+-- Then, the trigger (uncomment after ALTER):
+/*
+DELIMITER $$
+
+CREATE TRIGGER trg_orders_after_update_sync_sale
+AFTER UPDATE ON orders
+FOR EACH ROW
+BEGIN
+    DECLARE sale_status VARCHAR(20) DEFAULT 'Pending';
+    
+    -- Map updated order status to sales status
+    CASE NEW.status
+        WHEN 'pending' THEN SET sale_status = 'Pending';
+        WHEN 'confirmed' THEN SET sale_status = 'Paid';
+        WHEN 'preparing' THEN SET sale_status = 'Pending';
+        WHEN 'ready' THEN SET sale_status = 'Paid';
+        WHEN 'completed' THEN SET sale_status = 'Paid';
+        ELSE SET sale_status = 'Pending';
+    END CASE;
+    
+    -- Update the linked sale (assumes order_id in sales)
+    UPDATE sales 
+    SET status = sale_status, 
+        updated_at = CURRENT_TIMESTAMP  -- If you add updated_at to sales
+    WHERE order_id = NEW.id;
+END$$
+
+DELIMITER ;
+*/
