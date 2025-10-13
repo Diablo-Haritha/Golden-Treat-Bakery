@@ -67,6 +67,130 @@ $settings = $conn->query("SELECT * FROM settings WHERE id=1")->fetch_assoc();
 <head>
 <title>Update Shop Settings</title>
 <style>
+
+body {
+  font-family: "Poppins", Arial, sans-serif;
+  background-color: #fff5f5;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.container {
+  width: 90%;
+  max-width: 700px;
+  background: #ffffff;
+  padding: 40px 50px;
+  border-radius: 14px;
+  box-shadow: 0 6px 20px rgba(255, 0, 0, 0.1);
+}
+
+h2 {
+  text-align: center;
+  color: #b30000;
+  margin-bottom: 30px;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+label {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 5px;
+}
+
+input[type="text"],
+input[type="number"],
+textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.8px solid #e2e2e2;
+  border-radius: 10px;
+  font-size: 16px;
+  background-color: #fffaf9;
+  transition: all 0.25s ease;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+textarea:focus {
+  border-color: #d62828;
+  box-shadow: 0 0 5px rgba(214, 40, 40, 0.3);
+  outline: none;
+  background-color: #fff;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 90px;
+}
+
+button[name="save"] {
+  background: linear-gradient(90deg, #d62828, #b91c1c);
+  color: #fff;
+  border: none;
+  padding: 12px 15px;
+  border-radius: 10px;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+button[name="save"]:hover {
+  background: linear-gradient(90deg, #b91c1c, #8b0000);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(185, 28, 28, 0.3);
+}
+
+p {
+  text-align: center;
+  font-size: 15px;
+  color: #0a0a0a;
+}
+
+.footer-links {
+  text-align: center;
+  margin-top: 25px;
+}
+
+a {
+  color: #d62828;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: #8b0000;
+  text-decoration: underline;
+}
+
+/* Responsive tweaks */
+@media (max-width: 600px) {
+  .container {
+    padding: 25px 20px;
+  }
+  h2 {
+    font-size: 24px;
+  }
+  button[name="save"] {
+    font-size: 16px;
+  }
+}
+
+
 </style>
   <link rel="stylesheet" href="style1.css">
 </head>
@@ -112,6 +236,11 @@ $settings = $conn->query("SELECT * FROM settings WHERE id=1")->fetch_assoc();
 <h2>Shop Settings</h2>
 <?php if (isset($msg)) echo "<p style='color:green;'>$msg</p>"; ?>
 <form method="post">
+<div class="container">
+  <h2>Shop Settings</h2>
+  <?php if (isset($msg)) echo "<p style='color:green;'>$msg</p>"; ?>
+  
+  <form method="post">
     <label>Shop Name</label>
     <input type="text" name="shop_name" value="<?= htmlspecialchars($settings['shop_name']) ?>">
 
@@ -134,9 +263,13 @@ $settings = $conn->query("SELECT * FROM settings WHERE id=1")->fetch_assoc();
     <input type="number" step="0.01" name="vat_percent" value="<?= $settings['vat_percent'] ?>">
 
     <button type="submit" name="save">💾 Save Settings</button>
-</form>
-<br>
-<a href="save_bill.php">⬅️ Back to Bills</a> | 
-<a href="logout.php">🚪 Logout</a>
+  </form>
+
+  <div class="footer-links">
+    <a href="save_bill.php">⬅️ Back to Bills</a> | 
+    <a href="logout.php">🚪 Logout</a>
+  </div>
+</div>
+
 </body>
 </html>

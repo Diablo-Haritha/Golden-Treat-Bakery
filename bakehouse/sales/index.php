@@ -967,6 +967,47 @@ tr:hover td {
   width: 100%;
   height: 300px;
 }
+/* General button styling */
+button.edit,
+button.del {
+  border: none;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: #fff;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+}
+
+/* Edit Button */
+button.edit {
+  background-color: #3b82f6; /* Blue */
+}
+
+button.edit:hover {
+  background-color: #2563eb; /* Darker blue */
+  transform: scale(1.1);
+}
+
+/* Delete Button */
+button.del {
+  background-color: #ef4444; /* Red */
+  margin-left: 6px;
+}
+
+button.del:hover {
+  background-color: #dc2626; /* Darker red */
+  transform: scale(1.1);
+}
+
+/* Optional: add focus outline for accessibility */
+button.edit:focus,
+button.del:focus {
+  outline: 3px solid rgba(59,130,246,0.4);
+  outline-offset: 2px;
+}
+
   </style>
 </head>
 <body>
