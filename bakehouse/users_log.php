@@ -13,16 +13,16 @@ try {
     die("Connection failed: " . $e->getMessage());
 }
 
-// Build SQL query with filters
+// Build SQL query with filters (CORRECTED: Use log_timestamp for date filters instead of date_joined for accuracy)
 $sql = "SELECT * FROM users_log WHERE 1=1";
 $params = [];
 
 if (!empty($_GET['from'])) {
-    $sql .= " AND date_joined >= :from";
+    $sql .= " AND DATE(log_timestamp) >= :from";
     $params[':from'] = $_GET['from'];
 }
 if (!empty($_GET['to'])) {
-    $sql .= " AND date_joined <= :to";
+    $sql .= " AND DATE(log_timestamp) <= :to";
     $params[':to'] = $_GET['to'];
 }
 if (!empty($_GET['action'])) {
@@ -39,13 +39,14 @@ $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $logEntries = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Handle CSV export
+// Handle CSV export (CORRECTED: Proper handling of last_login and htmlspecialchars for safety)
 if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     header('Content-Type: text/csv');
     header('Content-Disposition: attachment; filename="users_log_export.csv"');
     $output = fopen('php://output', 'w');
     fputcsv($output, ['Log ID', 'User ID', 'Operation', 'Full Name', 'Email', 'Mobile', 'Address', 'District', 'Role', 'Date Joined', 'Last Login', 'Timestamp']);
     foreach ($logEntries as $row) {
+        $lastLogin = isset($row['last_login']) && $row['last_login'] ? date('Y-m-d H:i:s', strtotime($row['last_login'])) : 'N/A';
         fputcsv($output, [
             $row['log_id'],
             $row['user_id'] ?? 'N/A',
@@ -57,7 +58,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
             $row['district'] ?? 'N/A',
             $row['role'] ?? 'N/A',
             $row['date_joined'] ?? 'N/A',
-            $row['last_login'] ?? 'N/A',
+            $lastLogin,
             date('Y-m-d H:i:s', strtotime($row['log_timestamp']))
         ]);
     }
@@ -81,7 +82,6 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
         crossorigin="anonymous"></script>
-    <link rel="stylesheet" href="style.css">
     <style>
         /* Same CSS as provided in the original code */
         #sum_dashboard {
@@ -483,6 +483,21 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
             color: #991b1b;
         }
 
+        .operation-insert {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .operation-update {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .operation-delete {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
         .popuplog-section {
             display: none;
             position: fixed;
@@ -597,17 +612,17 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
                         <div class="card">
                             <h3>Insert Operations</h3>
                             <p><?php echo $stats['INSERT']; ?></p>
-                            <button class="info-btn">View Details</button>
+                            <button class="info-btn" data-action="INSERT" onclick="filterByAction(this.dataset.action)">View Details</button>
                         </div>
                         <div class="card">
                             <h3>Update Operations</h3>
                             <p><?php echo $stats['UPDATE']; ?></p>
-                            <button class="info-btn">View Details</button>
+                            <button class="info-btn" data-action="UPDATE" onclick="filterByAction(this.dataset.action)">View Details</button>
                         </div>
                         <div class="card">
                             <h3>Delete Operations</h3>
                             <p><?php echo $stats['DELETE']; ?></p>
-                            <button class="info-btn">View Details</button>
+                            <button class="info-btn" data-action="DELETE" onclick="filterByAction(this.dataset.action)">View Details</button>
                         </div>
                     </div>
                 </div>
@@ -621,8 +636,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
                         <div class="filter-bar">
                             <!-- FILTER FORM -->
                             <form method="GET">
-                                From: <input type="date" name="from" value="<?= $_GET['from'] ?? '' ?>">
-                                To: <input type="date" name="to" value="<?= $_GET['to'] ?? '' ?>">
+                                From: <input type="date" name="from" value="<?= htmlspecialchars($_GET['from'] ?? ''); ?>">
+                                To: <input type="date" name="to" value="<?= htmlspecialchars($_GET['to'] ?? ''); ?>">
                                 Action:
                                 <select name="action">
                                     <option value="">All</option>
@@ -640,7 +655,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
                                 <button type="submit">Filter</button>
                             </form>
                             <div class="header-right">
-                                <a class="btn" href="?<?= http_build_query(array_merge($_GET, ["export" => "csv"])) ?>">⬇CSV</a>
+                                <a class="btn" href="?<?= htmlspecialchars(http_build_query(array_merge($_GET, ["export" => "csv"]))); ?>">⬇CSV</a>
                                 <button id="btnSumDashboard" class="btn">View User Summary</button>
                             </div>
                         </div>
@@ -664,7 +679,9 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php foreach ($logEntries as $row): ?>
+                                <?php foreach ($logEntries as $row): 
+                                    $lastLoginFormatted = isset($row['last_login']) && $row['last_login'] ? date('Y-m-d H:i:s', strtotime($row['last_login'])) : 'N/A';
+                                ?>
                                     <tr>
                                         <td><?php echo htmlspecialchars($row['log_id']); ?></td>
                                         <td><?php echo htmlspecialchars($row['user_id'] ?? 'N/A'); ?></td>
@@ -674,12 +691,17 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
                                         <td><?php echo htmlspecialchars($row['mobile'] ?? 'N/A'); ?></td>
                                         <td><?php echo htmlspecialchars($row['address'] ?? 'N/A'); ?></td>
                                         <td><?php echo htmlspecialchars($row['district'] ?? 'N/A'); ?></td>
-                                        <td><span class="badge <?php echo strtolower($row['role']); ?>"><?php echo htmlspecialchars($row['role'] ?? 'N/A'); ?></span></td>
+                                        <td><span class="badge <?php echo strtolower($row['role'] ?? 'n/a'); ?>"><?php echo htmlspecialchars($row['role'] ?? 'N/A'); ?></span></td>
                                         <td><?php echo htmlspecialchars($row['date_joined'] ?? 'N/A'); ?></td>
-                                        <td><?php echo htmlspecialchars($row['last_login'] ?? 'N/A'); ?></td>
+                                        <td><?php echo htmlspecialchars($lastLoginFormatted); ?></td>
                                         <td><?php echo date('Y-m-d H:i:s', strtotime($row['log_timestamp'])); ?></td>
                                     </tr>
                                 <?php endforeach; ?>
+                                <?php if (empty($logEntries)): ?>
+                                    <tr>
+                                        <td colspan="12" style="text-align: center; color: #666;">No logs found. Perform INSERT, UPDATE, or DELETE on users table to generate logs.</td>
+                                    </tr>
+                                <?php endif; ?>
                             </tbody>
                         </table>
                     </div>
@@ -708,7 +730,24 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
             if (e.target === sumDashboard) sumDashboard.style.display = "none";
         });
 
-        // Client-side table sorting
+        // Filter by action from summary
+        function filterByAction(action) {
+            const url = new URL(window.location);
+            url.searchParams.set('action', action);
+            window.location.href = url.toString();
+        }
+
+        // Global search
+        document.getElementById('globalSearch').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const rows = document.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        });
+
+        // Client-side table sorting (CORRECTED: Better handling for dates and numerics)
         document.addEventListener('DOMContentLoaded', function() {
             const table = document.querySelector('table');
             if (table) {
@@ -731,21 +770,22 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
         function sortTable(columnIndex) {
             const table = document.querySelector('table');
             const tbody = table.querySelector('tbody');
-            const rows = Array.from(tbody.querySelectorAll('tr'));
+            const rows = Array.from(tbody.querySelectorAll('tr:not(:has(td[colspan]))')); // Exclude "no data" row
 
-            const isNumeric = ['log_id', 'user_id'].includes(['Log ID', 'User ID', 'Operation', 'Full Name', 'Email', 'Mobile', 'Address', 'District', 'Role', 'Date Joined', 'Last Login', 'Timestamp'][columnIndex]);
-            const isDate = columnIndex === 9 || columnIndex === 10 || columnIndex === 11; // Date Joined, Last Login, Timestamp columns
+            const numericColumns = [0, 1]; // log_id, user_id
+            const dateColumns = [9, 10, 11]; // date_joined, last_login, timestamp
 
             rows.sort((a, b) => {
                 let aVal = a.cells[columnIndex].textContent.trim();
                 let bVal = b.cells[columnIndex].textContent.trim();
 
-                if (isNumeric) {
-                    aVal = parseFloat(aVal) || 0;
-                    bVal = parseFloat(bVal) || 0;
+                if (numericColumns.includes(columnIndex)) {
+                    aVal = parseInt(aVal) || 0;
+                    bVal = parseInt(bVal) || 0;
                     return aVal - bVal;
-                } else if (isDate) {
-                    return new Date(aVal) - new Date(bVal);
+                } else if (dateColumns.includes(columnIndex)) {
+                    const getDateValue = (val) => val === 'N/A' ? new Date(0) : new Date(val);
+                    return getDateValue(aVal) - getDateValue(bVal);
                 } else {
                     return aVal.localeCompare(bVal);
                 }
