@@ -544,3 +544,123 @@ BEGIN
 END$$
 
 DELIMITER ;
+
+
+---------------------------------------------------------------------
+
+CREATE TABLE `orders` (
+  `id` int(11) NOT NULL,
+  `order_number` varchar(12) NOT NULL,
+  `customer_name` varchar(255) NOT NULL,
+  `customer_email` varchar(255) NOT NULL,
+  `customer_phone` varchar(20) DEFAULT NULL,
+  `total_amount` decimal(10,2) NOT NULL,
+  `status` enum('pending','confirmed','shipped','delivered','cancelled') NOT NULL DEFAULT 'pending',
+  `user_id` int(11) DEFAULT NULL,
+  `session_id` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+
+CREATE TABLE `order_items` (
+  `id` int(11) NOT NULL,
+  `order_id` int(11) NOT NULL,
+  `product_name` varchar(255) NOT NULL,
+  `quantity` int(11) NOT NULL,
+  `unit_price` decimal(10,2) NOT NULL,
+  `customizations` text DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+
+CREATE TABLE `users` (
+  `id` int(11) NOT NULL,
+  `full_name` varchar(100) NOT NULL,
+  `email` varchar(100) NOT NULL,
+  `mobile` varchar(20) DEFAULT NULL,
+  `address` varchar(255) DEFAULT NULL,
+  `district` varchar(100) DEFAULT NULL,
+  `role` enum('admin','manager','customer') NOT NULL DEFAULT 'customer',
+  `date_joined` date DEFAULT curdate(),
+  `status` enum('Active','Inactive') DEFAULT 'Active',
+  `profile_picture` varchar(255) DEFAULT NULL,
+  `password` varchar(255) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `last_login` timestamp NULL DEFAULT NULL ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Create the users_log table (based on the PHP code structure)
+CREATE TABLE IF NOT EXISTS `users_log` (
+    `log_id` INT AUTO_INCREMENT PRIMARY KEY,
+    `user_id` INT NULL,
+    `operation` VARCHAR(50) NOT NULL COMMENT 'INSERT, UPDATE, or DELETE',
+    `full_name` VARCHAR(100),
+    `email` VARCHAR(100),
+    `mobile` VARCHAR(20),
+    `address` VARCHAR(255),
+    `district` VARCHAR(100),
+    `role` ENUM('admin', 'manager', 'customer'),
+    `date_joined` DATE,
+    `status` ENUM('Active','Inactive'),
+    `profile_picture` VARCHAR(255),
+    `last_login` TIMESTAMP NULL,
+    `log_timestamp` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='Audit log for users table operations';
+
+-- Drop existing triggers if they exist (to avoid duplicates)
+DROP TRIGGER IF EXISTS trg_users_after_insert;
+DROP TRIGGER IF EXISTS trg_users_after_update;
+DROP TRIGGER IF EXISTS trg_users_before_delete;
+
+-- Create triggers for logging INSERT, UPDATE, DELETE operations on users
+DELIMITER //
+
+CREATE TRIGGER trg_users_after_insert
+AFTER INSERT ON users
+FOR EACH ROW
+BEGIN
+    INSERT INTO users_log (user_id, operation, full_name, email, mobile, address, district, role, date_joined, status, profile_picture, last_login)
+    VALUES (NEW.id, 'INSERT', NEW.full_name, NEW.email, NEW.mobile, NEW.address, NEW.district, NEW.role, NEW.date_joined, NEW.status, NEW.profile_picture, NEW.last_login);
+END //
+
+CREATE TRIGGER trg_users_after_update
+AFTER UPDATE ON users
+FOR EACH ROW
+BEGIN
+    INSERT INTO users_log (user_id, operation, full_name, email, mobile, address, district, role, date_joined, status, profile_picture, last_login)
+    VALUES (NEW.id, 'UPDATE', NEW.full_name, NEW.email, NEW.mobile, NEW.address, NEW.district, NEW.role, NEW.date_joined, NEW.status, NEW.profile_picture, NEW.last_login);
+END //
+
+CREATE TRIGGER trg_users_before_delete
+BEFORE DELETE ON users
+FOR EACH ROW
+BEGIN
+    INSERT INTO users_log (user_id, operation, full_name, email, mobile, address, district, role, date_joined, status, profile_picture, last_login)
+    VALUES (OLD.id, 'DELETE', OLD.full_name, OLD.email, OLD.mobile, OLD.address, OLD.district, OLD.role, OLD.date_joined, OLD.status, OLD.profile_picture, OLD.last_login);
+END //
+
+DELIMITER ;
+
+-- Cleanup orphaned logs (run periodically)
+UPDATE users_log 
+SET user_id = NULL 
+WHERE user_id IS NOT NULL 
+AND user_id NOT IN (SELECT id FROM users);
+
+-- Example query to view logs (matches PHP code)
+SELECT 
+    log_id,
+    user_id,
+    operation,
+    full_name,
+    email,
+    mobile,
+    address,
+    district,
+    role,
+    date_joined,
+    last_login,
+    log_timestamp
+FROM users_log 
+ORDER BY log_timestamp DESC LIMIT 100;
