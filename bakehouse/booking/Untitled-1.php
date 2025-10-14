@@ -3,7 +3,7 @@
 $host = "localhost";
 $user = "root";      // XAMPP default
 $pass = "";          // XAMPP default password is empty
-$dbname = "booking_db";
+$dbname = "golden_treat";
 
 $conn = new mysqli($host, $user, $pass, $dbname);
 if ($conn->connect_error) die("Connection failed: " . $conn->connect_error);
@@ -146,3 +146,4 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 </script>
 </body>
 </html>
+

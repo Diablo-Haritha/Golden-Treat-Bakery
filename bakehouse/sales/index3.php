@@ -296,15 +296,15 @@ $conn->close();
             <div class="mini-cards">
                 <div class="mini-card">
                     <h4>Revenue</h4>
-                    <p id="anRevenue">$0</p>
+                    <p id="anRevenue">LKR 0</p>
                 </div>
                 <div class="mini-card">
                     <h4>Orders</h4>
-                    <p id="anOrders">0</p>
+                    <p id="anOrders">LKR 0</p>
                 </div>
                 <div class="mini-card">
                     <h4>Avg Order</h4>
-                    <p id="anAOV">$0</p>
+                    <p id="anAOV">LKR 0</p>
                 </div>
                 <div class="mini-card">
                     <h4>Top Customer</h4>
@@ -417,9 +417,9 @@ $conn->close();
         const data = analysisData;
 
         // Mini-cards
-        document.getElementById("anRevenue").textContent = "$" + data.revenue.toFixed(2);
+        document.getElementById("anRevenue").textContent = "LKR " + data.revenue.toFixed(2);
         document.getElementById("anOrders").textContent = data.orders;
-        document.getElementById("anAOV").textContent = "$" + data.aov.toFixed(2);
+        document.getElementById("anAOV").textContent = "LKR " + data.aov.toFixed(2);
         document.getElementById("anTopCustomer").textContent = data.topCustomer;
 
         // Revenue chart
