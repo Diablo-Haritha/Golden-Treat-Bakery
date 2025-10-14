@@ -17,6 +17,58 @@ function refValues($arr){
     foreach ($arr as $k => $v) $refs[$k] = &$arr[$k];
     return $refs;
 }
+// purchase_returns.php (action=create)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_GET['action'] ?? '') === 'create') {
+    $order_id = (int)($_POST['order_id'] ?? 0);
+    $qty = (int)($_POST['quantity'] ?? 0);
+    $reason = trim($_POST['reason'] ?? '');
+    $refund = isset($_POST['refund_amount']) ? (float)$_POST['refund_amount'] : null;
+    $processed_by = $_SESSION['user_id'] ?? null;
+
+    if ($order_id <= 0 || $qty <= 0) {
+        // error
+    } else {
+        $stmt = $conn->prepare("INSERT INTO returns (order_id, return_date, quantity, reason, refund_amount, processed_by, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())");
+        $date = date('Y-m-d');
+        if ($refund === null) $refund = 0; // or calculate in trigger/app
+        $stmt->bind_param("isisd i", $order_id, $date, $qty, $reason, $refund, $processed_by);
+        // Note: binding types: i,s,i,s,d,i - adjust if needed
+        if (!$stmt->execute()) {
+            // handle error
+        } else {
+            // success — trigger will update orders & history
+            header("Location: returns_list.php?success=1");
+            exit;
+        }
+    }
+}
+// purchase_returns.php (action=restore)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_GET['action'] ?? '') === 'restore') {
+    $return_id = (int)($_POST['return_id'] ?? 0);
+    if ($return_id <= 0) {
+        // error
+    } else {
+        // If you added id_auto as PK earlier, use that. Otherwise adjust column name.
+        $stmt = $conn->prepare("SELECT id_auto, order_id, quantity FROM returns WHERE id_auto = ? LIMIT 1");
+        $stmt->bind_param("i", $return_id);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        if ($row = $res->fetch_assoc()) {
+            // Optionally log who is restoring it before deletion
+            $del = $conn->prepare("DELETE FROM returns WHERE id_auto = ? LIMIT 1");
+            $del->bind_param("i", $return_id);
+            if (!$del->execute()) {
+                // error
+            } else {
+                // success — AFTER DELETE trigger will restore order qty/total
+                header("Location: returns_list.php?restored=1");
+                exit;
+            }
+        } else {
+            // not found
+        }
+    }
+}
 
 // read filters (GET)
 $from = isset($_GET['from']) && $_GET['from'] !== '' ? $_GET['from'] : '';
@@ -194,7 +246,7 @@ foreach ($rows as $r) {
               <label>To:
               <input type="date" name="to" value="<?= htmlspecialchars($to) ?>" />
               </label>
-              <input type="text" name="customer" placeholder="customer_name" value="<?= htmlspecialchars($customer_name) ?>" />
+              <input type="text" name="customer_name" placeholder="customer_name" value="<?= htmlspecialchars($customer_name) ?>" />
               <input type="number" name="order_id" placeholder="Order ID" value="<?= ($order_id ? (int)$order_id : '') ?>" />
               <input type="number" name="processed_by" placeholder="Processed by (admin id)" value="<?= ($processed_by ? (int)$processed_by : '') ?>" />
               <button class="btn primary" type="submit"><i class="fa-solid fa-filter"></i> Filter</button>

@@ -202,8 +202,7 @@ if ($action === 'delete') {
 }
 
 
-    // ---------- Return order handler ----------
-// ---------- Replace your current `if ($action === 'return') { ... }` block with this ----------
+ // ---------- Return order handler (improved) ----------
 if ($action === 'return') {
     $id = (int)($_POST['id'] ?? 0);
     $return_qty = (int)($_POST['return_quantity'] ?? 1);
@@ -217,11 +216,11 @@ if ($action === 'return') {
     } elseif ($return_qty <= 0) {
         $flash_error = "Return quantity must be at least 1.";
     } else {
-        // fetch order row (lock for update inside transaction where possible)
         try {
             $conn->begin_transaction();
 
-            $sel = $conn->prepare("SELECT id, quantity, price, total_amount, status, deleted_at FROM orders WHERE id = ? FOR UPDATE");
+            // Lock the order row
+            $sel = $conn->prepare("SELECT id, quantity, price, total_amount, status, original_quantity, original_price, deleted_at FROM orders WHERE id = ? FOR UPDATE");
             if (!$sel) throw new Exception("Prepare failed (select order): " . $conn->error);
             $sel->bind_param("i", $id);
             $sel->execute();
@@ -229,12 +228,8 @@ if ($action === 'return') {
             $order = $res ? $res->fetch_assoc() : null;
             $sel->close();
 
-            if (!$order) {
-                throw new Exception("Order not found (id: $id).");
-            }
-            if (!empty($order['deleted_at'])) {
-                throw new Exception("Operation denied: this order has been deleted.");
-            }
+            if (!$order) throw new Exception("Order not found (id: $id).");
+            if (!empty($order['deleted_at'])) throw new Exception("Operation denied: this order has been deleted.");
 
             $order_qty = (int)$order['quantity'];
             $price_per_unit = (float)$order['price'];
@@ -244,72 +239,80 @@ if ($action === 'return') {
                 throw new Exception("Return quantity ($return_qty) is greater than order quantity ($order_qty).");
             }
 
-            // compute refund if not provided
+            // If refund not provided, compute it
             if ($refund_amount === null) {
                 $refund_amount = $price_per_unit * $return_qty;
             } else {
                 $refund_amount = (float)$refund_amount;
             }
 
-            // decide new order status
+            // Decide new status
             $new_status = ($return_qty === $order_qty) ? 'Returned' : 'Partially Returned';
 
-            // Insert row into returns
-            $ins = $conn->prepare("INSERT INTO returns (order_id, return_date, quantity, reason, refund_amount, processed_by, created_at)VALUES (?, ?, ?, ?, ?, ?, NOW())");
-    $pb = $processed_by !== null ? (int)$processed_by : null;
-    $ins->bind_param("isisdi", $id, $return_date, $return_qty, $reason, $refund_amount, $pb);
-            $okIns = $ins->execute();
-            if (!$okIns) {
+            // Ensure original_quantity / original_price are preserved (set them if empty)
+            $orig_qty = (int)($order['original_quantity'] ?? 0);
+            $orig_price = (float)($order['original_price'] ?? 0.0);
+            if ($orig_qty === 0 || $orig_price == 0.0) {
+                $oq = $orig_qty === 0 ? $order_qty : $orig_qty;
+                $op = ($orig_price == 0.0) ? $price_per_unit : $orig_price;
+                $setOrig = $conn->prepare("UPDATE orders SET original_quantity = ?, original_price = ? WHERE id = ?");
+                if (!$setOrig) throw new Exception("Prepare failed (set original): " . $conn->error);
+                $setOrig->bind_param("idi", $oq, $op, $id);
+                $setOrig->execute();
+                $setOrig->close();
+            }
+
+            // Insert returns row
+            $ins = $conn->prepare("INSERT INTO returns (order_id, return_date, quantity, reason, refund_amount, processed_by, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())");
+            if (!$ins) throw new Exception("Prepare failed (insert return): " . $conn->error);
+            $pb = $processed_by !== null ? (int)$processed_by : null;
+            $ins->bind_param("isisdi", $id, $return_date, $return_qty, $reason, $refund_amount, $pb);
+            if (!$ins->execute()) {
                 $err = $ins->error;
                 $ins->close();
                 throw new Exception("Insert into returns failed: " . $err);
             }
             $ins->close();
 
-            // Update orders: reduce quantity, reduce total_amount if applicable, update status
+            // Update orders: recompute quantity and total from price * new_qty (safer than subtracting refund)
             $new_qty = $order_qty - $return_qty;
-            // Use COALESCE to avoid NULL issues
-            $new_total = max(0.00, (float)$current_total - $refund_amount);
+            $new_total = max(0.00, $price_per_unit * $new_qty);
 
             $upd = $conn->prepare("UPDATE orders SET quantity = ?, total_amount = ?, status = ? WHERE id = ?");
             if (!$upd) throw new Exception("Prepare failed (update orders): " . $conn->error);
             $upd->bind_param("idsi", $new_qty, $new_total, $new_status, $id);
-            $okUpd = $upd->execute();
-            if (!$okUpd) {
+            if (!$upd->execute()) {
                 $err = $upd->error;
                 $upd->close();
                 throw new Exception("Update orders failed: " . $err);
             }
             $upd->close();
 
-            // Insert into order_status_history (store old->new)
+            // Insert status history
             $old_status = $order['status'] ?? null;
             $note = "Return processed (qty: {$return_qty})";
             $hist = $conn->prepare("INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
             if (!$hist) throw new Exception("Prepare failed (insert history): " . $conn->error);
             $hist->bind_param("issis", $id, $old_status, $new_status, $pb, $note);
-            $okHist = $hist->execute();
-            if (!$okHist) {
+            if (!$hist->execute()) {
                 $err = $hist->error;
                 $hist->close();
                 throw new Exception("Insert history failed: " . $err);
             }
             $hist->close();
 
-            // If you maintain product stock / order_items, update them here (not implemented).
-            // e.g. increase products.quantity if you have product_id, or adjust order_items rows.
+            // TODO: update product stock or order_items if you track them (not implemented here)
 
             $conn->commit();
-            // success - redirect back to list
             header("Location: " . $_SERVER['PHP_SELF']);
             exit;
         } catch (Exception $e) {
             $conn->rollback();
-            // show a helpful error (use logging in production)
             $flash_error = "Return failed: " . $e->getMessage();
         }
     }
 }
+
 
 if ($action === 'restore') {
     $id = (int)($_POST['id'] ?? 0);
