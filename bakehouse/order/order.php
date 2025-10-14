@@ -420,7 +420,7 @@ $res4 = $conn->query("SELECT COUNT(DISTINCT customer_name) AS total_customers FR
         <div class="otherbtn">
      <button class="Sbtn" onclick="window.location.href='../stoke/stock.php'">Stock</button>
     <button class="Ubtn" onclick="window.location.href='../sales/index.php'">Sales</button>
-    <button class="Bbtn" onclick="window.location.href='../booking.php'">Booking</button>
+    <button class="Bbtn" onclick="window.location.href='../booking/index.html'">Booking</button>
         </div>
         <hr />
         <p>Order Management</p>
