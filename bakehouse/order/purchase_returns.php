@@ -21,7 +21,7 @@ function refValues($arr){
 // read filters (GET)
 $from = isset($_GET['from']) && $_GET['from'] !== '' ? $_GET['from'] : '';
 $to   = isset($_GET['to'])   && $_GET['to']   !== '' ? $_GET['to']   : '';
-$customer = isset($_GET['customer']) ? trim($_GET['customer']) : '';
+$customer_name = isset($_GET['customer_name']) ? trim($_GET['customer_name']) : '';
 $order_id = isset($_GET['order_id']) && $_GET['order_id'] !== '' ? (int)$_GET['order_id'] : '';
 $processed_by = isset($_GET['processed_by']) && $_GET['processed_by'] !== '' ? (int)$_GET['processed_by'] : '';
 $limit = 2000; // safety limit
@@ -49,10 +49,10 @@ if ($to !== '') {
     $types .= 's';
     $values[] = $to;
 }
-if ($customer !== '') {
-    $where[] = "o.customer LIKE ?";
+if ($customer_name !== '') {
+    $where[] = "o.customer_name LIKE ?";
     $types .= 's';
-    $values[] = '%' . $customer . '%';
+    $values[] = '%' . $customer_name . '%';
 }
 if ($order_id) {
     $where[] = "r.order_id = ?";
@@ -83,7 +83,7 @@ SELECT
   u.full_name AS processed_by_name,
   r.created_at AS recorded_at,
   o.order_date AS order_date,
-  o.customer,
+  o.customer_name,
   o.product
 FROM returns r
 LEFT JOIN orders o ON o.id = r.order_id
@@ -194,7 +194,7 @@ foreach ($rows as $r) {
               <label>To:
               <input type="date" name="to" value="<?= htmlspecialchars($to) ?>" />
               </label>
-              <input type="text" name="customer" placeholder="Customer" value="<?= htmlspecialchars($customer) ?>" />
+              <input type="text" name="customer" placeholder="customer_name" value="<?= htmlspecialchars($customer_name) ?>" />
               <input type="number" name="order_id" placeholder="Order ID" value="<?= ($order_id ? (int)$order_id : '') ?>" />
               <input type="number" name="processed_by" placeholder="Processed by (admin id)" value="<?= ($processed_by ? (int)$processed_by : '') ?>" />
               <button class="btn primary" type="submit"><i class="fa-solid fa-filter"></i> Filter</button>
@@ -228,7 +228,7 @@ foreach ($rows as $r) {
                     <td><?= htmlspecialchars($r['order_id']) ?></td>
                     <td><?= htmlspecialchars($r['order_date']) ?></td>
                     <td><?= htmlspecialchars($r['return_date']) ?></td>
-                    <td><?= htmlspecialchars($r['customer']) ?></td>
+                    <td><?= htmlspecialchars($r['customer_name']) ?></td>
                     <td><?= htmlspecialchars($r['product']) ?></td>
                     <td><?= (int)$r['returned_quantity'] ?></td>
                     <td><?= number_format((float)$r['refund_amount'],2) ?></td>
@@ -240,7 +240,7 @@ foreach ($rows as $r) {
                         data-order-id="<?= htmlspecialchars($r['order_id']) ?>"
                         data-order-date="<?= htmlspecialchars($r['order_date']) ?>"
                         data-return-date="<?= htmlspecialchars($r['return_date']) ?>"
-                        data-customer="<?= htmlspecialchars($r['customer']) ?>"
+                        data-customer_name="<?= htmlspecialchars($r['customer_name']) ?>"
                         data-product="<?= htmlspecialchars($r['product']) ?>"
                         data-returned-quantity="<?= htmlspecialchars($r['returned_quantity']) ?>"
                         data-refund-amount="<?= htmlspecialchars(number_format((float)$r['refund_amount'],2)) ?>"

@@ -18,33 +18,18 @@ $shop_address = $settings['shop_address'];
 $thank_note   = $settings['thank_note'];
 $vat_percent  = $settings['vat_percent'];
 
-// ---------- SEARCH BILLS ----------
+// ---------- SEARCH & FETCH BILLS ----------
 $search = "";
-if (isset($_GET['search']) && $_GET['search'] != "") {
+if (!empty($_GET['search'])) {
     $search = $conn->real_escape_string($_GET['search']);
     $sql = "SELECT * FROM bills 
             WHERE customer_name LIKE '%$search%' 
                OR id LIKE '%$search%' 
-            ORDER BY created_at DESC";
+            ORDER BY id DESC"; // newest bills first
 } else {
-    $sql = "SELECT * FROM bills ORDER BY created_at DESC";
+    $sql = "SELECT * FROM bills ORDER BY id DESC"; // newest first
 }
 $billsResult = $conn->query($sql);
-
-// Handle search
-$search = "";
-if (isset($_GET['search']) && $_GET['search'] != "") {
-    $search = $conn->real_escape_string($_GET['search']);
-    $sql = "SELECT * FROM bills 
-            WHERE customer_name LIKE '%$search%' 
-               OR id LIKE '%$search%' 
-            ORDER BY created_at DESC";
-} else {
-    $sql = "SELECT * FROM bills ORDER BY created_at DESC";
-}
-$billsResult = $conn->query($sql);
-
-
 ?>
 <!DOCTYPE html>
 <html lang="en">
