@@ -354,7 +354,7 @@ ob_end_flush();
             font-family: 'Poppins', sans-serif;
             line-height: 1.6;
             color: var(--text);
-            background: linear-gradient(135deg, #FFE8B7 0%, #fff8e1 100%);
+            background: linear-gradient(135deg, #ddbf92ff 0%, #fff8e1 100%);
             min-height: 100vh;
             margin: 0;
         }
@@ -999,6 +999,51 @@ ob_end_flush();
             list-style-type: disc;
             margin-bottom: 5px;
         }
+         /* Nav 8: Cookie Crumble */
+        .nav8 {
+            background: #ffe4b5;
+            padding: 20px 40px;
+            border-radius: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 8px 20px rgba(139, 69, 19, 0.2);
+            height:10px;
+        margin-right:50px;
+        }
+
+        .nav8 .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #8b4513;
+            font-family: 'Brush Script MT', cursive;
+        }
+
+        .nav8 .logo::before {
+            content: '🍪 ';
+        }
+
+        .nav8 .menu {
+            display: flex;
+            gap: 25px;
+            list-style: none;
+        }
+
+        .nav8 .menu a {
+            color: #8b4513;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 50px;
+            transition: all 0.3s;
+            background: rgba(139, 69, 19, 0);
+        }
+
+        .nav8 .menu a:hover {
+            background: #8b4513;
+            color: white;
+            transform: translateY(-2px);
+        }
+
     </style>
 </head>
 <body>
@@ -1025,6 +1070,7 @@ ob_end_flush();
     <?php endif; ?>
 
     <header>
+        
         <div class="container">
             <nav class="navbar">
                 <a href="index.php" class="logo animated fadeIn">
@@ -1032,8 +1078,23 @@ ob_end_flush();
                     Golden <span>Treat</span>
                 </a>
                 <ul class="nav-links"></ul>
+                
+            
+    <!-- Nav 8 -->
+        <div class="nav-section">
+            
+            <nav class="nav8">
+                 
+                <ul class="menu">
+                    <li><a href="../bakehouse/booking/untitled-1.php">Booking</a></li>
+                    <li><a href="..bakehouse/about.php">About</a></li>
+                    
+                    <li><a href="#contact">Contact</a></li>
+                </ul>
             </nav>
+        </div></nav>
         </div>
+        
     </header>
 
     <!-- Cart Modal -->

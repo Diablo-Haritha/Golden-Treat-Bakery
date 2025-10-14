@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>20 Bakery Navigation Bars</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Georgia', serif;
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #4a3728;
+            margin-bottom: 50px;
+            font-size: 48px;
+            font-family: 'Brush Script MT', cursive;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .nav-section {
+            margin-bottom: 60px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+        }
+
+        .nav-title {
+            text-align: center;
+            color: #4a3728;
+            margin-bottom: 25px;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        /* Nav 1: Warm Croissant */
+        .nav1 {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            padding: 20px 40px;
+            border-radius: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 8px 20px rgba(212, 165, 116, 0.3);
+        }
+
+        .nav1 .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #4a3728;
+            font-family: 'Brush Script MT', cursive;
+        }
+
+        .nav1 .logo::before {
+            content: '🥐 ';
+        }
+
+        .nav1 .menu {
+            display: flex;
+            gap: 30px;
+            list-style: none;
+        }
+
+        .nav1 .menu a {
+            color: #4a3728;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s;
+            padding: 8px 16px;
+            border-radius: 8px;
+        }
+
+        .nav1 .menu a:hover {
+            background: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+            color: #d4a574;
+        }
+
+        /* Nav 2: Sweet Cupcake */
+        .nav2 {
+            background: #fff0f6;
+            padding: 20px 40px;
+            border-radius: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 3px solid #ffc9e0;
+        }
+
+        .nav2 .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #ff6b9d;
+            font-family: 'Brush Script MT', cursive;
+        }
+
+        .nav2 .logo::before {
+            content: '🧁 ';
+        }
+
+        .nav2 .menu {
+            display: flex;
+            gap: 20px;
+            list-style: none;
+        }
+
+        .nav2 .menu a {
+            color: #ff6b9d;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 50px;
+            transition: all 0.3s;
+            background: rgba(255, 201, 224, 0.3);
+        }
+
+        .nav2 .menu a:hover {
+            background: #ff6b9d;
+            color: white;
+            transform: scale(1.05);
+        }
+
+        /* Nav 3: Chocolate Heaven */
+        .nav3 {
+            background: linear-gradient(135deg, #3e2723 0%, #5d4037 100%);
+            padding: 20px 40px;
+            border-radius: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 10px 30px rgba(62, 39, 35, 0.4);
+        }
+
+        .nav3 .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #d4a574;
+            font-family: 'Brush Script MT', cursive;
+        }
+
+        .nav3 .logo::before {
+            content: '🍫 ';
+        }
+
+        .nav3 .menu {
+            display: flex;
+            gap: 25px;
+            list-style: none;
+        }
+
+        .nav3 .menu a {
+            color: #d4a574;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .nav3 .menu a:hover {
+            border-color: #d4a574;
+            background: rgba(212, 165, 116, 0.1);
+            transform: translateY(-2px);
+        }
+
+        /* Nav 4: Fresh Bread */
+        .nav4 {
+            background: #fff8e1;
+            padding: 20px 40px;
+            border-radius: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 4px solid #f9a825;
+        }
+
+        .nav4 .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #f57c00;
+            font-family: 'Brush Script MT', cursive;
+        }
+
+        .nav4 .logo::before {
+            content: '🍞 ';
+        }
+
+        .nav4 .menu {
+            display: flex;
+            gap: 30px;
+            list-style: none;
+        }
+
+        .nav4 .menu a {
+            color: #f57c00;
+            text-decoration: none;
+            position: relative;
+            padding-bottom: 5px;
+        }
+
+        .nav4 .menu a::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 3px;
+            background: #f57c00;
+            transition: width 0.3s;
+            border-radius: 2px;
+        }
+
+        .nav4 .menu a:hover::after {
+            width: 100%;
+        }
+
+        /* Nav 5: Donut Delight */
+        .nav5 {
+            background: linear-gradient(135deg, #ffccf9 0%, #ffe5cc 100%);
+            padding: 20px 40px;
+            border-radius: 50px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 8px 25px rgba(255, 105, 180, 0.3);
+        }
+
+        .nav5 .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #ff1493;
+            font-family: 'Brush Script MT', cursive;
+        }
+
+        .nav5 .logo::before {
+            content: '🍩 ';
+        }
+
+        .nav5 .menu {
+            display: flex;
+            gap: 15px;
+            list-style: none;
+        }
+
+        .nav5 .menu a {
+            color: #ff1493;
+            text-decoration: none;
+            padding: 10px 24px;
+            border-radius: 50px;
+            transition: all 0.3s;
+            background: white;
+            box-shadow: 0 4px 10px rgba(255, 20, 147, 0.2);
+        }
+
+        .nav5 .menu a:hover {
+            background: #ff1493;
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(255, 20, 147, 0.4);
+        }
+
+        /* Nav 6: Vanilla Cream */
+        .nav6 {
+            background: white;
+            padding: 25px 40px;
+            border-radius: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+            border: 2px solid #f5f5dc;
+        }
+
+        .nav6 .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #8b7355;
+            font-family: 'Brush Script MT', cursive;
+        }
+
+        .nav6 .logo::before {
+            content: '🍰 ';
+        }
+
+        .nav6 .menu {
+            display: flex;
+            gap: 35px;
+            list-style: none;
+        }
+
+        .nav6 .menu a {
+            color: #8b7355;
+            text-decoration: none;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .nav6 .menu a::before {
+            content: '';
+            position: absolute;
+            top: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 6px;
+            height: 6px;
+            background: #d4a574;
+            border-radius: 50%;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .nav6 .menu a:hover {
+            color: #d4a574;
+        }
+
+        .nav6 .menu a:hover::before {
+            opacity: 1;
+        }
+
+        /* Nav 7: Berry Tart */
+        .nav7 {
+            background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+            padding: 20px 40px;
+            border-radius: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 3px solid #ce93d8;
+        }
+
+        .nav7 .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #7b1fa2;
+            font-family: 'Brush Script MT', cursive;
+        }
+
+        .nav7 .logo::before {
+            content: '🥧 ';
+        }
+
+        .nav7 .menu {
+            display: flex;
+            gap: 20px;
+            list-style: none;
+        }
+
+        .nav7 .menu a {
+            color: #7b1fa2;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .nav7 .menu a:hover {
+            border-color: #ce93d8;
+            background: white;
+            transform: scale(1.05);
+        }
+
+        /* Nav 8: Cookie Crumble */
+        .nav8 {
+            background: #ffe4b5;
+            padding: 20px 40px;
+            border-radius: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 8px 20px rgba(139, 69, 19, 0.2);
+        }
+
+        .nav8 .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #8b4513;
+            font-family: 'Brush Script MT', cursive;
+        }
+
+        .nav8 .logo::before {
+            content: '🍪 ';
+        }
+
+        .nav8 .menu {
+            display: flex;
+            gap: 25px;
+            list-style: none;
+        }
+
+        .nav8 .menu a {
+            color: #8b4513;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 50px;
+            transition: all 0.3s;
+            background: rgba(139, 69, 19, 0.1);
+        }
+
+        .nav8 .menu a:hover {
+            background: #8b4513;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        /* Nav 9: Strawberry Shortcake */
+        .nav9 {
+            background: white;
+            padding: 20px 40px;
+            border-radius: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 5px solid #ff6b6b;
+            border-bottom: 5px solid #ff6b6b;
+        }
+
+        .nav9 .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #ff6b6b;
+            font-family: 'Brush Script MT', cursive;
+        }
+
+        .nav9 .logo::before {
+            content: '🍓 ';
+        }
+
+        .nav9 .menu {
+            display: flex;
+            gap: 30px;
+            list-style: none;
+        }
+
+        .nav9 .menu a {
+            color: #ff6b6b;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .nav9 .menu a:hover {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        /* Nav 10: Mint Macaron */
+        .nav10 {
+            background: linear-gradient(135deg, #d4f1d4 0%, #aed8ae 100%);
+            padding: 20px 40px;
+            border-radius: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 10px 30px rgba(76, 175, 80, 0.2);
+        }
+
+        .nav10 .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #2e7d32;
+            font-family: 'Brush Script MT', cursive;
+        }
+
+        .nav10 .logo::after {
+            content: ' 🍃';
+        }
+
+        .nav10 .menu {
+            display: flex;
+            gap: 20px;
+            list-style: none;
+        }
+
+        .nav10 .menu a {
+            color: #2e7d32;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 50px;
+            transition: all 0.3s;
+            background: white;
+        }
+
+        .nav10 .menu a:hover {
+            background: #2e7d32;
+            color: white;
+            transform: scale(1.08);
+        }
+
+        /* Nav 11: Caramel Swirl */
+        .nav11 {
+            background: linear-gradient(135deg, #d4a574 0%, #b8860b 100%);
+            padding: 20px 40px;
+            border-radius: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 10px 25px rgba(184, 134, 11, 0.3);
+        }
+
+        .nav11 .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: white;
+            font-family: 'Brush Script MT', cursive;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .nav11 .logo::before {
+            content: '🍮 ';
+        }
+
+        .nav11 .menu {
+            display: flex;
+            gap: 25px;
+            list-style: none;
+        }
+
+        .nav11 .menu a {
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            transition: all 0.3s;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .nav11 .menu a:hover {
+            background: white;
+            color: #b8860b;
+            border-color: white;
+        }
+
+        /* Nav 12: Blueberry Muffin */
+        .nav12 {
+            background: #e8eaf6;
+            padding: 20px 40px;
+            border-radius: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 3px dashed #5c6bc0;
+        }
+
+        .nav12 .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #3f51b5;
+            font-family: 'Brush Script MT', cursive;
+        }
+
+        .nav12 .logo::before {
+            content: '🫐 ';
+        }
+
+        .nav12 .menu {
+            display: flex;
+            gap: 30px;
+            list-style: none;
+        }
+
+        .nav12 .menu a {
+            color: #3f51b5;
+            text-decoration: none;
+            padding: 8px 16px;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .nav12 .menu a::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 5px;
+            height: 5px;
+            background: #3f51b5;
+            border-radius: 50%;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .nav12 .menu a:hover {
+            color: #5c6bc0;
+        }
+
+        .nav12 .menu a:hover::after {
+            opacity: 1;
+        }
+
+        /* Nav 13: Honey Glaze */
+        .nav13 {
+            background: linear-gradient(135deg, #ffd54f 0%, #ffb300 100%);
+            padding: 20px 40px;
+            border-radius: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 8px 20px rgba(255, 179, 0, 0.3);
+        }
+
+        .nav13 .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #f57f17;
+            font-family: 'Brush Script MT', cursive;
+        }
+
+        .nav13 .logo::before {
+            content: '🍯 ';
+        }
+
+        .nav13 .menu {
+            display: flex;
+            gap: 20px;
+            list-style: none;
+        }
+
+        .nav13 .menu a {
+            color: #f57f17;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 50px;
+            transition: all 0.3s;
+            background: rgba(245, 127, 23, 0.1);
+        }
+
+        .nav13 .menu a:hover {
+            background: #f57f17;
+            color: white;
+            transform: translateY(-3px);
+        }
+
+        /* Nav 14: Lemon Tart */
+        .nav14 {
+            background: white;
+            padding: 20px 40px;
+            border-radius: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 4px solid #fff59d;
+            box-shadow: 0 5px 15px rgba(255, 235, 59, 0.3);
+        }
+
+        .nav14 .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #f9a825;
+            font-family: 'Brush Script MT', cursive;
+        }
+
+        .nav14 .logo::before {
+            content: '🍋 ';
+        }
+
+        .nav14 .menu {
+            display: flex;
+            gap: 25px;
+            list-style: none;
+        }
+
+        .nav14 .menu a {
+            color: #f9a825;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+
+        .nav14 .menu a:hover {
+            background: #fff59d;
+            transform: scale(1.05);
+        }
+
+        /* Nav 15: Cinnamon Roll */
+        .nav15 {
+            background: linear-gradient(135deg, #d7ccc8 0%, #a1887f 100%);
+            padding: 20px 40px;
+            border-radius: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 10px 30px rgba(121, 85, 72, 0.3);
+        }
+
+        .nav15 .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #3e2723;
+            font-family: 'Brush Script MT', cursive;
+        }
+
+        .nav15 .logo::before {
+            content: '🥨 ';
+        }
+
+        .nav15 .menu {
+            display: flex;
+            gap: 20px;
+            list-style: none;
+        }
+
+        .nav15 .menu a {
+            color: #3e2723;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            transition: all 0.3s;
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .nav15 .menu a:hover {
+            background: white;
+            transform: translateY(-2px);
+        }
+
+        /* Nav 16: Cherry Pie */
+        .nav16 {
+            background: #ffebee;
+            padding: 20px 40px;
+            border-radius: 50px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 3px solid #ef5350;
+        }
+
+        .nav16 .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #c62828;
+            font-family: 'Brush Script MT', cursive;
+        }
+
+        .nav16 .logo::before {
+            content: '🍒 ';
+        }
+
+        .nav16 .menu {
+            display: flex;
+            gap: 15px;
+            list-style: none;
+        }
+
+        .nav16 .menu a {
+            color: #c62828;
+            text-decoration: none;
+            padding: 10px 24px;
+            border-radius: 50px;
+            transition: all 0.3s;
+            background: white;
+        }
+
+        .nav16 .menu a:hover {
+            background: #c62828;
+            color: white;
+            box-shadow: 0 5px 15px rgba(198, 40, 40, 0.3);
+        }
+
+        /* Nav 17: Pumpkin Spice */
+        .nav17 {
+            background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+            padding: 20px 40px;
+            border-radius: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 8px 20px rgba(245, 124, 0, 0.3);
+        }
+
+        .nav17 .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: white;
+            font-family: 'Brush Script MT', cursive;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .nav17 .logo::before {
+            content: '🎃 ';
+        }
+
+        .nav17 .menu {
+            display: flex;
+            gap: 25px;
+            list-style: none;
+        }
+
+        .nav17 .menu a {
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .nav17 .menu a:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: translateY(-2px);
+        }
+
+        /* Nav 18: Peach Cobbler */
+        .nav18 {
+            background: white;
+            padding: 20px 40px;
+            border-radius: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 5px 20px rgba(255, 167, 38, 0.2);
+            border-bottom: 4px solid #ffab40;
+        }
+
+        .nav18 .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #ff6f00;
+            font-family: 'Brush Script MT', cursive;
+        }
+
+        .nav18 .logo::before {
+            content: '🍑 ';
+        }
+
+        .nav18 .menu {
+            display: flex;
+            gap: 30px;
+            list-style: none;
+        }
+
+        .nav18 .menu a {
+            color: #ff6f00;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .nav18 .menu a:hover {
+            background: #ffab40;
+            color: white;
+        }
+
+        /* Nav 19: Coffee Cake */
+        .nav19 {
+            background: linear-gradient(135deg, #4e342e 0%, #3e2723 100%);
+            padding: 20px 40px;
+            border-radius: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 10px 30px rgba(62, 39, 35, 0.4);
+            border: 2px solid #6d4c41;
+        }
+
+        .nav19 .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #d4a574;
+            font-family: 'Brush Script MT', cursive;
+        }
+
+        .nav19 .logo::before {
+            content: '☕ ';
+        }
+
+        .nav19 .menu {
+            display: flex;
+            gap: 25px;
+            list-style: none;
+        }
+
+        .nav19 .menu a {
+            color: #bcaaa4;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .nav19 .menu a:hover {
+            background: #6d4c41;
+            color: #d4a574;
+        }
+
+        /* Nav 20: Red Velvet */
+        .nav20 {
+            background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
+            padding: 20px 40px;
+            border-radius: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 10px 30px rgba(211, 47, 47, 0.4);
+        }
+
+        .nav20 .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: white;
+            font-family: 'Brush Script MT', cursive;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .nav20 .logo::after {
+            content: ' ❤️';
+        }
+
+        .nav20 .menu {
+            display: flex;
+            gap: 20px;
+            list-style: none;
+        }
+
+        .nav20 .menu a {
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 50px;
+            transition: all 0.3s;
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .nav20 .menu a:hover {
+            background: white;
+            color: #d32f2f;
+            transform: scale(1.08);
+        }
+
+        @media (max-width: 768px) {
+            .nav1, .nav2, .nav3, .nav4, .nav5, .nav6, .nav7, .nav8, .nav9, .nav10,
+            .nav11, .nav12, .nav13, .nav14, .nav15, .nav16, .nav17, .nav18, .nav19, .nav20 {
+                flex-direction: column;
+                gap: 20px;
+                text-align: center;
+            }
+
+            .nav1 .menu, .nav2 .menu, .nav3 .menu, .nav4 .menu, .nav5 .menu, .nav6 .menu,
+            .nav7 .menu, .nav8 .menu, .nav9 .menu, .nav10 .menu, .nav11 .menu, .nav12 .menu,
+            .nav13 .menu, .nav14 .menu, .nav15 .menu, .nav16 .menu, .nav17 .menu, .nav18 .menu,
+            .nav19 .menu, .nav20 .menu {
+                flex-direction: column;
+                gap: 10px;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>20 Delicious Bakery Navigation Bars</h1>
+
+        <!-- Nav 1 -->
+        <div class="nav-section">
+            <h2 class="nav-title">1. Warm Croissant - Peachy Gradient</h2>
+            <nav class="nav1">
+                <div class="logo">Sweet Bakery</div>
+                <ul class="menu">
+                    <li><a href="#">Home</a></li>
+                    <li><a href="#">Menu</a></li>
+                    <li><a href="#">About</a></li>
+                    <li><a href="#">Contact</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Nav 2 -->
+        <div class="nav-section">
+            <h2 class="nav-title">2. Sweet Cupcake - Pink Dreams</h2>
+            <nav class="nav2">
+                <div class="logo">Cupcake Heaven</div>
+                <ul class="menu">
+                    <li><a href="#">Home</a></li>
+                    <li><a href="#">Cakes</a></li>
+                    <li><a href="#">Order</a></li>
+                    <li><a href="#">Gallery</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Nav 3 -->
+        <div class="nav-section">
+            <h2 class="nav-title">3. Chocolate Heaven - Rich & Dark</h2>
+            <nav class="nav3">
+                <div class="logo">Choco Delight</div>
+                <ul class="menu">
+                    <li><a href="#">Home</a></li>
+                    <li><a href="#">Products</a></li>
+                    <li><a href="#">Custom Orders</a></li>
+                    <li><a href="#">Contact</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Nav 4 -->
+        <div class="nav-section">
+            <h2 class="nav-title">4. Fresh Bread - Golden Wheat</h2>
+            <nav class="nav4">
+                <div class="logo">Daily Bread</div>
+                <ul class="menu">
+                    <li><a href="#">Home</a></li>
+                    <li><a href="#">Breads</a></li>
+                    <li><a href="#">Pastries</a></li>
+                    <li><a href="#">Catering</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Nav 5 -->
+        <div class="nav-section">
+            <h2 class="nav-title">5. Donut Delight - Sprinkled Fun</h2>
+            <nav class="nav5">
+                <div class="logo">Donut Dreams</div>
+                <ul class="menu">
+                    <li><a href="#">Home</a></li>
+                    <li><a href="#">Flavors</a></li>
+                    <li><a href="#">Specials</a></li>
+                    <li><a href="#">Order</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Nav 6 -->
+        <div class="nav-section">
+            <h2 class="nav-title">6. Vanilla Cream - Classic Elegance</h2>
+            <nav class="nav6">
+                <div class="logo">Vanilla Bliss</div>
+                <ul class="menu">
+                    <li><a href="#">Home</a></li>
+                    <li><a href="#">Cakes</a></li>
+                    <li><a href="#">Events</a></li>
+                    <li><a href="#">Contact</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Nav 7 -->
+        <div class="nav-section">
+            <h2 class="nav-title">7. Berry Tart - Purple Passion</h2>
+            <nav class="nav7">
+                <div class="logo">Berry Bliss</div>
+                <ul class="menu">
+                    <li><a href="#">Home</a></li>
+                    <li><a href="#">Tarts</a></li>
+                    <li><a href="#">Pies</a></li>
+                    <li><a href="#">Shop</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Nav 8 -->
+        <div class="nav-section">
+            
+            <nav class="nav8">
+                  <i class="fas fa-cookie-bite"></i>
+                    Golden <span>Treat</span>
+                <ul class="menu">
+                    <li><a href="#">Home</a></li>
+                    <li><a href="#">Cookies</a></li>
+                    <li><a href="#">Gift Boxes</a></li>
+                    <li><a href="#">Contact</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Nav 9 -->
+        <div class="nav-section">
+            <h2 class="nav-title">9. Strawberry Shortcake - Fresh Berry</h2>
+            <nav class="nav9">
+                <div class="logo">Strawberry Fields</div>
+                <ul class="menu">
+                    <li><a href="#">Home</a></li>
+                    <li><a href="#">Desserts</a></li>
+                    <li><a href="#">Seasonal</a></li>
+                    <li><a href="#">About</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Nav 10 -->
+        <div class="nav-section">
+            <h2 class="nav-title">10. Mint Macaron - Fresh Green</h2>
+            <nav class="nav10">
+                <div class="logo">Macaron Magic</div>
+                <ul class="menu">
+                    <li><a href="#">Home</a></li>
+                    <li><a href="#">Macarons</a></li>
+                    <li><a href="#">Bundles</a></li>
+                    <li><a href="#">Order</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Nav 11 -->
+        <div class="nav-section">
+            <h2 class="nav-title">11. Caramel Swirl - Golden Luxury</h2>
+            <nav class="nav11">
+                <div class="logo">Caramel Dreams</div>
+                <ul class="menu">
+                    <li><a href="#">Home</a></li>
+                    <li><a href="#">Specials</a></li>
+                    <li><a href="#">Signature</a></li>
+                    <li><a href="#">Contact</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Nav 12 -->
+        <div class="nav-section">
+            <h2 class="nav-title">12. Blueberry Muffin - Morning Delight</h2>
+            <nav class="nav12">
+                <div class="logo">Muffin Magic</div>
+                <ul class="menu">
+                    <li><a href="#">Home</a></li>
+                    <li><a href="#">Breakfast</a></li>
+                    <li><a href="#">Coffee</a></li>
+                    <li><a href="#">Catering</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Nav 13 -->
+        <div class="nav-section">
+            <h2 class="nav-title">13. Honey Glaze - Sweet Gold</h2>
+            <nav class="nav13">
+                <div class="logo">Honey Bakes</div>
+                <ul class="menu">
+                    <li><a href="#">Home</a></li>
+                    <li><a href="#">Glazed Goods</a></li>
+                    <li><a href="#">Natural</a></li>
+                    <li><a href="#">Shop</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Nav 14 -->
+        <div class="nav-section">
+            <h2 class="nav-title">14. Lemon Tart - Citrus Fresh</h2>
+            <nav class="nav14">
+                <div class="logo">Lemon Lane</div>
+                <ul class="menu">
+                    <li><a href="#">Home</a></li>
+                    <li><a href="#">Citrus Treats</a></li>
+                    <li><a href="#">Summer Specials</a></li>
+                    <li><a href="#">Order</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Nav 15 -->
+        <div class="nav-section">
+            <h2 class="nav-title">15. Cinnamon Roll - Warm Spice</h2>
+            <nav class="nav15">
+                <div class="logo">Cinnamon Swirl</div>
+                <ul class="menu">
+                    <li><a href="#">Home</a></li>
+                    <li><a href="#">Rolls</a></li>
+                    <li><a href="#">Morning Menu</a></li>
+                    <li><a href="#">Contact</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Nav 16 -->
+        <div class="nav-section">
+            <h2 class="nav-title">16. Cherry Pie - Classic Red</h2>
+            <nav class="nav16">
+                <div class="logo">Cherry Bakehouse</div>
+                <ul class="menu">
+                    <li><a href="#">Home</a></li>
+                    <li><a href="#">Pies</a></li>
+                    <li><a href="#">Seasonal</a></li>
+                    <li><a href="#">Gallery</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Nav 17 -->
+        <div class="nav-section">
+            <h2 class="nav-title">17. Pumpkin Spice - Autumn Warmth</h2>
+            <nav class="nav17">
+                <div class="logo">Pumpkin Patch</div>
+                <ul class="menu">
+                    <li><a href="#">Home</a></li>
+                    <li><a href="#">Fall Favorites</a></li>
+                    <li><a href="#">Seasonal</a></li>
+                    <li><a href="#">Pre-Order</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Nav 18 -->
+        <div class="nav-section">
+            <h2 class="nav-title">18. Peach Cobbler - Summer Sunset</h2>
+            <nav class="nav18">
+                <div class="logo">Peachy Keen</div>
+                <ul class="menu">
+                    <li><a href="#">Home</a></li>
+                    <li><a href="#">Cobblers</a></li>
+                    <li><a href="#">Fresh Fruit</a></li>
+                    <li><a href="#">About</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Nav 19 -->
+        <div class="nav-section">
+            <h2 class="nav-title">19. Coffee Cake - Morning Brew</h2>
+            <nav class="nav19">
+                <div class="logo">Coffee & Crumbs</div>
+                <ul class="menu">
+                    <li><a href="#">Home</a></li>
+                    <li><a href="#">Coffee</a></li>
+                    <li><a href="#">Pastries</a></li>
+                    <li><a href="#">Cafe</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Nav 20 -->
+        <div class="nav-section">
+            <h2 class="nav-title">20. Red Velvet - Luxurious Love</h2>
+            <nav class="nav20">
+                <div class="logo">Velvet Bakery</div>
+                <ul class="menu">
+                    <li><a href="#">Home</a></li>
+                    <li><a href="#">Premium Cakes</a></li>
+                    <li><a href="#">Custom Orders</a></li>
+                    <li><a href="#">Contact</a></li>
+                </ul>
+            </nav>
+        </div>
+
+    </div>
+</body>
+</html>
