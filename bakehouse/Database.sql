@@ -499,6 +499,9 @@ BEGIN
 END$$
 
 DELIMITER ;
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
 -- ============================================================
