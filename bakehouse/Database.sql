@@ -317,40 +317,59 @@ INSERT INTO product_customizations (product_id, customization_id) VALUES
 -- ============================================================
 -- ORDER MANAGEMENT SYSTEM
 -- ============================================================
-CREATE TABLE IF NOT EXISTS orders (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    order_number VARCHAR(20) UNIQUE NOT NULL,
-    customer_name VARCHAR(255) NOT NULL,
-    customer_email VARCHAR(255) NOT NULL,
-    customer_phone VARCHAR(20),
-    total_amount DECIMAL(10, 2) NOT NULL,
-    status ENUM('pending', 'confirmed', 'preparing', 'ready', 'completed') DEFAULT 'pending',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+CREATE TABLE `orders` (
+  `id` int(11) NOT NULL,
+  `order_number` varchar(64) DEFAULT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `order_date` date NOT NULL,
+  `customer_name` varchar(100) NOT NULL,
+  `customer_email` varchar(255) NOT NULL,
+  `product` varchar(100) NOT NULL,
+  `quantity` int(11) NOT NULL DEFAULT 1,
+  `original_quantity` int(11) NOT NULL DEFAULT 0,
+  `price` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `total_amount` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `original_price` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `status` varchar(60) NOT NULL DEFAULT 'Order Received',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `customer_phone` varchar(32) DEFAULT NULL,
+  `order_summary` longtext DEFAULT NULL,
+  `deleted_at` datetime DEFAULT NULL,
+  `deleted_by` int(11) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS order_items (
-<<<<<<< Updated upstream
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    order_id INT,
-    product_name VARCHAR(255) NOT NULL,
-    quantity INT NOT NULL,
-    unit_price DECIMAL(10, 2) NOT NULL,
-    customizations TEXT,
-    total_price DECIMAL(10, 2) NOT NULL,
-    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
-);
-=======
-  id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  order_id INT(11) NOT NULL,
-  product_id INT(11) DEFAULT NULL,
-  product_name VARCHAR(255) NOT NULL,
-  quantity INT(11) NOT NULL DEFAULT 1,
-  unit_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-  customizations TEXT DEFAULT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_order_items_order_id (order_id),
-  INDEX idx_order_items_product_id (product_id)
+INSERT INTO `orders` (`id`, `order_number`, `user_id`, `order_date`, `customer_name`, `customer_email`, `product`, `quantity`, `original_quantity`, `price`, `total_amount`, `original_price`, `status`, `created_at`, `updated_at`, `customer_phone`, `order_summary`, `deleted_at`, `deleted_by`) VALUES
+(1, 'ORD-000001', NULL, '2025-09-01', '', '', 'Chocolate Cake', 1, 1, 2500.00, 2500.00, 2500.00, 'Cancelled', '2025-09-03 23:38:03', '2025-10-14 04:30:59', NULL, NULL, NULL, NULL),
+(2, 'ORD-000002', NULL, '2025-09-02', '', '', 'Blueberry Muffins (6 pack)', 1, 2, 1800.00, 0.00, 1800.00, 'Completed', '2025-09-03 23:38:03', '2025-10-14 04:55:56', NULL, NULL, NULL, NULL),
+(3, 'ORD-000003', NULL, '2025-09-02', '', '', 'Butter Croissant', 9, 12, 2400.00, 21600.00, 2400.00, 'Cancelled', '2025-09-03 23:38:03', '2025-10-14 04:56:28', NULL, NULL, NULL, NULL),
+(4, 'ORD-000004', NULL, '2025-09-03', 'Dilshan Jayawardena', '', 'Vanilla Cupcakes (12 pack)', 0, 1, 2200.00, 0.00, 2200.00, 'Returned', '2025-09-03 23:38:03', '2025-10-14 04:30:20', NULL, NULL, NULL, NULL),
+(6, 'ORD-000006', NULL, '2025-09-03', 'Fathima Rahman', '', 'Strawberry Tart', 2, 2, 3000.00, 6000.00, 3000.00, 'Ready for Pickup', '2025-09-03 23:38:03', '2025-10-13 04:00:17', NULL, NULL, '2025-10-01 16:19:23', NULL),
+(7, 'ORD-000007', NULL, '2025-09-04', 'Gihan Abeysekera', '', 'Fruit Loaf', 1, 1, 1500.00, 1500.00, 1500.00, 'Out for Delivery', '2025-09-03 23:38:03', '2025-10-13 04:00:17', NULL, NULL, '2025-10-11 13:10:19', NULL),
+(10, 'ORD-000010', NULL, '2025-09-04', 'Janani De Silva', '', 'Brownies', 8, 8, 1600.00, 12800.00, 1600.00, 'Cancelled', '2025-09-03 23:38:03', '2025-10-13 04:00:17', NULL, NULL, NULL, NULL);
+
+CREATE TABLE `order_items` (
+  `id` int(11) NOT NULL,
+  `order_id` int(11) NOT NULL,
+  `product_id` int(11) DEFAULT NULL,
+  `product_name` varchar(255) NOT NULL,
+  `quantity` int(11) NOT NULL DEFAULT 1,
+  `unit_price` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `customizations` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+CREATE TABLE `returns` (
+  `id_new` int(11) NOT NULL,
+  `id` int(11) NOT NULL,
+  `order_id` int(11) NOT NULL,
+  `return_date` date DEFAULT NULL,
+  `quantity` int(11) DEFAULT NULL,
+  `reason` text DEFAULT NULL,
+  `refund_amount` decimal(12,2) DEFAULT NULL,
+  `processed_by` int(11) DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `order_status_history` (
@@ -499,16 +518,6 @@ BEGIN
 END$$
 
 DELIMITER ;
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 
 -- ============================================================
 -- OTP SYSTEM (FIXED & RETAINED)
