@@ -1,6 +1,12 @@
+
 <?php
 session_start();
 ob_start();
+// Generate CSRF token
+if (!isset($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
 // Database Configuration
 $host = 'localhost';
 $dbname = 'golden_treat';
@@ -11,7 +17,8 @@ try {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    die("Connection failed: " . $e->getMessage());
+    error_log("Connection failed: " . $e->getMessage());
+    die("Connection failed: Unable to connect to the database.");
 }
 
 // Cart functionality
@@ -19,153 +26,252 @@ $cartMessage = '';
 $messageType = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['add_to_cart'])) {
-        $productId = intval($_POST['product_id']);
-        $quantity = intval($_POST['quantity']);
-        $selectedCustomizations = isset($_POST['customizations']) ? $_POST['customizations'] : [];
+    // Validate CSRF token
+    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        $cartMessage = "❌ Invalid request.";
+        $messageType = 'error';
+    } else {
+        if (isset($_POST['add_to_cart'])) {
+            $pdo->beginTransaction();
+            try {
+                $productId = intval($_POST['product_id']);
+                $quantity = intval($_POST['quantity']);
+                $selectedCustomizations = isset($_POST['customizations']) && is_array($_POST['customizations']) ? array_map('intval', $_POST['customizations']) : [];
 
-        $stmt = $pdo->prepare("SELECT * FROM products WHERE id = ? AND visibility = 1");
-        $stmt->execute([$productId]);
-        $product = $stmt->fetch();
+                $stmt = $pdo->prepare("SELECT * FROM products WHERE id = ? AND visibility = 1 FOR UPDATE");
+                $stmt->execute([$productId]);
+                $product = $stmt->fetch();
 
-        if ($product) {
-            if ($product['stock_quantity'] >= $quantity) {
-                $sessionId = session_id();
-                $basePrice = $product['price'] * (1 - $product['discount_percentage']/100);
-                $totalPrice = $basePrice;
-                $customizationDetails = [];
+                if ($product) {
+                    if ($product['stock_quantity'] >= $quantity) {
+                        $sessionId = session_id();
+                        $basePrice = $product['price'] * (1 - $product['discount_percentage']/100);
+                        $itemCustomizationCost = 0;
 
-                if (!empty($selectedCustomizations)) {
-                    $placeholders = str_repeat('?,', count($selectedCustomizations) - 1) . '?';
-                    $stmt = $pdo->prepare("SELECT id, name, price_adjustment FROM customizations WHERE id IN ($placeholders) AND is_active = 1");
-                    $stmt->execute($selectedCustomizations);
-                    $customizations = $stmt->fetchAll();
-                    foreach ($customizations as $cust) {
-                        $totalPrice += (float)$cust['price_adjustment'];
-                        $customizationDetails[] = $cust;
+                        // Validate and calculate customization cost
+                        if (!empty($selectedCustomizations)) {
+                            $placeholders = str_repeat('?,', count($selectedCustomizations) - 1) . '?';
+                            $stmt = $pdo->prepare("
+                                SELECT c.price_adjustment 
+                                FROM customizations c 
+                                INNER JOIN product_customizations pc ON c.id = pc.customization_id
+                                WHERE c.id IN ($placeholders) AND c.is_active = 1 AND pc.product_id = ?
+                            ");
+                            $stmt->execute(array_merge($selectedCustomizations, [$productId]));
+                            $validCustomizations = $stmt->fetchAll();
+                            foreach ($validCustomizations as $cust) {
+                                $itemCustomizationCost += (float)$cust['price_adjustment'];
+                            }
+                        }
+
+                        $unitPrice = $basePrice + $itemCustomizationCost;
+                        $totalPrice = $unitPrice * $quantity;
+
+                        sort($selectedCustomizations);
+                        $customizationKey = json_encode($selectedCustomizations);
+
+                        $stmt = $pdo->prepare("SELECT id, quantity, total_price FROM cart WHERE session_id = ? AND product_id = ? AND selected_customizations = ? FOR UPDATE");
+                        $stmt->execute([$sessionId, $productId, $customizationKey]);
+                        $existingItem = $stmt->fetch();
+
+                        if ($existingItem) {
+                            $newQuantity = $existingItem['quantity'] + $quantity;
+                            $newTotalPrice = $unitPrice * $newQuantity;
+                            $stmt = $pdo->prepare("UPDATE cart SET quantity = ?, total_price = ? WHERE id = ?");
+                            $stmt->execute([$newQuantity, $newTotalPrice, $existingItem['id']]);
+                        } else {
+                            $stmt = $pdo->prepare("INSERT INTO cart (session_id, product_id, quantity, selected_customizations, total_price) VALUES (?, ?, ?, ?, ?)");
+                            $stmt->execute([$sessionId, $productId, $quantity, $customizationKey, $totalPrice]);
+                        }
+
+                        $newStock = $product['stock_quantity'] - $quantity;
+                        $stmt = $pdo->prepare("UPDATE products SET stock_quantity = ? WHERE id = ?");
+                        $stmt->execute([$newStock, $productId]);
+
+                        $pdo->commit();
+                        $cartMessage = "✅ " . htmlspecialchars($product['name']) . " added to cart successfully!";
+                        $messageType = 'success';
+                    } else {
+                        $pdo->rollBack();
+                        $cartMessage = "❌ Insufficient stock for " . htmlspecialchars($product['name']);
+                        $messageType = 'error';
                     }
-                }
-                $totalPrice *= $quantity;
-
-                $stmt = $pdo->prepare("SELECT id, quantity FROM cart WHERE session_id = ? AND product_id = ? AND selected_customizations = ?");
-                $stmt->execute([$sessionId, $productId, json_encode($selectedCustomizations)]);
-                $existingItem = $stmt->fetch();
-
-                if ($existingItem) {
-                    $newQuantity = $existingItem['quantity'] + $quantity;
-                    $stmt = $pdo->prepare("UPDATE cart SET quantity = ?, total_price = ? WHERE id = ?");
-                    $stmt->execute([$newQuantity, $totalPrice, $existingItem['id']]);
                 } else {
-                    $stmt = $pdo->prepare("INSERT INTO cart (session_id, product_id, quantity, selected_customizations, total_price) VALUES (?, ?, ?, ?, ?)");
-                    $stmt->execute([$sessionId, $productId, $quantity, json_encode($selectedCustomizations), $totalPrice]);
-                }
-
-                $newStock = $product['stock_quantity'] - $quantity;
-                $stmt = $pdo->prepare("UPDATE products SET stock_quantity = ? WHERE id = ?");
-                $stmt->execute([$newStock, $productId]);
-
-                $cartMessage = "✅ " . htmlspecialchars($product['name']) . " added to cart successfully!";
-                $messageType = 'success';
-            } else {
-                $cartMessage = "❌ Insufficient stock for " . htmlspecialchars($product['name']);
-                $messageType = 'error';
-            }
-        } else {
-            $cartMessage = "❌ Product not available.";
-            $messageType = 'error';
-        }
-    }
-
-    if (isset($_POST['update_cart_item'])) {
-        $cartId = intval($_POST['cart_id']);
-        $newQuantity = intval($_POST['quantity']);
-        $sessionId = session_id();
-
-        if ($newQuantity > 0) {
-            $stmt = $pdo->prepare("SELECT c.quantity, c.product_id, p.stock_quantity, p.name 
-                                  FROM cart c JOIN products p ON c.product_id = p.id 
-                                  WHERE c.id = ? AND c.session_id = ?");
-            $stmt->execute([$cartId, $sessionId]);
-            $item = $stmt->fetch();
-
-            if ($item) {
-                $quantityDiff = $newQuantity - $item['quantity'];
-                if ($item['stock_quantity'] + $item['quantity'] >= $newQuantity) {
-                    $stmt = $pdo->prepare("UPDATE cart SET quantity = ? WHERE id = ? AND session_id = ?");
-                    $stmt->execute([$newQuantity, $cartId, $sessionId]);
-
-                    $newStock = $item['stock_quantity'] - $quantityDiff;
-                    $stmt = $pdo->prepare("UPDATE products SET stock_quantity = ? WHERE id = ?");
-                    $stmt->execute([$newStock, $item['product_id']]);
-
-                    $cartMessage = "✅ " . htmlspecialchars($item['name']) . " quantity updated!";
-                    $messageType = 'success';
-                } else {
-                    $cartMessage = "❌ Only " . ($item['stock_quantity'] + $item['quantity']) . " available for " . htmlspecialchars($item['name']);
+                    $pdo->rollBack();
+                    $cartMessage = "❌ Product not available.";
                     $messageType = 'error';
                 }
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                error_log("Add to cart error: " . $e->getMessage());
+                $cartMessage = "❌ Error adding to cart.";
+                $messageType = 'error';
             }
         }
-    }
 
-    if (isset($_POST['remove_from_cart'])) {
-        $cartId = intval($_POST['cart_id']);
-        $sessionId = session_id();
+        if (isset($_POST['update_cart_item'])) {
+            $pdo->beginTransaction();
+            try {
+                $cartId = intval($_POST['cart_id']);
+                $newQuantity = intval($_POST['quantity']);
+                $sessionId = session_id();
 
-        $stmt = $pdo->prepare("SELECT p.id, p.stock_quantity, c.quantity, p.name FROM cart c JOIN products p ON c.product_id = p.id WHERE c.id = ? AND c.session_id = ?");
-        $stmt->execute([$cartId, $sessionId]);
-        $item = $stmt->fetch();
+                if ($newQuantity > 0) {
+                    $stmt = $pdo->prepare("
+                        SELECT c.quantity, c.product_id, c.selected_customizations, p.stock_quantity, p.price, p.discount_percentage, p.name 
+                        FROM cart c JOIN products p ON c.product_id = p.id 
+                        WHERE c.id = ? AND c.session_id = ? FOR UPDATE
+                    ");
+                    $stmt->execute([$cartId, $sessionId]);
+                    $item = $stmt->fetch();
 
-        if ($item) {
-            $newStock = $item['stock_quantity'] + $item['quantity'];
-            $stmt = $pdo->prepare("UPDATE products SET stock_quantity = ? WHERE id = ?");
-            $stmt->execute([$newStock, $item['id']]);
+                    if ($item) {
+                        $quantityDiff = $newQuantity - $item['quantity'];
+                        if ($item['stock_quantity'] + $item['quantity'] >= $newQuantity) {
+                            $basePrice = $item['price'] * (1 - $item['discount_percentage']/100);
+                            $selectedCustomizations = json_decode($item['selected_customizations'], true) ?: [];
+                            $itemCustomizationCost = 0;
 
-            $stmt = $pdo->prepare("DELETE FROM cart WHERE id = ? AND session_id = ?");
-            $stmt->execute([$cartId, $sessionId]);
+                            if (!empty($selectedCustomizations)) {
+                                $placeholders = str_repeat('?,', count($selectedCustomizations) - 1) . '?';
+                                $stmt_cust = $pdo->prepare("SELECT price_adjustment FROM customizations WHERE id IN ($placeholders) AND is_active = 1");
+                                $stmt_cust->execute($selectedCustomizations);
+                                $customizationCosts = $stmt_cust->fetchAll();
+                                foreach ($customizationCosts as $cust) {
+                                    $itemCustomizationCost += (float)$cust['price_adjustment'];
+                                }
+                            }
 
-            $cartMessage = "🗑️ " . htmlspecialchars($item['name']) . " removed from cart.";
-            $messageType = 'success';
+                            $unitPrice = $basePrice + $itemCustomizationCost;
+                            $newTotalPrice = $unitPrice * $newQuantity;
+
+                            $stmt = $pdo->prepare("UPDATE cart SET quantity = ?, total_price = ? WHERE id = ? AND session_id = ?");
+                            $stmt->execute([$newQuantity, $newTotalPrice, $cartId, $sessionId]);
+
+                            $newStock = $item['stock_quantity'] - $quantityDiff;
+                            $stmt = $pdo->prepare("UPDATE products SET stock_quantity = ? WHERE id = ?");
+                            $stmt->execute([$newStock, $item['product_id']]);
+
+                            $pdo->commit();
+                            $cartMessage = "✅ " . htmlspecialchars($item['name']) . " quantity updated!";
+                            $messageType = 'success';
+                        } else {
+                            $pdo->rollBack();
+                            $cartMessage = "❌ Only " . ($item['stock_quantity'] + $item['quantity']) . " available for " . htmlspecialchars($item['name']);
+                            $messageType = 'error';
+                        }
+                    } else {
+                        $pdo->rollBack();
+                        $cartMessage = "❌ Cart item not found.";
+                        $messageType = 'error';
+                    }
+                } else {
+                    $pdo->rollBack();
+                    $cartMessage = "❌ Invalid quantity.";
+                    $messageType = 'error';
+                }
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                error_log("Update cart error: " . $e->getMessage());
+                $cartMessage = "❌ Error updating cart.";
+                $messageType = 'error';
+            }
         }
-    }
 
-    if (isset($_POST['checkout'])) {
-        $sessionId = session_id();
-        $customerName = trim($_POST['customer_name']);
-        $customerEmail = trim($_POST['customer_email']);
-        $customerPhone = trim($_POST['customer_phone']);
+        if (isset($_POST['remove_from_cart'])) {
+            $pdo->beginTransaction();
+            try {
+                $cartId = intval($_POST['cart_id']);
+                $sessionId = session_id();
 
-        if (empty($customerName) || empty($customerEmail)) {
-            $cartMessage = "❌ Please fill in all required fields.";
-            $messageType = 'error';
-        } else {
-            $stmt = $pdo->prepare("SELECT c.*, p.name as product_name FROM cart c JOIN products p ON c.product_id = p.id WHERE c.session_id = ?");
-            $stmt->execute([$sessionId]);
-            $cartItems = $stmt->fetchAll();
+                $stmt = $pdo->prepare("SELECT p.id, p.stock_quantity, c.quantity, p.name FROM cart c JOIN products p ON c.product_id = p.id WHERE c.id = ? AND c.session_id = ? FOR UPDATE");
+                $stmt->execute([$cartId, $sessionId]);
+                $item = $stmt->fetch();
 
-            if (!empty($cartItems)) {
-                $totalAmount = 0;
-                foreach ($cartItems as $item) {
-                    $totalAmount += $item['total_price'];
+                if ($item) {
+                    $newStock = $item['stock_quantity'] + $item['quantity'];
+                    $stmt = $pdo->prepare("UPDATE products SET stock_quantity = ? WHERE id = ?");
+                    $stmt->execute([$newStock, $item['id']]);
+
+                    $stmt = $pdo->prepare("DELETE FROM cart WHERE id = ? AND session_id = ?");
+                    $stmt->execute([$cartId, $sessionId]);
+
+                    $pdo->commit();
+                    $cartMessage = "🗑️ " . htmlspecialchars($item['name']) . " removed from cart.";
+                    $messageType = 'success';
+                } else {
+                    $pdo->rollBack();
+                    $cartMessage = "❌ Cart item not found.";
+                    $messageType = 'error';
                 }
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                error_log("Remove from cart error: " . $e->getMessage());
+                $cartMessage = "❌ Error removing from cart.";
+                $messageType = 'error';
+            }
+        }
 
-                $orderNumber = 'GT' . date('Ymd') . str_pad(mt_rand(1, 999), 3, '0', STR_PAD_LEFT);
+        if (isset($_POST['checkout'])) {
+            $pdo->beginTransaction();
+            try {
+                $sessionId = session_id();
+                $customerName = trim($_POST['customer_name']);
+                $customerEmail = filter_var(trim($_POST['customer_email']), FILTER_SANITIZE_EMAIL);
+                $customerPhone = trim($_POST['customer_phone']);
 
-                $stmt = $pdo->prepare("INSERT INTO orders (order_number, customer_name, customer_email, customer_phone, total_amount) VALUES (?, ?, ?, ?, ?)");
-                $stmt->execute([$orderNumber, $customerName, $customerEmail, $customerPhone, $totalAmount]);
-                $orderId = $pdo->lastInsertId();
+                if (empty($customerName) || empty($customerEmail) || !filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
+                    $pdo->rollBack();
+                    $cartMessage = "❌ Please provide valid name and email.";
+                    $messageType = 'error';
+                } else {
+                    $stmt = $pdo->prepare("SELECT c.*, p.name as product_name FROM cart c JOIN products p ON c.product_id = p.id WHERE c.session_id = ? FOR UPDATE");
+                    $stmt->execute([$sessionId]);
+                    $cartItems = $stmt->fetchAll();
 
-                foreach ($cartItems as $item) {
-                    $unitPrice = $item['total_price'] / $item['quantity'];
-                    $stmt = $pdo->prepare("INSERT INTO order_items (order_id, product_name, quantity, unit_price, customizations) VALUES (?, ?, ?, ?, ?)");
-                    $stmt->execute([$orderId, $item['product_name'], $item['quantity'], $unitPrice, $item['selected_customizations']]);
+                    if (!empty($cartItems)) {
+                        $totalAmount = 0;
+                        foreach ($cartItems as $item) {
+                            $totalAmount += $item['total_price'];
+                        }
+
+                        $orderNumber = 'GT' . date('Ymd') . str_pad(mt_rand(1, 999), 3, '0', STR_PAD_LEFT);
+
+                        $userId = null;
+                        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+                        $stmt->execute([$customerEmail]);
+                        $user = $stmt->fetch();
+                        if ($user) {
+                            $userId = (int)$user['id'];
+                        }
+
+                        $stmt = $pdo->prepare("INSERT INTO orders (order_number, customer_name, customer_email, customer_phone, total_amount, user_id) VALUES (?, ?, ?, ?, ?, ?)");
+                        $stmt->execute([$orderNumber, $customerName, $customerEmail, $customerPhone, $totalAmount, $userId]);
+                        $orderId = $pdo->lastInsertId();
+
+                        foreach ($cartItems as $item) {
+                            $unitPrice = $item['total_price'] / $item['quantity'];
+                            $stmt = $pdo->prepare("INSERT INTO order_items (order_id, product_name, quantity, unit_price, customizations) VALUES (?, ?, ?, ?, ?)");
+                            $stmt->execute([$orderId, $item['product_name'], $item['quantity'], $unitPrice, $item['selected_customizations']]);
+                        }
+
+                        $stmt = $pdo->prepare("DELETE FROM cart WHERE session_id = ?");
+                        $stmt->execute([$sessionId]);
+
+                        $pdo->commit();
+                        $cartMessage = "✅ Order #$orderNumber placed successfully! Total: Rs. " . number_format($totalAmount, 2);
+                        $messageType = 'success';
+                    } else {
+                        $pdo->rollBack();
+                        $cartMessage = "❌ Your cart is empty.";
+                        $messageType = 'error';
+                    }
                 }
-
-                $stmt = $pdo->prepare("DELETE FROM cart WHERE session_id = ?");
-                $stmt->execute([$sessionId]);
-
-                $cartMessage = "✅ Order #$orderNumber placed successfully! Total: Rs. " . number_format($totalAmount, 2);
-                $messageType = 'success';
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                error_log("Checkout error: " . $e->getMessage());
+                $cartMessage = "❌ Error placing order.";
+                $messageType = 'error';
             }
         }
     }
@@ -209,6 +315,7 @@ function getAvailableCustomizations($pdo, $productId) {
 
 function getCustomizationNames($pdo, $customizationIds) {
     if (empty($customizationIds)) return [];
+    $customizationIds = array_map('intval', $customizationIds);
     $placeholders = str_repeat('?,', count($customizationIds) - 1) . '?';
     $stmt = $pdo->prepare("SELECT name, price_adjustment FROM customizations WHERE id IN ($placeholders)");
     $stmt->execute($customizationIds);
@@ -298,8 +405,8 @@ ob_end_flush();
             backdrop-filter: blur(10px);
             box-shadow: 0 2px 20px rgba(0,0,0,0.1);
             position: fixed;
-            top:10px;
-            left:20px;
+            top: 10px;
+            left: 20px;
             z-index: 1000;
             transition: all 0.3s ease;
             border-radius: 5cm;
@@ -882,6 +989,16 @@ ob_end_flush();
         .cartbtn:hover {
             transform: scale(1.1);
         }
+        .customization-list {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 10px;
+            padding-left: 20px;
+        }
+        .customization-list li {
+            list-style-type: disc;
+            margin-bottom: 5px;
+        }
     </style>
 </head>
 <body>
@@ -902,7 +1019,7 @@ ob_end_flush();
         </div>
         <script>
             setTimeout(() => {
-                document.querySelector('.message').remove();
+                document.querySelector('.message')?.remove();
             }, 5000);
         </script>
     <?php endif; ?>
@@ -957,6 +1074,7 @@ ob_end_flush();
                             <div class="cart-item-price">Rs. <?php echo number_format($unitPrice, 2); ?> each</div>
                             <div class="cart-item-actions">
                                 <form method="POST" class="quantity-form" style="display: flex; align-items: center; gap: 10px;">
+                                    <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                                     <input type="hidden" name="cart_id" value="<?php echo $item['id']; ?>">
                                     <input type="hidden" name="update_cart_item" value="1">
                                     <button type="button" class="quantity-btn minus">-</button>
@@ -967,6 +1085,7 @@ ob_end_flush();
                                     </button>
                                 </form>
                                 <form method="POST" style="display: inline;">
+                                    <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                                     <input type="hidden" name="cart_id" value="<?php echo $item['id']; ?>">
                                     <input type="hidden" name="remove_from_cart" value="1">
                                     <button type="submit" class="btn btn-danger" style="padding: 8px 15px;">
@@ -999,6 +1118,7 @@ ob_end_flush();
                 <span class="close" id="close-checkout">&times;</span>
             </div>
             <form method="POST" id="checkout-form">
+                <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                 <input type="hidden" name="checkout" value="1">
                 <div class="form-group">
                     <label for="customer_name">Full Name *</label>
@@ -1034,6 +1154,7 @@ ob_end_flush();
                 <span class="close" id="close-customization">&times;</span>
             </div>
             <form id="customization-form" method="POST">
+                <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                 <input type="hidden" id="custom-product-id" name="product_id">
                 <input type="hidden" id="custom-quantity" name="quantity" value="1">
                 <input type="hidden" name="add_to_cart" value="1">
@@ -1090,7 +1211,7 @@ ob_end_flush();
                                     $availableCustomizations = getAvailableCustomizations($pdo, $product['id']);
                                     $finalPrice = $product['price'] * (1 - $product['discount_percentage']/100);
                                 ?>
-                                    <div class="product-card animated fadeIn <?php echo $product['is_daily_special'] ? 'special' : ''; ?>">
+                                    <div class="product-card animated fadeIn <?php echo $product['is_daily_special'] ? 'special' : ''; ?>" data-customizations='<?php echo json_encode($availableCustomizations); ?>'>
                                         <?php if ($product['is_daily_special']): ?>
                                             <div class="product-badge">Daily Special</div>
                                         <?php endif; ?>
@@ -1113,6 +1234,16 @@ ob_end_flush();
                                         <div class="product-info">
                                             <h3><?php echo htmlspecialchars($product['name']); ?></h3>
                                             <p class="product-description"><?php echo htmlspecialchars($product['description']); ?></p>
+                                            <?php if (!empty($availableCustomizations)): ?>
+                                                <div class="customization-list">
+                                                    <strong>Available Customizations:</strong>
+                                                    <ul>
+                                                        <?php foreach ($availableCustomizations as $cust): ?>
+                                                            <li><?php echo htmlspecialchars($cust['name']); ?> (+Rs. <?php echo number_format($cust['price_adjustment'], 2); ?>)</li>
+                                                        <?php endforeach; ?>
+                                                    </ul>
+                                                </div>
+                                            <?php endif; ?>
                                             <?php if ($product['discount_percentage'] > 0): ?>
                                                 <div class="price-container">
                                                     <span class="original-price">Rs. <?php echo number_format($product['price'], 2); ?></span>
@@ -1140,7 +1271,7 @@ ob_end_flush();
                                                     <button type="button" class="quantity-btn plus">+</button>
                                                 </div>
                                                 <?php if (!empty($availableCustomizations)): ?>
-                                                    <button class="btn btn-primary btn-add-to-cart customize-btn" 
+                                                    <button type="button" class="btn btn-primary btn-add-to-cart customize-btn" 
                                                             data-product-id="<?php echo $product['id']; ?>"
                                                             data-product-name="<?php echo htmlspecialchars($product['name']); ?>"
                                                             data-base-price="<?php echo $finalPrice; ?>">
@@ -1148,8 +1279,10 @@ ob_end_flush();
                                                     </button>
                                                 <?php else: ?>
                                                     <form method="POST" class="add-to-cart-form">
+                                                        <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                                                         <input type="hidden" name="product_id" value="<?php echo $product['id']; ?>">
                                                         <input type="hidden" name="quantity" value="1">
+                                                        <input type="hidden" name="customizations[]" value="">
                                                         <input type="hidden" name="add_to_cart" value="1">
                                                         <button type="submit" class="btn btn-primary btn-add-to-cart">
                                                             <i class="fas fa-shopping-cart"></i> Add to Cart
@@ -1209,7 +1342,7 @@ ob_end_flush();
                 <div class="footer-column">
                     <h3>Contact Info</h3>
                     <ul>
-                        <li><i class="fas fa-map-marker-alt"></i> No.12,Kuliyapitiya,Kurunegala</li>
+                        <li><i class="fas fa-map-marker-alt"></i> No.12, Kuliyapitiya, Kurunegala</li>
                         <li><i class="fas fa-phone"></i> (+94) xxx xx xxx</li>
                         <li><i class="fas fa-envelope"></i> info@goldentreat.com</li>
                         <li><i class="fas fa-clock"></i> Mon-Sat: 6AM-8PM, Sun: 7AM-6PM</li>
@@ -1254,7 +1387,7 @@ ob_end_flush();
             if (e.target === checkoutModal) closeModal(checkoutModal);
         });
 
-        // ✅ Fix: Sync quantity in product grid with hidden form input
+        // Sync quantity in product grid with hidden form input
         document.querySelectorAll('.quantity-selector').forEach(selector => {
             const input = selector.querySelector('.quantity-input');
             const form = selector.closest('.product-card').querySelector('.add-to-cart-form input[name="quantity"]');
@@ -1271,33 +1404,47 @@ ob_end_flush();
                     if (form) form.value = value;
                 });
             });
+            input.addEventListener('change', () => {
+                let value = parseInt(input.value);
+                const max = parseInt(input.max) || Infinity;
+                value = Math.max(1, Math.min(value, max));
+                input.value = value;
+                if (form) form.value = value;
+            });
         });
 
-        // Existing cart modal quantity buttons
-        document.querySelectorAll('.quantity-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const input = this.closest('.quantity-selector, .quantity-form').querySelector('.quantity-input');
-                let value = parseInt(input.value);
-                if (this.classList.contains('plus')) {
-                    value = Math.min(value + 1, parseInt(input.max || 999));
-                } else if (this.classList.contains('minus')) {
-                    value = Math.max(value - 1, 1);
-                }
-                input.value = value;
-                const form = this.closest('.quantity-form');
-                if (form) {
+        // Cart modal quantity buttons
+        document.querySelectorAll('.quantity-form').forEach(form => {
+            const input = form.querySelector('.quantity-input');
+            form.querySelectorAll('.quantity-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    let value = parseInt(input.value);
+                    const max = parseInt(input.max || 999);
+                    if (btn.classList.contains('plus')) {
+                        value = Math.min(value + 1, max);
+                    } else if (btn.classList.contains('minus')) {
+                        value = Math.max(value - 1, 1);
+                    }
+                    input.value = value;
                     form.querySelector('input[name="quantity"]').value = value;
-                }
+                });
+            });
+            input.addEventListener('change', () => {
+                let value = parseInt(input.value);
+                value = Math.max(1, Math.min(value, parseInt(input.max || 999)));
+                input.value = value;
+                form.querySelector('input[name="quantity"]').value = value;
             });
         });
 
         // Customize buttons
         document.querySelectorAll('.customize-btn').forEach(button => {
             button.addEventListener('click', function() {
+                const productCard = this.closest('.product-card');
                 const productId = this.dataset.productId;
                 const productName = this.dataset.productName;
                 const basePrice = parseFloat(this.dataset.basePrice);
-                const quantity = this.closest('.product-info').querySelector('.quantity-input').value;
+                const quantity = parseInt(this.closest('.product-info').querySelector('.quantity-input').value);
 
                 document.getElementById('customization-product-name').textContent = productName;
                 document.getElementById('customization-base-price').innerHTML = 
@@ -1305,33 +1452,17 @@ ob_end_flush();
                 document.getElementById('custom-product-id').value = productId;
                 document.getElementById('custom-quantity').value = quantity;
 
-                loadCustomizationOptions(productId, basePrice, quantity);
+                const customizations = JSON.parse(productCard.dataset.customizations || '[]');
+                displayCustomizationOptions(customizations, basePrice, quantity);
                 customizationModal.style.display = 'block';
                 document.body.style.overflow = 'hidden';
             });
         });
 
-        function loadCustomizationOptions(productId, basePrice, quantity) {
-            const customizations = {
-                1: [
-                    {id: 1, name: 'Extra Chocolate', price: 0.75, category: 'Toppings'},
-                    {id: 2, name: 'Almond Topping', price: 0.50, category: 'Toppings'},
-                    {id: 8, name: 'Gluten-Free', price: 1.00, category: 'Dietary'},
-                    {id: 9, name: 'Vegan', price: 1.50, category: 'Dietary'}
-                ],
-                2: [
-                    {id: 3, name: 'Walnut Topping', price: 0.75, category: 'Toppings'},
-                    {id: 4, name: 'Sprinkles', price: 0.25, category: 'Toppings'},
-                    {id: 8, name: 'Gluten-Free', price: 1.00, category: 'Dietary'},
-                    {id: 11, name: 'Extra Large', price: 2.00, category: 'Size'}
-                ]
-            };
-            const productCustomizations = customizations[productId] || [];
-            displayCustomizationOptions(productCustomizations, basePrice, quantity);
-        }
-
         function displayCustomizationOptions(customizations, basePrice, quantity) {
             const container = document.getElementById('customization-options');
+            container.innerHTML = '';
+
             if (customizations.length === 0) {
                 container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">No customizations available for this product.</p>';
                 updateCustomizationTotal(basePrice, quantity, []);
@@ -1350,9 +1481,9 @@ ob_end_flush();
                 categories[category].forEach(cust => {
                     html += `
                         <div class="customization-option">
-                            <input type="checkbox" name="customizations[]" value="${cust.id}" id="cust-${cust.id}" data-price="${cust.price}">
+                            <input type="checkbox" name="customizations[]" value="${cust.id}" id="cust-${cust.id}" data-price="${cust.price_adjustment}">
                             <label for="cust-${cust.id}" class="customization-name">${cust.name}</label>
-                            <span class="customization-price">+Rs. ${cust.price.toFixed(2)}</span>
+                            <span class="customization-price">+Rs. ${parseFloat(cust.price_adjustment).toFixed(2)}</span>
                         </div>
                     `;
                 });
@@ -1380,12 +1511,24 @@ ob_end_flush();
         checkoutBtn?.addEventListener('click', () => {
             const summary = document.getElementById('checkout-summary');
             summary.innerHTML = '';
-            <?php foreach ($cartItems as $item): ?>
+            <?php foreach ($cartItems as $item): 
+                $selectedCustomizations = json_decode($item['selected_customizations'], true) ?: [];
+                $customizationNames = getCustomizationNames($pdo, $selectedCustomizations);
+            ?>
                 const itemDiv = document.createElement('div');
-                itemDiv.style.cssText = 'padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between;';
+                itemDiv.style.cssText = 'padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; flex-wrap: wrap;';
+                let customizations = '';
+                <?php if (!empty($customizationNames)): ?>
+                    customizations = '<div style="width: 100%; margin-top: 5px; font-size: 0.9rem; color: #666;">Customizations: <?php 
+                        foreach ($customizationNames as $cust) {
+                            echo htmlspecialchars($cust['name']) . ' (+Rs. ' . number_format($cust['price_adjustment'], 2) . '), ';
+                        }
+                    ?></div>';
+                <?php endif; ?>
                 itemDiv.innerHTML = `
                     <span><?php echo htmlspecialchars($item['product_name']); ?> × <?php echo $item['quantity']; ?></span>
                     <span>Rs. <?php echo number_format($item['total_price'], 2); ?></span>
+                    ${customizations}
                 `;
                 summary.appendChild(itemDiv);
             <?php endforeach; ?>
