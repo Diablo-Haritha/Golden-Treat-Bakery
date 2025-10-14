@@ -19,63 +19,6 @@ CREATE TABLE IF NOT EXISTS bookings (
 );
 
 -- ============================================================
--- TABLE: bookings_log (Audit / History for bookings)
--- ============================================================
-CREATE TABLE IF NOT EXISTS bookings_log (
-    log_id INT AUTO_INCREMENT PRIMARY KEY,
-    booking_id INT,
-    operation VARCHAR(50) NOT NULL,
-    booking_ref VARCHAR(50),
-    customerName VARCHAR(100),
-    date DATE,
-    time TIME,
-    tableNumber INT,
-    status VARCHAR(20),
-    log_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE SET NULL
-);
-
--- ============================================================
--- TRIGGERS: bookings
--- ============================================================
-DELIMITER //
-
-CREATE TRIGGER trg_bookings_after_insert
-AFTER INSERT ON bookings
-FOR EACH ROW
-BEGIN
-    INSERT INTO bookings_log (
-        booking_id, operation, booking_ref, customerName, date, time, tableNumber, status
-    ) VALUES (
-        NEW.id, 'INSERT', NEW.bookingId, NEW.customerName, NEW.date, NEW.time, NEW.tableNumber, NEW.status
-    );
-END//
-
-CREATE TRIGGER trg_bookings_after_update
-AFTER UPDATE ON bookings
-FOR EACH ROW
-BEGIN
-    INSERT INTO bookings_log (
-        booking_id, operation, booking_ref, customerName, date, time, tableNumber, status
-    ) VALUES (
-        NEW.id, 'UPDATE', NEW.bookingId, NEW.customerName, NEW.date, NEW.time, NEW.tableNumber, NEW.status
-    );
-END//
-
-CREATE TRIGGER trg_bookings_before_delete
-BEFORE DELETE ON bookings
-FOR EACH ROW
-BEGIN
-    INSERT INTO bookings_log (
-        booking_id, operation, booking_ref, customerName, date, time, tableNumber, status
-    ) VALUES (
-        OLD.id, 'DELETE', OLD.bookingId, OLD.customerName, OLD.date, OLD.time, OLD.tableNumber, OLD.status
-    );
-END//
-
-DELIMITER ;
-
--- ============================================================
 -- BILLING SYSTEM
 -- ============================================================
 DROP TABLE IF EXISTS bill_items;
@@ -374,81 +317,28 @@ INSERT INTO product_customizations (product_id, customization_id) VALUES
 -- ============================================================
 -- ORDER MANAGEMENT SYSTEM
 -- ============================================================
-CREATE TABLE `orders` (
-  `id` int(11) NOT NULL,
-  `order_number` varchar(64) DEFAULT NULL,
-  `user_id` int(11) DEFAULT NULL,
-  `order_date` date NOT NULL,
-  `customer_name` varchar(100) NOT NULL,
-  `customer_email` varchar(255) NOT NULL,
-  `product` varchar(100) NOT NULL,
-  `quantity` int(11) NOT NULL DEFAULT 1,
-  `original_quantity` int(11) NOT NULL DEFAULT 0,
-  `price` decimal(10,2) NOT NULL DEFAULT 0.00,
-  `total_amount` decimal(10,2) NOT NULL DEFAULT 0.00,
-  `original_price` decimal(10,2) NOT NULL DEFAULT 0.00,
-  `status` varchar(60) NOT NULL DEFAULT 'Order Received',
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `customer_phone` varchar(32) DEFAULT NULL,
-  `order_summary` longtext DEFAULT NULL,
-  `deleted_at` datetime DEFAULT NULL,
-  `deleted_by` int(11) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-INSERT INTO `orders` (`id`, `order_number`, `user_id`, `order_date`, `customer_name`,`customer_email`,`product`, `quantity`, `original_quantity`, `price`, `total_amount`, `original_price`, `status`, `created_at`, `updated_at`, `customer_phone`, `order_summary`, `deleted_at`, `deleted_by`) VALUES
-(1, 'ORD-000001', NULL, '2025-09-01', 'Alice Fernando',NULL, 'Chocolate Cake', 1, 1, 2500.00, 2500.00, 2500.00, 'Order Received', '2025-09-04 05:08:03', '2025-10-13 09:30:17', NULL, NULL, NULL, NULL),
-(2, 'ORD-000002', NULL, '2025-09-02', 'Brian Silva',NULL, 'Blueberry Muffins (6 pack)', 2, 2, 1800.00, 3600.00, 1800.00, 'Payment Confirmed', '2025-09-04 05:08:03', '2025-10-13 09:30:17', NULL, NULL, NULL, NULL),
-(3, 'ORD-000003', NULL, '2025-09-02', 'Chathuri Perera',NULL, 'Butter Croissant', 9, 12, 2400.00, 21600.00, 2400.00, 'Partially Returned', '2025-09-04 05:08:03', '2025-10-13 09:30:17', NULL, NULL, NULL, NULL),
-(4, 'ORD-000004', NULL, '2025-09-03', 'Dilshan Jayawardena',NULL, 'Vanilla Cupcakes (12 pack)', 1, 1, 2200.00, 2200.00, 2200.00, 'Order Received', '2025-09-04 05:08:03', '2025-10-13 09:30:17', NULL, NULL, NULL, NULL),
-(6, 'ORD-000006', NULL, '2025-09-03', 'Fathima Rahman',NULL, 'Strawberry Tart', 2, 2, 3000.00, 6000.00, 3000.00, 'Ready for Pickup', '2025-09-04 05:08:03', '2025-10-13 09:30:17', NULL, NULL, '2025-10-01 16:19:23', NULL),
-(7, 'ORD-000007', NULL, '2025-09-04', 'Gihan Abeysekera',NULL, 'Fruit Loaf', 1, 1, 1500.00, 1500.00, 1500.00, 'Out for Delivery', '2025-09-04 05:08:03', '2025-10-13 09:30:17', NULL, NULL, '2025-10-11 13:10:19', NULL),
-(10, 'ORD-000010', NULL, '2025-09-04', 'Janani De Silva',NULL, 'Brownies', 8, 8, 1600.00, 12800.00, 1600.00, 'Cancelled', '2025-09-04 05:08:03', '2025-10-13 09:30:17', NULL, NULL, NULL, NULL);
-
-
-CREATE TABLE `returns` (
-  `id_new` int(11) NOT NULL,
-  `id` int(11) NOT NULL,
-  `order_id` int(11) NOT NULL,
-  `return_date` date DEFAULT NULL,
-  `quantity` int(11) DEFAULT NULL,
-  `reason` text DEFAULT NULL,
-  `refund_amount` decimal(12,2) DEFAULT NULL,
-  `processed_by` int(11) DEFAULT NULL,
-  `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS orders (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    order_number VARCHAR(20) UNIQUE NOT NULL,
+    customer_name VARCHAR(255) NOT NULL,
+    customer_email VARCHAR(255) NOT NULL,
+    customer_phone VARCHAR(20),
+    total_amount DECIMAL(10, 2) NOT NULL,
+    status ENUM('pending', 'confirmed', 'preparing', 'ready', 'completed') DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
 CREATE TABLE IF NOT EXISTS order_items (
-  id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  order_id INT(11) NOT NULL,
-  product_id INT(11) DEFAULT NULL,
-  product_name VARCHAR(255) NOT NULL,
-  quantity INT(11) NOT NULL DEFAULT 1,
-  unit_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-  customizations TEXT DEFAULT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_order_items_order_id (order_id),
-  INDEX idx_order_items_product_id (product_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE `order_status_history` (
-  `id_new` int(11) NOT NULL,
-  `id` int(11) NOT NULL,
-  `order_id` int(11) NOT NULL,
-  `old_status` varchar(64) DEFAULT NULL,
-  `new_status` varchar(64) DEFAULT NULL,
-  `changed_by` int(11) DEFAULT NULL,
-  `note` text DEFAULT NULL,
-  `created_at` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-INSERT INTO `order_status_history` (`id_new`, `id`, `order_id`, `old_status`, `new_status`, `changed_by`, `note`, `created_at`) VALUES
-(1, 0, 3, 'Queued for Baking', 'Completed', NULL, 'Updated through admin UI', '2025-10-01 15:52:03'),
-(2, 0, 3, 'Returned', 'Partially Returned', NULL, 'Return processed (qty: 1)', '2025-10-01 16:04:17'),
-(3, 0, 4, 'In Preparation', 'Order Received', NULL, 'Updated through admin UI', '2025-10-01 16:07:01'),
-(4, 0, 6, 'Ready for Pickup', 'Deleted', NULL, 'Order soft-deleted via admin UI', '2025-10-01 16:19:23'),
-(5, 0, 7, 'Out for Delivery', 'Deleted', NULL, 'Order soft-deleted via admin UI', '2025-10-11 13:10:19');
-
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT,
+    product_name VARCHAR(255) NOT NULL,
+    quantity INT NOT NULL,
+    unit_price DECIMAL(10, 2) NOT NULL,
+    customizations TEXT,
+    total_price DECIMAL(10, 2) NOT NULL,
+    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+);
 
 -- ============================================================
 -- OTP SYSTEM (FIXED & RETAINED)
@@ -523,7 +413,7 @@ BEGIN
 END$$
 
 DELIMITER ;
-/*
+
 -- ============================================================
 -- OPTIONAL: Trigger for Order Status Updates (to sync Sales Status)
 -- ============================================================
@@ -539,7 +429,7 @@ DELIMITER ;
 -- ADD FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE SET NULL;
 
 -- Then, the trigger (uncomment after ALTER):
-
+/*
 DELIMITER $$
 
 CREATE TRIGGER trg_orders_after_update_sync_sale
@@ -654,103 +544,3 @@ BEGIN
 END$$
 
 DELIMITER ;
-
-
--- ===========================================================
--- USER 
--- ===========================================================
-
-
-CREATE TABLE `users` (
-  `id` int(11) NOT NULL,
-  `full_name` varchar(100) NOT NULL,
-  `email` varchar(100) NOT NULL,
-  `mobile` varchar(20) DEFAULT NULL,
-  `address` varchar(255) DEFAULT NULL,
-  `district` varchar(100) DEFAULT NULL,
-  `role` enum('admin','manager','customer') NOT NULL DEFAULT 'customer',
-  `date_joined` date DEFAULT curdate(),
-  `status` enum('Active','Inactive') DEFAULT 'Active',
-  `profile_picture` varchar(255) DEFAULT NULL,
-  `password` varchar(255) NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `last_login` timestamp NULL DEFAULT NULL ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- Create the users_log table (based on the PHP code structure)
-CREATE TABLE IF NOT EXISTS `users_log` (
-    `log_id` INT AUTO_INCREMENT PRIMARY KEY,
-    `user_id` INT NULL,
-    `operation` VARCHAR(50) NOT NULL COMMENT 'INSERT, UPDATE, or DELETE',
-    `full_name` VARCHAR(100),
-    `email` VARCHAR(100),
-    `mobile` VARCHAR(20),
-    `address` VARCHAR(255),
-    `district` VARCHAR(100),
-    `role` ENUM('admin', 'manager', 'customer'),
-    `date_joined` DATE,
-    `status` ENUM('Active','Inactive'),
-    `profile_picture` VARCHAR(255),
-    `last_login` TIMESTAMP NULL,
-    `log_timestamp` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='Audit log for users table operations';
-
--- Drop existing triggers if they exist (to avoid duplicates)
-DROP TRIGGER IF EXISTS trg_users_after_insert;
-DROP TRIGGER IF EXISTS trg_users_after_update;
-DROP TRIGGER IF EXISTS trg_users_before_delete;
-
--- Create triggers for logging INSERT, UPDATE, DELETE operations on users
-DELIMITER //
-
-CREATE TRIGGER trg_users_after_insert
-AFTER INSERT ON users
-FOR EACH ROW
-BEGIN
-    INSERT INTO users_log (user_id, operation, full_name, email, mobile, address, district, role, date_joined, status, profile_picture, last_login)
-    VALUES (NEW.id, 'INSERT', NEW.full_name, NEW.email, NEW.mobile, NEW.address, NEW.district, NEW.role, NEW.date_joined, NEW.status, NEW.profile_picture, NEW.last_login);
-END //
-
-CREATE TRIGGER trg_users_after_update
-AFTER UPDATE ON users
-FOR EACH ROW
-BEGIN
-    INSERT INTO users_log (user_id, operation, full_name, email, mobile, address, district, role, date_joined, status, profile_picture, last_login)
-    VALUES (NEW.id, 'UPDATE', NEW.full_name, NEW.email, NEW.mobile, NEW.address, NEW.district, NEW.role, NEW.date_joined, NEW.status, NEW.profile_picture, NEW.last_login);
-END //
-
-CREATE TRIGGER trg_users_before_delete
-BEFORE DELETE ON users
-FOR EACH ROW
-BEGIN
-    INSERT INTO users_log (user_id, operation, full_name, email, mobile, address, district, role, date_joined, status, profile_picture, last_login)
-    VALUES (OLD.id, 'DELETE', OLD.full_name, OLD.email, OLD.mobile, OLD.address, OLD.district, OLD.role, OLD.date_joined, OLD.status, OLD.profile_picture, OLD.last_login);
-END //
-
-DELIMITER ;
-
--- Cleanup orphaned logs (run periodically)
-UPDATE users_log 
-SET user_id = NULL 
-WHERE user_id IS NOT NULL 
-AND user_id NOT IN (SELECT id FROM users);
-
--- Example query to view logs (matches PHP code)
-SELECT 
-    log_id,
-    user_id,
-    operation,
-    full_name,
-    email,
-    mobile,
-    address,
-    district,
-    role,
-    date_joined,
-    last_login,
-    log_timestamp
-FROM users_log 
-
-ORDER BY log_timestamp DESC LIMIT 100;
