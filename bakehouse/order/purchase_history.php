@@ -24,7 +24,7 @@ function refValues($arr){
 // Read filters (GET)
 $from = isset($_GET['from']) && $_GET['from'] !== '' ? trim($_GET['from']) : '';
 $to   = isset($_GET['to'])   && $_GET['to']   !== '' ? trim($_GET['to'])   : '';
-$customer = isset($_GET['customer']) ? trim($_GET['customer']) : '';
+$customer_name = isset($_GET['customer_name']) ? trim($_GET['customer_name']) : '';
 $order_id = isset($_GET['order_id']) && $_GET['order_id'] !== '' ? (int)$_GET['order_id'] : 0;
 $status = isset($_GET['status']) ? trim($_GET['status']) : '';
 $limit = 2000; // safety limit
@@ -53,10 +53,10 @@ if ($to !== '') {
     $types .= 's';
     $values[] = $to . ' 23:59:59';
 }
-if ($customer !== '') {
-    $where[] = "o.customer LIKE ?";
+if ($customer_name !== '') {
+    $where[] = "o.customer_name LIKE ?";
     $types .= 's';
-    $values[] = '%' . $customer . '%';
+    $values[] = '%' . $customer_name . '%';
 }
 if ($order_id) {
     $where[] = "o.id = ?";
@@ -75,7 +75,7 @@ if (!empty($where)) $whereSql = 'WHERE ' . implode(' AND ', $where);
 // Query: include returned quantity per order (aggregated) and compute net
 $sql = "
 SELECT 
-  o.id, o.order_date, o.customer, o.product, o.quantity, o.price, o.status,
+  o.id, o.order_date, o.customer_name, o.product, o.quantity, o.price, o.status,
   COALESCE(r.sum_qty,0) AS returned_qty,
   GREATEST(o.quantity - COALESCE(r.sum_qty,0), 0) AS net_quantity,
   (o.price * GREATEST(o.quantity - COALESCE(r.sum_qty,0), 0)) AS net_value
@@ -198,7 +198,7 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
               <label>To:
                 <input type="date" name="to" placeholder="End date" value="<?= htmlspecialchars($to ? substr($to,0,10) : '') ?>" />
               </label>
-              <input type="text" name="customer" placeholder="Customer" value="<?= htmlspecialchars($customer) ?>" />
+              <input type="text" name="customer_name" placeholder="customer_name" value="<?= htmlspecialchars($customer_name) ?>" />
               <input type="number" name="order_id" placeholder="Order ID" value="<?= ($order_id ? (int)$order_id : '') ?>" />
               <select name="status">
                 <option value="">All status</option>
@@ -238,7 +238,7 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
                   <tr data-status="<?= htmlspecialchars(strtolower($r['status'])) ?>">
                     <td class="col-id"><?= (int)$r['id'] ?></td>
                     <td><?= htmlspecialchars($r['order_date']) ?></td>
-                    <td><?= htmlspecialchars($r['customer']) ?></td>
+                    <td><?= htmlspecialchars($r['customer_name']) ?></td>
                     <td><?= htmlspecialchars($r['product']) ?></td>
                     <td><?= (int)$r['quantity'] ?></td>
                     <td><?= (int)$r['returned_qty'] ?></td>
@@ -251,7 +251,7 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
                       <button class="viewBtn" type="button"
                         data-id="<?= htmlspecialchars($r['id']) ?>"
                         data-order-date="<?= htmlspecialchars($r['order_date']) ?>"
-                        data-customer="<?= htmlspecialchars($r['customer']) ?>"
+                        data-customer_name="<?= htmlspecialchars($r['customer_name']) ?>"
                         data-product="<?= htmlspecialchars($r['product']) ?>"
                         data-quantity="<?= (int)$r['quantity'] ?>"
                         data-price="<?= htmlspecialchars(number_format((float)$r['price'],2,'.','')) ?>"
@@ -265,7 +265,7 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
                       <button class="invoiceBtn" type="button"
                         data-id="<?= htmlspecialchars($r['id']) ?>"
                         data-order-date="<?= htmlspecialchars($r['order_date']) ?>"
-                        data-customer="<?= htmlspecialchars($r['customer']) ?>"
+                        data-customer_name="<?= htmlspecialchars($r['customer_name']) ?>"
                         data-product="<?= htmlspecialchars($r['product']) ?>"
                         data-quantity="<?= (int)$r['quantity'] ?>"
                         data-price="<?= htmlspecialchars(number_format((float)$r['price'],2,'.','')) ?>"

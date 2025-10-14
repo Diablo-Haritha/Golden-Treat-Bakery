@@ -920,8 +920,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
         <p>Sales Management</p>
         <div class="salebtn">
           <button class="tab-btn" onclick="window.location.href='../sales/index.php'">Booking Logs Management</button>
-          <button class="tab-btn" onclick="window.location.href='../sales/index2.php'">Stock Logs Management</button>
-          <button class="tab-btn" onclick="window.location.href='../sales/index3.php'">User Logs Management</button>
+          <button class="tab-btn" onclick="window.location.href='stock_log.php'">Stock Logs Management</button>
+          <button class="tab-btn" onclick="window.location.href='./users_log.php'">User Logs Management</button>
           <button class="tab-btn active" onclick="window.location.href='logs.php'">sales Logs Management</button>
           <!-- Button to open popup -->
 

@@ -38,14 +38,35 @@
     }
 
     /* Header */
-    .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: #fff;
-      padding: 12px 16px;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, .08)
-    }
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  padding: 12px 16px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, .08);
+  flex-wrap: wrap;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px; 
+}
+
+.role-btn {
+  background: #111827;
+  color: #fff;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.role-btn:hover {
+  opacity: 0.9;
+}
+
 
     .header-left img {
       width: 56px;
@@ -81,12 +102,6 @@
       padding: 8px 10px;
       border: 1px solid #d1d5db;
       border-radius: 8px
-    }
-
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 12px
     }
 
     .role-btn {
@@ -618,8 +633,11 @@
   <div class="header-middle">
     <div class="header-middle-title">Stock Management</div>
   </div>
-  <button class="role-btn" onclick="window.location.href='index.html'">Dashboard</button>
-  <div class="user-icon"></div>
+  <div class="header-right">
+    <button class="role-btn" onclick="window.location.href='../stock_log.php'">Log</button>
+    <button class="role-btn" onclick="window.location.href='../index.html'">Dashboard</button>
+    <div class="user-icon"></div>
+  </div>
 </div>
 
 <div class="layout">
@@ -628,9 +646,9 @@
   <nav>
     <button class="salesbtn" disabled>Stock</button>
     <div class="otherbtn">
-      <button class="Sbtn" onclick="window.location.href='sales.html'">Sales</button>
-      <button class="Ubtn" onclick="window.location.href='order.html'">Order</button>
-      <button class="Bbtn" onclick="window.location.href='booking.html'">Booking</button>
+      <button class="Sbtn" onclick="window.location.href='../sales/index.php'">Sales</button>
+      <button class="Ubtn" onclick="window.location.href='../user/index.php'">User</button>
+      <button class="Bbtn" onclick="window.location.href='../booking/index.html'">Booking</button>
     </div>
     <hr />
     <p>Sales Management</p>
@@ -736,7 +754,20 @@
       <div><label>Last Updated</label><input id="fDate" type="date"></div>
       <div class="full"><label>Description</label><input id="fDescription" type="text"></div>
       <div><label>Quantity</label><input id="fQuantity" type="number"></div>
-      <div><label>Unit</label><input id="fUnit" type="text"></div>
+      <div>
+  <label>Unit</label>
+  <select id="fUnit">
+    <option value="">--Select Unit--</option>
+    <option value="pcs">pcs</option>
+    <option value="kg">kg</option>
+    <option value="g">g</option>
+    <option value="ltr">ltr</option>
+    <option value="ml">ml</option>
+    <option value="box">box</option>
+    <option value="pack">pack</option>
+  </select>
+</div>
+
       <div><label>Category</label><input id="fCategory" type="text"></div>
       <div>
         <label>Status</label>

@@ -10,223 +10,1026 @@ if ($conn->connect_error) {
     die("DB Connection failed: " . $conn->connect_error);
 }
 
-// ---------- FETCH SALES DATA ----------
+// ---------- FETCH SALES with filters ----------
 $where = "1=1";
+$params = [];
+$types = "";
+
 if (!empty($_GET['from']) && !empty($_GET['to'])) {
     $from = $_GET['from'];
     $to   = $_GET['to'];
-    $where .= " AND date BETWEEN '$from' AND '$to'";
+    if (strtotime($from) && strtotime($to) && $from <= $to) {
+        $where .= " AND date BETWEEN ? AND ?";
+        $params[] = $from;
+        $params[] = $to;
+        $types .= "ss";
+    }
 }
-if (!empty($_GET['status'])) {
-    $status = $_GET['status'];
-    $where .= " AND status = '$status'";
+if (!empty($_GET['status']) && in_array($_GET['status'], ['Pending','Paid','Cancelled','Returned'])) {
+    $where .= " AND status = ?";
+    $params[] = $_GET['status'];
+    $types .= "s";
 }
 if (!empty($_GET['customer'])) {
-    $customer = $_GET['customer'];
-    $where .= " AND customer LIKE '%$customer%'";
+    $where .= " AND customer LIKE ?";
+    $params[] = "%" . $_GET['customer'] . "%";
+    $types .= "s";
 }
 
-$sql = "SELECT id, date, customer, total, status FROM sales WHERE $where ORDER BY id DESC";
-$result = $conn->query($sql);
-$sales = [];
-if ($result->num_rows > 0) {
-    while ($row = $result->fetch_assoc()) {
-        $sales[] = $row;
-    }}
+$sql = "SELECT id, date, customer, user_id, quantity, total, status, staff FROM sales WHERE $where ORDER BY id DESC";
+$stmt = $conn->prepare($sql);
+if (!empty($params)) {
+    $stmt->bind_param($types, ...$params);
+}
+$stmt->execute();
+$result = $stmt->get_result();
+$sales = $result->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+
+$error = "";
 
 // ---------- EDIT SALE ----------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_sale'])) {
-    $id     = $_POST['id'];
-    $date   = $_POST['date'];
-    $customer = $_POST['customer'];
-    $total = $_POST['total'];
-    $status = $_POST['status'];
+    $id = (int)($_POST['id'] ?? 0);
+    $date = trim($_POST['date'] ?? '');
+    $customer_name = trim($_POST['customer'] ?? '');
+    $quantity = max(1, (int)($_POST['quantity'] ?? 1));
+    $total = (float)($_POST['total'] ?? 0);
+    $status = $_POST['status'] ?? 'Pending';
 
-    $stmt = $conn->prepare("UPDATE sales SET date=?, customer=?, total=?, status=? WHERE id=?");
-    $stmt->bind_param("ssisi", $date, $customer, $total, $status, $id);
-    $stmt->execute();
-    $stmt->close();
-    header("Location: ".$_SERVER['PHP_SELF']);
-    exit;
+    if (!$id || !$date || !$customer_name || $total <= 0 || !strtotime($date)) {
+        $error = "Invalid input data.";
+    } else {
+        // Find if customer exists
+        $user_id = null;
+        $stmt2 = $conn->prepare("SELECT id FROM users WHERE LOWER(full_name) = LOWER(?)");
+        $stmt2->bind_param("s", $customer_name);
+        $stmt2->execute();
+        $res2 = $stmt2->get_result();
+        if ($row2 = $res2->fetch_assoc()) {
+            $user_id = $row2['id'];
+        }
+        $stmt2->close();
+
+        $stmt3 = $conn->prepare("UPDATE sales SET date=?, customer=?, user_id=?, quantity=?, total=?, status=? WHERE id=?");
+        $stmt3->bind_param("ssiiisi", $date, $customer_name, $user_id, $quantity, $total, $status, $id);
+        if ($stmt3->execute()) {
+            header("Location: " . strtok($_SERVER['REQUEST_URI'], '?'));
+            exit;
+        } else {
+            $error = "Failed to update sale.";
+        }
+        $stmt3->close();
+    }
 }
 
 // ---------- DELETE SALE ----------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_sale'])) {
-    $id = $_POST['id'];
-    $stmt = $conn->prepare("DELETE FROM sales WHERE id=?");
-    $stmt->bind_param("i", $id);
-    $stmt->execute();
-    $stmt->close();
-    header("Location: ".$_SERVER['PHP_SELF']);
+    $id = (int)($_POST['id'] ?? 0);
+    if ($id) {
+        $stmt4 = $conn->prepare("DELETE FROM sales WHERE id=?");
+        $stmt4->bind_param("i", $id);
+        $stmt4->execute();
+        $stmt4->close();
+    }
+    header("Location: " . strtok($_SERVER['REQUEST_URI'], '?'));
     exit;
 }
 
+// ---------- ADD SALE ----------
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action']) && $_POST['action'] === 'add_sale') {
+    $date = trim($_POST['date'] ?? '');
+    $customer_name = trim($_POST['customer'] ?? '');
+    $quantity = max(1, (int)($_POST['quantity'] ?? 1));
+    $total = (float)($_POST['total'] ?? 0);
+    $status = $_POST['status'] ?? 'Pending';
+    $staff = "Admin";  // or from session
 
-    // ---------- INSERT FORM DATA ----------
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $date     = $_POST['date'];
-    $customer = $_POST['customer'];
-    $total    = $_POST['total'];
-    $status   = $_POST['status'];
-
-    $sql = "INSERT INTO sales (date, customer, total, status) 
-            VALUES ('$date', '$customer', '$total', '$status')";
-
-    if ($conn->query($sql) === TRUE) {
-       echo "<script>
-        
-        window.location.href = window.location.href.split('?')[0]; // Remove query parameters
-      </script>";
+    if (!$date || !$customer_name || $total <= 0 || !strtotime($date)) {
+        $error = "Please fill all required fields correctly.";
     } else {
-        echo "<p style='color:red;'>❌ Error: " . $conn->error . "</p>";
-    }
-}
-
-// Count total orders
-$sql = "SELECT COUNT(*) AS total_orders FROM sales";
-$result = $conn->query($sql);
-$row = $result->fetch_assoc();
-$totalOrders = $row['total_orders'];
-
-// Count unique customers
-$sql = "SELECT COUNT(DISTINCT customer) AS total_cus FROM sales";
-$result = $conn->query($sql);
-$row = $result->fetch_assoc();
-$totalCus = $row['total_cus'];
-
-
-// Sum of today's sales total
-$sql = "SELECT IFNULL(SUM(total),0) AS today_revenue 
-        FROM sales 
-        WHERE date = CURDATE()";
-$result = $conn->query($sql);
-$row = $result->fetch_assoc();
-$todayRevenue = $row['today_revenue'];
-
-
-// ---------- TODAY'S SALES (count of orders today) ----------
-$sql = "SELECT COUNT(*) AS today_sales FROM sales WHERE date = CURDATE()";
-$result = $conn->query($sql);
-$row = $result->fetch_assoc();
-$todaySales = $row['today_sales'];
-
-
-
-
-
-
-
-
-
-
-
-
-
-// ---------- BUILD FILTER ----------
-$where = "1=1";
-if (!empty($_GET['from']) && !empty($_GET['to'])) {
-    $from = $_GET['from'];
-    $to   = $_GET['to'];
-    $where .= " AND date BETWEEN '$from' AND '$to'";
-}
-if (!empty($_GET['status'])) {
-    $status = $_GET['status'];
-    $where .= " AND status = '$status'";
-}
-if (!empty($_GET['customer'])) {
-    $customer = $_GET['customer'];
-    $where .= " AND customer LIKE '%$customer%'";
-}
-
-// ---------- FETCH DATA ----------
-$sql = "SELECT id, date, customer, total, status FROM sales WHERE $where ORDER BY id DESC";
-$result = $conn->query($sql);
-$sales = [];
-if ($result->num_rows > 0) {
-    while ($row = $result->fetch_assoc()) {
-        $sales[] = $row;
-    }
-}
-
-// ---------- EXPORTS ----------
-if (isset($_GET['export'])) {
-    $type = $_GET['export'];
-
-    // --- CSV ---
-    if ($type == "csv") {
-        header("Content-Type: text/csv");
-        header("Content-Disposition: attachment; filename=sales_report.csv");
-        $out = fopen("php://output", "w");
-        fputcsv($out, ["ID","Date","Customer","Total","Status"]);
-        foreach ($sales as $s) {
-            fputcsv($out, $s);
+        $user_id = null;
+        $stmt5 = $conn->prepare("SELECT id FROM users WHERE LOWER(full_name) = LOWER(?)");
+        $stmt5->bind_param("s", $customer_name);
+        $stmt5->execute();
+        $res5 = $stmt5->get_result();
+        if ($row5 = $res5->fetch_assoc()) {
+            $user_id = $row5['id'];
         }
-        fclose($out);
-        exit;
+        $stmt5->close();
+
+        if (!$user_id && !empty($_POST['customer_email'])) {
+            // Create new user
+            $email = trim($_POST['customer_email']);
+            $mobile = trim($_POST['customer_mobile'] ?? '');
+            $address = trim($_POST['customer_address'] ?? '');
+            $district = trim($_POST['customer_district'] ?? '');
+
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $error = "Please enter a valid email address.";
+            } else {
+                $hashedPass = password_hash("gt_" . bin2hex(random_bytes(8)), PASSWORD_BCRYPT);
+                $stmt6 = $conn->prepare("INSERT INTO users (full_name, email, mobile, address, district, role, date_joined, status, password) VALUES (?, ?, ?, ?, ?, 'customer', CURDATE(), 'Active', ?)");
+                $stmt6->bind_param("ssssss", $customer_name, $email, $mobile, $address, $district, $hashedPass);
+                if ($stmt6->execute()) {
+                    $user_id = $stmt6->insert_id;
+                } else {
+                    $error = "Failed to create customer. Email may already be in use.";
+                }
+                $stmt6->close();
+            }
+        }
+
+        if (!$error) {
+            $stmt7 = $conn->prepare("INSERT INTO sales (date, customer, user_id, quantity, total, status, staff) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $stmt7->bind_param("ssiiiss", $date, $customer_name, $user_id, $quantity, $total, $status, $staff);
+            if ($stmt7->execute()) {
+                header("Location: index.php");
+                exit;
+            } else {
+                $error = "Failed to save sale.";
+            }
+            $stmt7->close();
+        }
     }
+}
 
-    // --- Excel ---
-    if ($type == "excel") {
-        require "vendor/autoload.php";
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
-
-        $sheet->fromArray(["ID","Date","Customer","Total","Status"], NULL, "A1");
-        $sheet->fromArray($sales, NULL, "A2");
-
-        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
-        header("Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-        header("Content-Disposition: attachment; filename=sales_report.xlsx");
-        $writer->save("php://output");
-        exit;
-    }
-
-
-  }
-
-
-
+// ---------- STATS ----------
+$stats = [];
+$qarr = [
+    "todaySales"   => "SELECT COUNT(*) AS val FROM sales WHERE date = CURDATE()",
+    "totalOrders"  => "SELECT COUNT(*) AS val FROM sales",
+    "totalCus"     => "SELECT COUNT(DISTINCT customer) AS val FROM sales",
+    "todayRevenue" => "SELECT IFNULL(SUM(total),0) AS val FROM sales WHERE date = CURDATE()"
+];
+foreach ($qarr as $k => $q) {
+    $r = $conn->query($q)->fetch_assoc();
+    $stats[$k] = $r['val'];
+}
+$conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sales Management Admin UI</title>
-  <!-- Charts & export -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
-    integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
-    crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <link rel="stylesheet" href="style1.css">
+  <title>Sales - Golden Treat Bakery</title>
+  <link rel="stylesheet" href="../style1.css">   <!-- adjust path -->
+  <style>
+    .addform { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); z-index:1000; align-items: center; justify-content: center; }
+    .addform-content { background: #fff; padding:20px; border-radius:8px; width:90%; max-width:500px; max-height:90vh; overflow-y:auto; position:relative; }
+    .close { position: absolute; top:10px; right:15px; font-size:24px; cursor:pointer; }
+    #suggestions { position: absolute; background: #fff; border:1px solid #ccc; z-index:2000; max-height:150px; overflow-y:auto; width: calc(100% - 40px); }
+    #suggestions div { padding:8px; cursor:pointer; }
+    #suggestions div:hover { background:#f0f8ff; }
+    .error-alert { position: fixed; top:20px; right:20px; background:#ffdddd; padding:10px; border:1px solid red; border-radius:4px; }
+    .badge { padding:4px 8px; border-radius:4px; color:#fff; }
+    .Paid { background: #4CAF50; }
+    .Pending { background: #ff9800; }
+    .Cancelled { background: #f44336; }
+    .Returned { background: #607D8B; }
+    :root {
+  --brand: #30b6a2;
+  --ink: #111827;
+  --paper: #fff;
+  --muted: #6b7280;
+  --soft: #e5e7eb;
+  --warn: #ffc107;
+  --danger: #dc3545;
+  --primary: #007bff;
+}
 
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  background: #f4f6f9;
+  color: #0f172a;
+  min-height: 100vh;
+  overflow-x: hidden; /* Prevent horizontal scroll */
+}
+
+/* Fixed Header */
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  padding: 12px 16px;
+
+  z-index: 1000; /* High z-index to stay on top */
+  height: 70px; /* Fixed height for consistency */
+  box-sizing: border-box;
+}
+
+.header-left img {
+  width: 56px;
+  height: auto;
+  border-radius: 8px;
+  display: block;
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, .15);
+}
+
+.header-middle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  margin: 0 16px;
+  max-width: 720px;
+}
+
+.header-middle-title {
+  font-weight: 800;
+  font-size: 26px;
+  color: var(--brand);
+  white-space: nowrap;
+}
+
+.search-bar {
+  flex: 1;
+  display: flex;
+}
+
+.search-bar input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.role-btn {
+  background: #111827;
+  color: #fff;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.role-btn:hover {
+  opacity: .9;
+}
+
+.user-icon {
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, #bbb, #888);
+  border-radius: 50%;
+}
+
+/* Fixed Sidebar */
+.sidebar {
+  position: fixed;
+  top: 70px; /* Below header height */
+  left: 0;
+  width: 260px;
+  height: calc(100vh - 70px); /* Full height minus header */
+  background: #fff;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-right: 1px solid #e5e7eb;
+  overflow-y: auto; /* Allow scroll inside sidebar if needed, but header/sidebar fixed */
+  z-index: 999;
+}
+
+.sidebar h1 {
+  text-align: center;
+  font-size: 20px;
+  margin-bottom: 8px;
+  color: #0f172a;
+}
+
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Sidebar groups */
+.salesbtn {
+  background: var(--brand);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-weight: 800;
+  font-size: 22px;
+  padding: 12px;
+  text-align: center;
+}
+
+.otherbtn button {
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  padding: 10px 12px;
+  font-weight: 700;
+  gap: 10px;
+}
+
+.salebtn button {
+  background: #30b6a2;
+  border: none;
+  text-align: left;
+  padding: 10px;
+  margin: 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: #fff;
+}
+
+.Sbtn {
+  background: #e37200;
+  margin-left: 10px;
+}
+
+.Ubtn {
+  background: #9c0dc7;
+}
+
+.Bbtn {
+  background: #edcd00;
+}
+
+.otherbtn button:hover {
+  filter: brightness(1.1);
+}
+
+.sidebar hr {
+  margin: 8px 0;
+}
+
+.sidebar p {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 700;
+}
+
+.salebtn button {
+  background: var(--brand);
+  text-align: left;
+}
+
+.salebtn button.active {
+  outline: 3px solid rgba(48, 182, 162, .35);
+}
+
+.sidebar hr {
+  margin: 8px 0;
+}
+
+.sidebar p {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 700;
+}
+
+/* Sales Management sub-tabs */
+.salebtn {
+  display: flex;
+  flex-direction: column;
+}
+
+.salebtn .tab-btn {
+  background: var(--brand);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  padding: 10px 12px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.salebtn .tab-btn + .tab-btn {
+  margin-top: 8px;
+}
+
+.salebtn .tab-btn.active {
+  outline: 3px solid rgba(48, 182, 162, .35);
+  background: #fff;
+  color: var(--brand);
+}
+
+/* Main Content Area - Adjusted for Fixed Elements */
+.layout {
+  margin-top: 70px; /* Space for header */
+  margin-left: 260px; /* Space for sidebar */
+  flex: 1;
+  min-height: calc(100vh - 70px);
+  display: flex;
+  flex-direction: column;
+}
+
+.free-area {
+  flex: 1;
+  background: #f3f4f6;
+  padding: 24px;
+  overflow: auto; /* Main content scrolls */
+  min-height: 100%;
+}
+
+/* Rest of the CSS remains the same */
+.panel {
+  display: none;
+}
+
+.panel.active {
+  display: block;
+}
+
+.content {
+  background: #30b6a2;
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.contents {
+  background: #e7ebea;
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  
+}
+
+
+.card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
+  text-align: center;
+}
+
+.card h3 {
+  font-size: 14px;
+  color: #374151;
+}
+
+.card p {
+  font-size: 22px;
+  font-weight: 800;
+  margin-top: 6px;
+  color: #0f172a;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.filter-bar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.filter-bar input,
+.filter-bar select,
+.filter-bar button {
+  padding: 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.btn {
+  padding: 9px 12px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  color: #fff;
+  background: var(--primary);
+}
+
+.btn.secondary {
+  background: #000000;
+}
+
+.btn.warn {
+  background: var(--warn);
+  color: #000;
+}
+
+.btn.danger {
+  background: var(--danger);
+}
+
+.btn.light {
+  background: #e5e7eb;
+  color: #111827;
+  border: 1px solid #d1d5db;
+}
+
+.table-wrap {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
+  overflow: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  white-space: nowrap;
+  color: #000000ff;
+}
+
+th {
+  background: #f9fafb;
+  font-size: 13px;
+  color: #000000ff;
+  cursor: pointer;
+  position: sticky;
+  top: 0;
+}
+
+tr:hover td {
+  background: #30b6a283;
+}
+
+.badge {
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.Completed {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.Pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.Cancelled {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.row-actions button {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  gap:30px;
+}
+
+.row-actions .edit {
+  background: var(--warn);
+}
+
+.row-actions .del {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* Modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .35);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.modal {
+  width: 100%;
+  max-width: 520px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
+  padding: 18px;
+}
+
+.modal h2 {
+  margin-bottom: 10px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.form-grid .full {
+  grid-column: 1/-1;
+}
+
+.modal input,
+.modal select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+}
+
+.modal .footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+/* Analysis */
+.chart-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+}
+
+.analysis-controls {
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
+  margin-bottom: 12px;
+}
+
+.analysis-controls .filter-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.analysis-controls label {
+  font-size: 12px;
+  color: #374151;
+}
+
+.mini-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.mini-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 14px;
+  text-align: center;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
+}
+
+.mini-card h4 {
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: #374151;
+}
+
+.mini-card p {
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.chart-wrap {
+  position: relative;
+  height: 320px;
+}
+
+/* Export panel */
+.export-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.export-grid .row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+@media (max-width: 1000px) {
+  .cards {
+    grid-template-columns: 1fr;
+  }
+
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    width: 220px;
+  }
+
+  .layout {
+    margin-left: 220px; /* Adjust for smaller sidebar */
+  }
+}
+
+/* Additional styles from provided CSS */
+.card {
+  background: rgba(0, 0, 0, 0.452);
+  backdrop-filter: blur(12px);
+  border-radius: 20px;
+  padding: 25px;
+  text-align: center;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+}
+
+.card h3 {
+  font-size: 1.5rem;
+  margin-bottom: 10px;
+  color: #ffcc00;
+}
+
+.card p {
+  font-size: 2.1rem;
+  font-weight: bold;
+  margin: 10px 0;
+}
+
+.info-btn {
+  margin-top: 10px;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 12px;
+  background: #ffdd57;
+  color: #333;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.info-btn:hover {
+  background: #ffd633;
+  transform: scale(1.05);
+}
+
+/* POPUP STYLES */
+.popup {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  align-items: center;
+  justify-content: center;
+}
+
+.popup-content {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(20px);
+  padding: 30px;
+  border-radius: 20px;
+  width: 400px;
+  max-width: 90%;
+  color: #fff;
+  text-align: left;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.popup-content h2 {
+  margin-top: 0;
+  font-size: 1.6rem;
+  color: #ffdd57;
+}
+
+.popup-content ul {
+  margin: 15px 0;
+  padding-left: 20px;
+}
+
+.popup-content li {
+  margin: 8px 0;
+}
+
+.close {
+  float: right;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #fff;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.addform {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.addform-content {
+  background: #fff;
+  padding: 20px;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid #30b6a2;
+  border-radius: 15px;
+  width: 350px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  position: relative;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.close {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  font-size: 20px;
+  color: red;
+  cursor: pointer;
+}
+
+.addform-content form label {
+  display: block;
+  margin: 10px 0 5px;
+  font-weight: bold;
+}
+
+.addform-content form input,
+.addform-content form select,
+.addform-content form button {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.addform-content form button {
+  background: #30b6a2;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.addform-content form button:hover {
+  background: #30b6a2;
+}
+
+.tab-btn {
+  cursor: pointer;
+  padding: 10px;
+  margin: 5px 0;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: #f0f0f0;
+}
+
+.tab-btn.active {
+  background: #2563eb;
+  color: white;
+}
+
+.chart-wrap {
+  width: 100%;
+  height: 300px;
+}
+/* General button styling */
+button.edit,
+button.del {
+  border: none;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: #fff;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+}
+
+/* Edit Button */
+button.edit {
+  background-color: #3b82f6; /* Blue */
+}
+
+button.edit:hover {
+  background-color: #2563eb; /* Darker blue */
+  transform: scale(1.1);
+}
+
+/* Delete Button */
+button.del {
+  background-color: #ef4444; /* Red */
+  margin-left: 6px;
+}
+
+button.del:hover {
+  background-color: #dc2626; /* Darker red */
+  transform: scale(1.1);
+}
+
+/* Optional: add focus outline for accessibility */
+button.edit:focus,
+button.del:focus {
+  outline: 3px solid rgba(59,130,246,0.4);
+  outline-offset: 2px;
+}
+
+  </style>
 </head>
-
 <body>
-  <!-- Header -->
+  <?php if ($error): ?>
+    <div class="error-alert">❌ <?= htmlspecialchars($error) ?></div>
+  <?php endif; ?>
+
   <div class="header">
-    <div class="header-left"><img src="logo.jpg" alt="Logo" /></div>
+    <div class="header-left"><img src="../logo.jpg" alt="Logo"></div>
     <div class="header-middle">
       <div class="header-middle-title">Sales Management</div>
-      <div class="search-bar"><input id="globalSearch" type="text" placeholder="Search by customer, status or ID..." />
-      </div>
+      <div class="search-bar"><input id="globalSearch" type="text" placeholder="Search by customer, status or ID..."></div>
     </div>
     <div class="header-right">
-      
-        <a class="btn" href="?<?= http_build_query(array_merge($_GET,[" export"=>"csv"])) ?>">⬇CSV</a>
-        <button class="role-btn" onclick="window.location.href='../log.php'">Log </button>
+      <a class="btn" href="?<?= http_build_query(array_merge($_GET, ['export'=>'csv'])) ?>">⬇ CSV</a>
+      <button class="role-btn" onclick="window.location.href='../log.php'">Log</button>
       <button class="role-btn" onclick="window.location.href='../index.html'">Dashboard</button>
       <div class="user-icon"></div>
     </div>
   </div>
 
   <div class="layout">
-    <!-- Sidebar -->
     <aside class="sidebar">
       <h1>Sales Dashboard</h1>
       <nav>
@@ -235,572 +1038,247 @@ if (isset($_GET['export'])) {
           <button class="Sbtn" onclick="window.location.href='../stoke/stock.php'">Stock</button>
           <button class="Ubtn" onclick="window.location.href='../order/order.php'">Order</button>
           <button class="Bbtn" onclick="window.location.href='../booking/index.html'">Booking</button>
-
         </div>
-        <hr />
+        <hr>
         <p>Sales Management</p>
         <div class="salebtn">
           <button class="tab-btn active" onclick="window.location.href='index.php'">Sales Dashboard</button>
           <button class="tab-btn" onclick="window.location.href='index2.php'">Sales SUM</button>
-         <button class="tab-btn " onclick="window.location.href='index3.php'">Sales Analysis</button>
-          
+          <button class="tab-btn" onclick="window.location.href='index3.php'">Sales Analysis</button>
         </div>
       </nav>
     </aside>
 
-    <!-- Main -->
-
     <main class="free-area">
-      <!-- Dashboard -->
       <section id="sales-dashboard" class="panel active">
         <div class="content">
-          <h1>Sales Management </h1>
-           
+          <h1>Sales Management</h1>
           <div class="cards">
-
-            <div class="card">
-              <h3>Total Today Sales</h3>
-              <p>
-                <?php echo $todaySales; ?>
-              </p>
-            </div>
-            <div class="card">
-              <h3>Total Orders</h3>
-              <p id="cardOrders">
-                <?= $totalOrders ?>
-              </p>
-            </div>
-            <div class="card">
-              <h3>Total Customers</h3>
-              <p id="cardCustomers">
-                <?= $totalCus ?>
-              </p>
-            </div>
+            <div class="card"><h3>Total Today Sales</h3><p><?= $stats['todaySales'] ?></p></div>
+            <div class="card"><h3>Total Orders</h3><p><?= $stats['totalOrders'] ?></p></div>
+            <div class="card"><h3>Total Customers</h3><p><?= $stats['totalCus'] ?></p></div>
           </div>
+
           <div class="toolbar">
             <div class="filter-bar">
-
-
-
-
-              <!-- FILTER FORM -->
               <form method="GET">
                 From: <input type="date" name="from" value="<?= $_GET['from'] ?? '' ?>">
                 To: <input type="date" name="to" value="<?= $_GET['to'] ?? '' ?>">
                 Status:
                 <select name="status">
                   <option value="">All</option>
-                  <option <?=(($_GET['status']??'')=="Completed" ?"selected":"") ?>>Completed</option>
-                  <option <?=(($_GET['status']??'')=="Pending" ?"selected":"") ?>>Pending</option>
-                  <option <?=(($_GET['status']??'')=="Cancelled" ?"selected":"") ?>>Cancelled</option>
+                  <option <?= (($_GET['status'] ?? '') == "Paid" ? "selected" : "") ?>>Paid</option>
+                  <option <?= (($_GET['status'] ?? '') == "Pending" ? "selected" : "") ?>>Pending</option>
+                  <option <?= (($_GET['status'] ?? '') == "Cancelled" ? "selected" : "") ?>>Cancelled</option>
+                  <option <?= (($_GET['status'] ?? '') == "Returned" ? "selected" : "") ?>>Returned</option>
                 </select>
                 Customer: <input type="text" name="customer" value="<?= $_GET['customer'] ?? '' ?>">
                 <button type="submit">Filter</button>
               </form>
             </div>
             <div style="flex:1">
-
-           
-           <button class="btn secondary" onclick="openForm()">➕ Add Sale</button></div>
-           
+              <button class="btn secondary" onclick="openForm()">➕ Add Sale</button>
+            </div>
           </div>
+
           <div class="table-wrap">
             <table id="salesTable">
-              <tr>
-                <th data-sort="id">ID ▲▼</th>
-                <th data-sort="date">Date ▲▼</th>
-                <th data-sort="customer">Customer ▲▼</th>
-                <th data-sort="total">Total ▲▼</th>
-                <th data-sort="status">Status ▲▼</th>
-                <th>Action </th>
-              </tr>
+              <thead>
+                <tr>
+                  <th>ID</th><th>Date</th><th>Customer</th><th>Qty</th><th>Total</th><th>Status</th><th>Action</th>
+                </tr>
               </thead>
               <tbody>
-                <?php if(empty($sales)): ?>
-                <tr>
-                  <td colspan="5" class="text-center">No records found</td>
-                </tr>
+                <?php if (empty($sales)): ?>
+                  <tr><td colspan="7" class="text-center">No records found</td></tr>
                 <?php else: ?>
-                <?php foreach($sales as $s): ?>
-                <tr>
-                  <td>
-                    <?= $s['id'] ?>
-                  </td>
-                  <td>
-                    <?= $s['date'] ?>
-                  </td>
-                  <td>
-                    <?= $s['customer'] ?>
-                  </td>
-                  <td>$
-                    <?= number_format($s['total'],2) ?>
-                  </td>
-                  <td><span class="badge <?= $s['status'] ?>"><?= $s['status'] ?></span>
-                    
-                  </td>
-                  <td>
-                    <div class="row-actions">
-                      <button class="edit" onclick="document.getElementById('edit_id').value='<?= $s['id'] ?>';
-                                          document.getElementById('edit_date').value='<?= $s['date'] ?>';
-                                          document.getElementById('edit_customer').value='<?= $s['customer'] ?>';
-                                          document.getElementById('edit_total').value='<?= $s['total'] ?>';
-                                          document.getElementById('edit_status').value='<?= $s['status'] ?>';
-                                          openModal('editModal');">✏</button>
-
-                      <button class="del"
-                        onclick="document.getElementById('delete_id').value='<?= $s['id'] ?>'; openModal('deleteModal');">🗑</button>
-                  </td>
-          </div>
-          </tr>
-          <?php endforeach; ?>
-          <?php endif; ?>
-          </tbody>
-          </table>
-        </div>
-  </div>
-  </section>
-
-
-
-  <!-- Export -->
-  <section>
-    <!-- Popup Form -->
-    <div id="AddForm" class="addform">
-      <div class="addform-content">
-        <span class="close" onclick="closeForm()">&times;</span>
-        <h2>Add New Sale</h2>
-        <form method="POST" action="">
-          <label for="date">Date</label>
-          <input type="date" name="date" required>
-
-          <label for="customer">Customer</label>
-          <input type="text" name="customer" placeholder="Enter customer name" required>
-
-          <label for="total">Total</label>
-          <input type="number" step="0.01" name="total" placeholder="Enter total" required>
-
-          <label for="status">Status</label>
-          <select name="status" required>
-            <option value="Pending">Pending</option>
-            <option value="Paid">Paid</option>
-            <option value="Cancelled">Cancelled</option>
-          </select>
-
-          <button type="submit">Save</button>
-        </form>
-      </div>
-    </div>
-    <!-- Edit Modal -->
-    <div class="addform" id="editModal">
-      <div class="addform-content">
-        <span class="close" onclick="closeModal('editModal')">&times;</span>
-
-        <h2>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Edit Sale</h2>
-        <br><br>
-
-        <form method="post">
-          <input type="hidden" name="id" id="edit_id">
-          <input type="date" name="date" id="edit_date" required>
-          <input type="text" name="customer" id="edit_customer" required>
-          <input type="number" name="total" id="edit_total" required>
-          <select name="status" id="edit_status" required>
-            <option value="Pending">Pending</option>
-            <option value="Paid">Paid</option>
-            <option value="Cancelled">Cancelled</option>
-          </select>
-          <div class="row-actions">
-            <br>
-            <hr>
-            <br>
-            <button type="submit" name="edit_sale" class="edit">Update</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Delete Modal -->
-    <div class="addform" id="deleteModal">
-      <div class="addform-content">
-        <span class="close" onclick="closeModal('deleteModal')">&times;</span>
-
-        <h2>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Delete Sale</h2>
-        <br>
-        <form method="post">
-          <input type="hidden" name="id" id="delete_id">
-          <p>Are you sure you want to delete this sale?</p>
-          <div class="row-actions">
-            <br><br>
-            <hr>
-            <br><br>
-            <button type="submit" name="delete_sale" class="delx">Delete</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-
-
-    <!-- Analysis -->
-    <section id="sales-analysis" class="panel">
-      <div class="content">
-        <h2>Sales Analysis</h2>
-        <div class="analysis-controls">
-          <div class="filter-row">
-            <label>Year</label>
-            <select id="anYear"></select>
-            <label>Month</label>
-            <select id="anMonth">
-              <option value="all">All</option>
-              <option value="01">Jan</option>
-              <option value="02">Feb</option>
-              <option value="03">Mar</option>
-              <option value="04">Apr</option>
-              <option value="05">May</option>
-              <option value="06">Jun</option>
-              <option value="07">Jul</option>
-              <option value="08">Aug</option>
-              <option value="09">Sep</option>
-              <option value="10">Oct</option>
-              <option value="11">Nov</option>
-              <option value="12">Dec</option>
-            </select>
-            <label>Status</label>
-            <select id="anStatus">
-              <option value="">All</option>
-              <option value="Completed">Completed</option>
-              <option value="Pending">Pending</option>
-              <option value="Cancelled">Cancelled</option>
-            </select>
-            <button class="btn light" id="anReset">Reset</button>
+                  <?php foreach ($sales as $s): ?>
+                    <tr>
+                      <td><?= $s['id'] ?></td>
+                      <td><?= $s['date'] ?></td>
+                      <td><?= htmlspecialchars($s['customer']) ?></td>
+                      <td><?= $s['quantity'] ?></td>
+                      <td>LKR <?= number_format($s['total'],2) ?></td>
+                      <td><span class="badge <?= $s['status'] ?>"><?= $s['status'] ?></span></td>
+                      <td>
+                        <button class="edit" onclick="
+                          document.getElementById('edit_id').value='<?= $s['id'] ?>';
+                          document.getElementById('edit_date').value='<?= $s['date'] ?>';
+                          document.getElementById('edit_customer').value='<?= htmlspecialchars($s['customer']) ?>';
+                          document.getElementById('edit_quantity').value='<?= $s['quantity'] ?>';
+                          document.getElementById('edit_total').value='<?= $s['total'] ?>';
+                          document.getElementById('edit_status').value='<?= $s['status'] ?>';
+                          openModal('editModal');
+                        ">✏</button>
+                        <button class="del" onclick="
+                          document.getElementById('delete_id').value='<?= $s['id'] ?>';
+                          openModal('deleteModal');
+                        ">🗑</button>
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
+                <?php endif; ?>
+              </tbody>
+            </table>
           </div>
         </div>
-
-        <div class="mini-cards">
-          <div class="mini-card">
-            <h4>Revenue</h4>
-            <p id="anRevenue">$0</p>
-          </div>
-          <div class="mini-card">
-            <h4>Orders</h4>
-            <p id="anOrders">0</p>
-          </div>
-          <div class="mini-card">
-            <h4>Avg Order</h4>
-            <p id="anAOV">$0</p>
-          </div>
-          <div class="mini-card">
-            <h4>Top Customer</h4>
-            <p id="anTopCustomer">—</p>
-          </div>
-        </div>
-
-        <div class="charts-grid">
-          <div class="chart-card">
-            <h3>Revenue Over Time</h3>
-            <p class="muted" id="anRangeLabel"></p>
-            <div class="chart-wrap"><canvas id="anChartRevenue"></canvas></div>
-          </div>
-          <div class="chart-card">
-            <h3>Top Customers (Revenue)</h3>
-            <p class="muted">Top 5 for the selected period.</p>
-            <div class="chart-wrap"><canvas id="anChartTopCust"></canvas></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-
-    <!-- Export 
-      <section id="sales-export" class="panel">
-        <div class="content">
-          <h2>Export Reports</h2>
-          <div class="export-grid">
-            <div class="row">
-              <input type="date" id="expFrom" />
-              <input type="date" id="expTo" />
-              <select id="expStatus">
-                <option value="">All Status</option>
-                <option>Completed</option>
-                <option>Pending</option>
-                <option>Cancelled</option>
-              </select>
-              <input type="text" id="expCustomer" placeholder="Customer" />
-            </div>
-            <div class="row">
-              <button class="btn" id="expCsv">Export CSV</button>
-              <button class="btn secondary" id="expXlsx">Export Excel</button>
-              <button class="btn warn" id="expPdf">Export PDF</button>
-              <span class="muted">Exports use live, filtered data.</span>
-            </div>
-          </div>
-        </div>
-      </section>-->
-
-    <!-- Analysis -->
-    <section id="sales-analysis" class="panel">
-      <div class="content">
-        <h2>Sales Analysis</h2>
-        <div class="analysis-controls">
-          <div class="filter-row">
-            <label>Year</label>
-            <select id="anYear"></select>
-            <label>Month</label>
-            <select id="anMonth">
-              <option value="all">All</option>
-              <option value="01">Jan</option>
-              <option value="02">Feb</option>
-              <option value="03">Mar</option>
-              <option value="04">Apr</option>
-              <option value="05">May</option>
-              <option value="06">Jun</option>
-              <option value="07">Jul</option>
-              <option value="08">Aug</option>
-              <option value="09">Sep</option>
-              <option value="10">Oct</option>
-              <option value="11">Nov</option>
-              <option value="12">Dec</option>
-            </select>
-            <label>Status</label>
-            <select id="anStatus">
-              <option value="">All</option>
-              <option value="Completed">Completed</option>
-              <option value="Pending">Pending</option>
-              <option value="Cancelled">Cancelled</option>
-            </select>
-            <button class="btn light" id="anReset">Reset</button>
-          </div>
-        </div>
-
-        <div class="mini-cards">
-          <div class="mini-card">
-            <h4>Revenue</h4>
-            <p id="anRevenue">$0</p>
-          </div>
-          <div class="mini-card">
-            <h4>Orders</h4>
-            <p id="anOrders">0</p>
-          </div>
-          <div class="mini-card">
-            <h4>Avg Order</h4>
-            <p id="anAOV">$0</p>
-          </div>
-          <div class="mini-card">
-            <h4>Top Customer</h4>
-            <p id="anTopCustomer">—</p>
-          </div>
-        </div>
-
-        <div class="charts-grid">
-          <div class="chart-card">
-            <h3>Revenue Over Time</h3>
-            <p class="muted" id="anRangeLabel"></p>
-            <div class="chart-wrap"><canvas id="anChartRevenue"></canvas></div>
-          </div>
-          <div class="chart-card">
-            <h3>Top Customers (Revenue)</h3>
-            <p class="muted">Top 5 for the selected period.</p>
-            <div class="chart-wrap"><canvas id="anChartTopCust"></canvas></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
+      </section>
     </main>
-    </div>
+  </div>
 
-    <!-- Modal Add/Edit -->
-    <div class="modal-backdrop" id="modalBackdrop">
-      <div class="modal">
-        <h2 id="modalTitle">Add Sale</h2>
-        <div class="form-grid">
-          <div><label>ID</label><input id="fId" type="number" placeholder="e.g. 1001"></div>
-          <div><label>Date</label><input id="fDate" type="date"></div>
-          <div class="full"><label>Customer</label><input id="fCustomer" type="text" placeholder="Customer name"></div>
-          <div><label>Total</label><input id="fTotal" type="number" step="0.01" placeholder="Amount"></div>
-          <div>
-            <label>Status</label>
-            <select id="fStatus">
-              <option>Completed</option>
-              <option>Pending</option>
-              <option>Cancelled</option>
-            </select>
-          </div>
+  <!-- Add Sale Modal -->
+  <div id="AddForm" class="addform">
+    <div class="addform-content">
+      <span class="close" onclick="closeForm()">&times;</span>
+      <h2>Add New Sale</h2>
+      <form method="POST" action="">
+        <input type="hidden" name="action" value="add_sale">
+
+        <label>Date</label>
+        <input type="date" name="date" value="<?= date('Y-m-d') ?>" required><br>
+
+        <label>Customer Name *</label>
+        <input type="text" id="customerInput" name="customer" autocomplete="off" required placeholder="Start typing...">
+        <div id="suggestions"></div>
+
+        <div id="newCustomerSection" style="display:none; margin-top:15px; padding:10px; background:#f5f5ff; border:1px solid #ccc; border-radius:6px;">
+          <h4>New Customer Details</h4>
+          <label>Email *</label>
+          <input type="email" name="customer_email" placeholder="Required if new"><br>
+          <label>Mobile</label>
+          <input type="text" name="customer_mobile" placeholder="077..."><br>
+          <label>Address</label>
+          <input type="text" name="customer_address" placeholder="Street / City"><br>
+          <label>District</label>
+          <input type="text" name="customer_district" placeholder="e.g. Colombo"><br>
         </div>
-        <div class="footer">
-          <button class="btn light" id="btnCancel">Cancel</button>
-          <button class="btn" id="btnSave">Save</button>
-        </div>
-      </div>
+
+        <label>Quantity</label>
+        <input type="number" name="quantity" min="1" value="1" required><br>
+        <label>Total (LKR)</label>
+        <input type="number" step="0.01" name="total" min="0.01" required><br>
+        <label>Status</label>
+        <select name="status">
+          <option>Pending</option>
+          <option>Paid</option>
+          <option>Cancelled</option>
+          <option>Returned</option>
+        </select><br><br>
+
+        <button type="submit" style="width:100%;">Save Sale</button>
+      </form>
     </div>
+  </div>
 
+  <!-- Edit Modal -->
+  <div id="editModal" class="addform">
+    <div class="addform-content">
+      <span class="close" onclick="closeModal('editModal')">&times;</span>
+      <h2>Edit Sale</h2>
+      <form method="POST" action="">
+        <input type="hidden" name="id" id="edit_id">
+        <label>Date</label>
+        <input type="date" name="date" id="edit_date" required><br>
+        <label>Customer Name *</label>
+        <input type="text" name="customer" id="edit_customer" required><br>
+        <label>Quantity</label>
+        <input type="number" name="quantity" id="edit_quantity" min="1" required><br>
+        <label>Total (LKR)</label>
+        <input type="number" step="0.01" name="total" id="edit_total" min="0.01" required><br>
+        <label>Status</label>
+        <select name="status" id="edit_status">
+          <option>Pending</option>
+          <option>Paid</option>
+          <option>Cancelled</option>
+          <option>Returned</option>
+        </select><br><br>
+        <button type="submit" name="edit_sale" style="width:100%;">Update Sale</button>
+      </form>
+    </div>
+  </div>
 
+  <!-- Delete Modal -->
+  <div id="deleteModal" class="addform">
+    <div class="addform-content">
+      <span class="close" onclick="closeModal('deleteModal')">&times;</span>
+      <h2>Delete Sale</h2>
+      <form method="POST" action="">
+        <input type="hidden" name="id" id="delete_id">
+        <p>Are you sure you want to delete this sale?</p>
+        <button type="submit" name="delete_sale" style="background:#f44336; color:#fff; padding:10px; border:none; width:100%; border-radius:4px;">Delete</button>
+      </form>
+    </div>
+  </div>
 
-
-    <script>
-      let chartRevenue, chartTopCust;
-
-      // Populate year dropdown
-      const yearSel = document.getElementById("anYear");
-      const thisYear = new Date().getFullYear();
-      for (let y = thisYear; y >= thisYear - 5; y--) {
-        let opt = document.createElement("option");
-        opt.value = y; opt.textContent = y;
-        if (y === thisYear) opt.selected = true;
-        yearSel.appendChild(opt);
+  <script>
+    const allCustomers = <?php
+      // Pull existing names from users and past sales
+      $tmp = new mysqli($host, $user, $pass, $db);
+      $res = $tmp->query("SELECT DISTINCT full_name FROM users UNION SELECT DISTINCT customer FROM sales WHERE customer != ''");
+      $arr = [];
+      while ($r = $res->fetch_row()) {
+        $arr[] = htmlspecialchars($r[0], ENT_QUOTES);
       }
+      echo json_encode($arr);
+      $tmp->close();
+    ?>;
 
-      function loadAnalysis() {
-        const year = document.getElementById("anYear").value;
-        const month = document.getElementById("anMonth").value;
-        const status = document.getElementById("anStatus").value;
+    const input = document.getElementById('customerInput');
+    const suggestions = document.getElementById('suggestions');
+    const newSection = document.getElementById('newCustomerSection');
 
-        fetch(`sales_analysis_api.php?year=${year}&month=${month}&status=${status}`)
-          .then(res => res.json())
-          .then(data => {
-            // Mini-cards
-            document.getElementById("anRevenue").textContent = "$" + data.revenue.toFixed(2);
-            document.getElementById("anOrders").textContent = data.orders;
-            document.getElementById("anAOV").textContent = "$" + data.aov.toFixed(2);
-            document.getElementById("anTopCustomer").textContent = data.topCustomer;
-
-            // Revenue chart
-            const labels = Object.keys(data.dailyRevenue);
-            const values = Object.values(data.dailyRevenue);
-
-            if (chartRevenue) chartRevenue.destroy();
-            chartRevenue = new Chart(document.getElementById("anChartRevenue"), {
-              type: "line",
-              data: {
-                labels: labels,
-                datasets: [{
-                  label: "Revenue",
-                  data: values,
-                  borderColor: "#2563eb",
-                  backgroundColor: "rgba(37,99,235,0.2)",
-                  tension: 0.3,
-                  fill: true
-                }]
-              }
-            });
-
-            // Top customers chart
-            if (chartTopCust) chartTopCust.destroy();
-            chartTopCust = new Chart(document.getElementById("anChartTopCust"), {
-              type: "bar",
-              data: {
-                labels: Object.keys(data.topCustomers),
-                datasets: [{
-                  label: "Revenue",
-                  data: Object.values(data.topCustomers),
-                  backgroundColor: "#16a34a"
-                }]
-              }
-            });
-
-            // Range label
-            document.getElementById("anRangeLabel").textContent =
-              (month === "all" ? "Monthly revenue in " + year : "Daily revenue in " + year + "-" + month);
-          });
+    input.addEventListener('input', () => {
+      let q = input.value.trim().toLowerCase();
+      suggestions.innerHTML = '';
+      suggestions.style.display = 'none';
+      if (q.length < 1) {
+        newSection.style.display = 'none';
+        return;
       }
-
-      // Event listeners
-      document.getElementById("anYear").addEventListener("change", loadAnalysis);
-      document.getElementById("anMonth").addEventListener("change", loadAnalysis);
-      document.getElementById("anStatus").addEventListener("change", loadAnalysis);
-      document.getElementById("anReset").addEventListener("click", () => {
-        document.getElementById("anYear").value = thisYear;
-        document.getElementById("anMonth").value = "all";
-        document.getElementById("anStatus").value = "";
-        loadAnalysis();
-      });
-
-      // Initial load
-      loadAnalysis();
-
-
-
-
-
-      document.getElementById("btnExportCsv").addEventListener("click", () => {
-        window.location.href = "?<?= http_build_query(array_merge($_GET,["export "=>"csv"])) ?>";
-      });
-
-
-
-
-
-      const sales = <?= json_encode($sales) ?>;
-
-      // --- Prepare Data by Date ---
-      const daily = {};
-      sales.forEach(s => {
-        daily[s.date] = (daily[s.date] || 0) + Number(s.total);
-      });
-      const labels = Object.keys(daily).sort();
-      const values = labels.map(d => daily[d]);
-
-      new Chart(document.getElementById("chartRevenue"), {
-        type: "line",
-        data: {
-          labels,
-          datasets: [{
-            label: "Revenue",
-            data: values,
-            borderColor: "blue",
-            fill: false
-          }]
-        }
-      });
-
-      //popup Add 
-
-      function openForm() {
-        document.getElementById("AddForm").style.display = "flex"; // show
+      let matches = allCustomers.filter(n => n.toLowerCase().includes(q)).slice(0, 8);
+      if (matches.length) {
+        suggestions.style.display = 'block';
+        suggestions.innerHTML = matches.map(n => `<div onclick="selectCust('${n.replace(/'/g, "\\'")}')">${n}</div>`).join('');
+        newSection.style.display = 'none';
+      } else {
+        newSection.style.display = 'block';
       }
+    });
 
-      function closeForm() {
-        document.getElementById("AddForm").style.display = "none"; // hide
+    function selectCust(name) {
+      input.value = name;
+      suggestions.style.display = 'none';
+      newSection.style.display = 'none';
+    }
+
+    document.addEventListener('click', e => {
+      if (!e.target.closest('#customerInput') && !e.target.closest('#suggestions')) {
+        suggestions.style.display = 'none';
       }
+    });
 
-      //edit and delete
-      function openModal(id) { document.getElementById(id).style.display = "flex"; }
-      function closeModal(id) { document.getElementById(id).style.display = "none"; }
+    function openForm() {
+      document.getElementById('AddForm').style.display = 'flex';
+      input.value = '';
+      suggestions.innerHTML = '';
+      newSection.style.display = 'none';
+    }
+    function closeForm() {
+      document.getElementById('AddForm').style.display = 'none';
+    }
+    function openModal(id) {
+      document.getElementById(id).style.display = 'flex';
+    }
+    function closeModal(id) {
+      document.getElementById(id).style.display = 'none';
+    }
 
-
-      //sort js
-
-      document.querySelectorAll("#salesTable th").forEach((th, idx) => {
-        th.addEventListener("click", () => {
-          const table = th.closest("table");
-          const tbody = table.querySelector("tbody");
-          const rows = Array.from(tbody.querySelectorAll("tr"));
-          const asc = th.classList.toggle("asc"); // toggle ascending/descending
-
-          rows.sort((a, b) => {
-            let valA = a.cells[idx].innerText.trim();
-            let valB = b.cells[idx].innerText.trim();
-
-            // If numeric, compare as numbers
-            if (!isNaN(valA) && !isNaN(valB)) {
-              valA = Number(valA);
-              valB = Number(valB);
-            }
-
-            return asc ? (valA > valB ? 1 : -1) : (valA < valB ? 1 : -1);
-          });
-
-          rows.forEach(row => tbody.appendChild(row));
-        });
+    document.getElementById('globalSearch').addEventListener('input', e => {
+      let s = e.target.value.toLowerCase();
+      document.querySelectorAll('#salesTable tbody tr').forEach(r => {
+        r.style.display = r.textContent.toLowerCase().includes(s) ? '' : 'none';
       });
-
-
-
-
-
-
-
-
-    </script>
+    });
+  </script>
 </body>
-
 </html>

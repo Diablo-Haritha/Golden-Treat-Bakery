@@ -630,7 +630,7 @@ $admins = count(array_filter($users, fn($r) => $r['role'] === 'admin'));
         <button class="salesbtn" disabled>User</button>
         <div class="otherbtn">
           <button class="Sbtn" onclick="window.location.href='sales.html'">Sales</button>
-          <button class="Ubtn" onclick="window.location.href='order.html'">Order</button>
+          <button class="Ubtn" onclick="window.location.href='./order.php'">Order</button>
           <button class="Bbtn" onclick="window.location.href='booking.html'">Booking</button>
         </div>
         <hr />

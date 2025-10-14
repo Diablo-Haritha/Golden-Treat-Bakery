@@ -25,10 +25,32 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-// Handle form submissions and AJAX requests
+// Configure session cookie parameters
+session_set_cookie_params([
+    'lifetime' => 0, // Session cookie expires when browser closes
+    'path' => '/',
+    'secure' => false, // Set to true in production with HTTPS
+    'httponly' => true, // Prevent JavaScript access
+    'samesite' => 'Strict' // Prevent CSRF
+]);
 session_start();
-$message = ""; // For success/error messages
 
+// Session timeout (30 minutes)
+if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > 1800)) {
+    session_unset();
+    session_destroy();
+    header("Location: login.php");
+    exit();
+}
+$_SESSION['last_activity'] = time(); // Update last activity time
+
+// Initialize message
+$message = "";
+
+// Debug session data (remove in production)
+error_log("Session data: " . print_r($_SESSION, true));
+
+// Handle form submissions and AJAX requests
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action'])) {
     if ($_POST['action'] == 'register') {
         // Registration logic
@@ -74,7 +96,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action'])) {
         $email = mysqli_real_escape_string($conn, $_POST['login-email']);
         $password = mysqli_real_escape_string($conn, $_POST['login-password']);
 
-        $sql = "SELECT * FROM users WHERE email = ?";
+        $sql = "SELECT id, full_name, password, role FROM users WHERE email = ?";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("s", $email);
         $stmt->execute();
@@ -82,15 +104,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action'])) {
         if ($result->num_rows > 0) {
             $row = $result->fetch_assoc();
             if (password_verify($password, $row['password'])) {
-                $_SESSION['user_id'] = $row['id'];
+                session_regenerate_id(true); // Prevent session fixation
+                $_SESSION['user_id'] = (int)$row['id']; // Ensure user_id is an integer
                 $_SESSION['role'] = $row['role'];
                 $_SESSION['full_name'] = $row['full_name'];
+                $_SESSION['last_activity'] = time();
+                $_SESSION['session_id'] = session_id(); // Store session ID for guest order linking
 
-               if (in_array($row['role'], ['admin', 'manager'])) {
+                error_log("Login successful: user_id={$_SESSION['user_id']}, session_id={$_SESSION['session_id']}");
+
+                if (in_array($row['role'], ['admin', 'manager'])) {
                     header("Location: adminproduct.php");
                     exit();
                 } else {
-                    header("Location: index.php");
+                    // Redirect to index.php with user_id for cart/order linking
+                    header("Location: ../Customer/index.php");
                     exit();
                 }
             } else {
@@ -255,7 +283,7 @@ $conn->close();
     <title>Golden Treat - Login & Register</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Dancing+Script:wght@400;700&family=Righteous&display=swap" rel="stylesheet">
     <style>
-        /* CSS remains unchanged from the original */
+        /* CSS remains unchanged */
         :root {
             --bg: #FFE8B7;
             --primary: #D4AF37;
@@ -750,7 +778,7 @@ $conn->close();
     </style>
 </head>
 <body>
-    <button style="position: absolute; top: 10px; left: 10px; padding: 8px 16px; font-size: 14px; color: #fff; background: orange; border: none; border-radius: 4px; cursor: pointer; z-index: 6;" onmouseover="this.style.background='orange'" onmouseout="this.style.background='orange'" onclick="window.location.href='index.php'">← Back</button>
+    <button style="position: absolute; top: 10px; left: 10px; padding: 8px 16px; font-size: 14px; color: #fff; background: orange; border: none; border-radius: 4px; cursor: pointer; z-index: 6;" onmouseover="this.style.background='orange'" onmouseout="this.style.background='orange'" onclick="window.location.href='../Customer/index.php'">← Back</button>
     <div class="frosting-bg"></div>
     <div class="sprinkles"></div>
     <div class="sprinkle-burst" id="sprinkle-burst"></div>

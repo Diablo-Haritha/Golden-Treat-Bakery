@@ -17,11 +17,145 @@ function refValues($arr){
     foreach ($arr as $k => $v) $refs[$k] = &$arr[$k];
     return $refs;
 }
+// purchase_returns.php (action=create)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_GET['action'] ?? '') === 'create') {
+    $order_id = (int)($_POST['order_id'] ?? 0);
+    $qty = (int)($_POST['quantity'] ?? 0);
+    $reason = trim($_POST['reason'] ?? '');
+    $refund = isset($_POST['refund_amount']) ? (float)$_POST['refund_amount'] : null;
+    $processed_by = $_SESSION['user_id'] ?? null;
+
+    if ($order_id <= 0 || $qty <= 0) {
+        // error
+    } else {
+        $stmt = $conn->prepare("INSERT INTO returns (order_id, return_date, quantity, reason, refund_amount, processed_by, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())");
+        $date = date('Y-m-d');
+        if ($refund === null) $refund = 0; // or calculate in trigger/app
+        $stmt->bind_param("isisd i", $order_id, $date, $qty, $reason, $refund, $processed_by);
+        // Note: binding types: i,s,i,s,d,i - adjust if needed
+        if (!$stmt->execute()) {
+            // handle error
+        } else {
+            // success — trigger will update orders & history
+            header("Location: returns_list.php?success=1");
+            exit;
+        }
+    }
+}
+// purchase_returns.php (action=restore)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_GET['action'] ?? '') === 'restore') {
+    $return_id = (int)($_POST['return_id'] ?? 0);
+    $restored_by = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+    $flash_error = '';
+
+    if ($return_id <= 0) {
+        $flash_error = "Invalid return ID.";
+    } else {
+        try {
+            $conn->begin_transaction();
+
+            // Lock and fetch the return row
+            $sel_return = $conn->prepare("SELECT order_id, quantity, refund_amount, reason FROM returns WHERE id_auto = ? FOR UPDATE");
+            if (!$sel_return) throw new Exception("Prepare failed (select return): " . $conn->error);
+            $sel_return->bind_param("i", $return_id);
+            $sel_return->execute();
+            $res_return = $sel_return->get_result();
+            $return_row = $res_return->fetch_assoc();
+            $sel_return->close();
+
+            if (!$return_row) {
+                throw new Exception("Return not found (id: $return_id).");
+            }
+
+            $order_id = (int)$return_row['order_id'];
+            $return_qty = (int)$return_row['quantity'];
+            $refund_amount = (float)$return_row['refund_amount'];
+            $reason = $return_row['reason'];
+
+            // Lock and fetch the order row
+            $sel_order = $conn->prepare("SELECT quantity, price, total_amount, status, original_quantity, original_price, deleted_at FROM orders WHERE id = ? FOR UPDATE");
+            if (!$sel_order) throw new Exception("Prepare failed (select order): " . $conn->error);
+            $sel_order->bind_param("i", $order_id);
+            $sel_order->execute();
+            $res_order = $sel_order->get_result();
+            $order_row = $res_order->fetch_assoc();
+            $sel_order->close();
+
+            if (!$order_row) {
+                throw new Exception("Order not found (id: $order_id).");
+            }
+            if (!empty($order_row['deleted_at'])) {
+                throw new Exception("Operation denied: this order has been deleted.");
+            }
+
+            $current_qty = (int)$order_row['quantity'];
+            $price_per_unit = (float)$order_row['price'];
+            $current_total = (float)$order_row['total_amount'];
+            $old_status = $order_row['status'];
+            $original_qty = (int)($order_row['original_quantity'] ?? ($current_qty + $return_qty)); // Fallback if not set
+
+            // Compute new values
+            $new_qty = $current_qty + $return_qty;
+            $new_total = max(0.00, $price_per_unit * $new_qty);
+
+            // Determine new status
+            if ($new_qty == $original_qty) {
+                $new_status = 'Order Received'; // Or whatever the default/pre-return status is
+            } elseif ($new_qty == 0) {
+                $new_status = 'Returned';
+            } else {
+                $new_status = 'Partially Returned';
+            }
+
+            // Update orders
+            $upd_order = $conn->prepare("UPDATE orders SET quantity = ?, total_amount = ?, status = ? WHERE id = ?");
+            if (!$upd_order) throw new Exception("Prepare failed (update orders): " . $conn->error);
+            $upd_order->bind_param("idsi", $new_qty, $new_total, $new_status, $order_id);
+            if (!$upd_order->execute()) {
+                throw new Exception("Update orders failed: " . $upd_order->error);
+            }
+            $upd_order->close();
+
+            // Insert status history
+            $note = "Return undone (qty added back: {$return_qty}, reason was: {$reason})";
+            $hist = $conn->prepare("INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+            if (!$hist) throw new Exception("Prepare failed (insert history): " . $conn->error);
+            if ($restored_by === null) {
+                $hist = $conn->prepare("INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, ?, ?, NULL, ?, NOW())");
+                if (!$hist) throw new Exception("Prepare failed (insert history null): " . $conn->error);
+                $hist->bind_param("isss", $order_id, $old_status, $new_status, $note);
+            } else {
+                $hist->bind_param("issis", $order_id, $old_status, $new_status, $restored_by, $note);
+            }
+            if (!$hist->execute()) {
+                throw new Exception("Insert history failed: " . $hist->error);
+            }
+            $hist->close();
+
+            // Delete the return row
+            $del = $conn->prepare("DELETE FROM returns WHERE id_auto = ?");
+            if (!$del) throw new Exception("Prepare failed (delete return): " . $conn->error);
+            $del->bind_param("i", $return_id);
+            if (!$del->execute()) {
+                throw new Exception("Delete return failed: " . $del->error);
+            }
+            $del->close();
+
+            $conn->commit();
+            header("Location: purchase_returns.php?restored=1");
+            exit;
+        } catch (Exception $e) {
+            $conn->rollback();
+            $flash_error = "Restore failed: " . $e->getMessage();
+        }
+    }
+    // If error, perhaps set session flash or something
+}
 
 // read filters (GET)
 $from = isset($_GET['from']) && $_GET['from'] !== '' ? $_GET['from'] : '';
 $to   = isset($_GET['to'])   && $_GET['to']   !== '' ? $_GET['to']   : '';
-$customer = isset($_GET['customer']) ? trim($_GET['customer']) : '';
+$customer_name = isset($_GET['customer_name']) ? trim($_GET['customer_name']) : '';
 $order_id = isset($_GET['order_id']) && $_GET['order_id'] !== '' ? (int)$_GET['order_id'] : '';
 $processed_by = isset($_GET['processed_by']) && $_GET['processed_by'] !== '' ? (int)$_GET['processed_by'] : '';
 $limit = 2000; // safety limit
@@ -49,10 +183,10 @@ if ($to !== '') {
     $types .= 's';
     $values[] = $to;
 }
-if ($customer !== '') {
-    $where[] = "o.customer LIKE ?";
+if ($customer_name !== '') {
+    $where[] = "o.customer_name LIKE ?";
     $types .= 's';
-    $values[] = '%' . $customer . '%';
+    $values[] = '%' . $customer_name . '%';
 }
 if ($order_id) {
     $where[] = "r.order_id = ?";
@@ -83,7 +217,7 @@ SELECT
   u.full_name AS processed_by_name,
   r.created_at AS recorded_at,
   o.order_date AS order_date,
-  o.customer,
+  o.customer_name,
   o.product
 FROM returns r
 LEFT JOIN orders o ON o.id = r.order_id
@@ -170,7 +304,9 @@ foreach ($rows as $r) {
       <section id="returns-panel" class="panel active">
         <div class="content"> <!-- keep content white for clarity -->
           <h2>Purchase Returns</h2>
-
+<?php if (isset($flash_error)): ?>
+    <div class="alert error"><?= htmlspecialchars($flash_error) ?></div>
+<?php endif; ?>
           <div class="cards" style="grid-template-columns: repeat(3, 1fr);">
             <div class="card">
               <h3>Total Returned Qty</h3>
@@ -194,7 +330,7 @@ foreach ($rows as $r) {
               <label>To:
               <input type="date" name="to" value="<?= htmlspecialchars($to) ?>" />
               </label>
-              <input type="text" name="customer" placeholder="Customer" value="<?= htmlspecialchars($customer) ?>" />
+              <input type="text" name="customer_name" placeholder="customer_name" value="<?= htmlspecialchars($customer_name) ?>" />
               <input type="number" name="order_id" placeholder="Order ID" value="<?= ($order_id ? (int)$order_id : '') ?>" />
               <input type="number" name="processed_by" placeholder="Processed by (admin id)" value="<?= ($processed_by ? (int)$processed_by : '') ?>" />
               <button class="btn primary" type="submit"><i class="fa-solid fa-filter"></i> Filter</button>
@@ -228,19 +364,22 @@ foreach ($rows as $r) {
                     <td><?= htmlspecialchars($r['order_id']) ?></td>
                     <td><?= htmlspecialchars($r['order_date']) ?></td>
                     <td><?= htmlspecialchars($r['return_date']) ?></td>
-                    <td><?= htmlspecialchars($r['customer']) ?></td>
+                    <td><?= htmlspecialchars($r['customer_name']) ?></td>
                     <td><?= htmlspecialchars($r['product']) ?></td>
                     <td><?= (int)$r['returned_quantity'] ?></td>
                     <td><?= number_format((float)$r['refund_amount'],2) ?></td>
                     <td><?= htmlspecialchars($r['processed_by_name'] ?: $r['processed_by']) ?></td>
                     <td>
+                      <!-- Add your action buttons here, e.g., -->
+                     <button class="btnrestore" type="button" data-return-id="<?= htmlspecialchars($r['return_id']) ?>"><i class="fa-solid fa-rotate-left"></i></button> 
+
                       <!-- view button inside last cell; data-* attributes used to populate modal -->
                       <button class="btnview" type="button"
                         data-return-id="<?= htmlspecialchars($r['return_id']) ?>"
                         data-order-id="<?= htmlspecialchars($r['order_id']) ?>"
                         data-order-date="<?= htmlspecialchars($r['order_date']) ?>"
                         data-return-date="<?= htmlspecialchars($r['return_date']) ?>"
-                        data-customer="<?= htmlspecialchars($r['customer']) ?>"
+                        data-customer_name="<?= htmlspecialchars($r['customer_name']) ?>"
                         data-product="<?= htmlspecialchars($r['product']) ?>"
                         data-returned-quantity="<?= htmlspecialchars($r['returned_quantity']) ?>"
                         data-refund-amount="<?= htmlspecialchars(number_format((float)$r['refund_amount'],2)) ?>"

@@ -1,0 +1,105 @@
+-- 1) create order_items (supports customization JSON if needed)
+CREATE TABLE IF NOT EXISTS order_items (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  order_id INT NOT NULL,
+  product_name VARCHAR(255) NOT NULL,
+  product_id INT NULL,
+  sku VARCHAR(100) DEFAULT NULL,
+  quantity INT NOT NULL DEFAULT 1,
+  unit_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  total_price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  customizations JSON DEFAULT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_order_id (order_id),
+  CONSTRAINT fk_orderitems_orders FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 2) migrate existing denormalized rows into order_items
+INSERT INTO order_items (order_id, product_name, product_id, quantity, unit_price, total_price, created_at)
+SELECT id AS order_id,
+       product AS product_name,
+       NULL AS product_id,
+       COALESCE(quantity,1) AS quantity,
+       COALESCE(price,0.00) AS unit_price,
+       COALESCE(price,0.00) * COALESCE(quantity,1) AS total_price,
+       created_at
+FROM orders;
+
+-- 3) recalc orders.total_amount from order_items
+UPDATE orders o
+SET total_amount = (
+  SELECT IFNULL(SUM(total_price),0) FROM order_items it WHERE it.order_id = o.id
+);
+
+-- 4) sanity checks (select some samples)
+SELECT o.id, o.order_number, o.total_amount, it.product_name, it.quantity, it.unit_price
+FROM orders o
+LEFT JOIN order_items it ON it.order_id = o.id
+ORDER BY o.id LIMIT 30;
+====================================================
+Optional cleanup (do this only after you confirm migration)
+
+ALTER TABLE orders
+  DROP COLUMN product,
+  DROP COLUMN quantity,
+  DROP COLUMN price;
+====================================================
+Example queries after normalization
+
+SELECT o.*, JSON_ARRAYAGG(JSON_OBJECT(
+  'product', it.product_name, 'qty', it.quantity, 'unit_price', it.unit_price, 'total', it.total_price
+)) AS items
+FROM orders o
+JOIN order_items it ON it.order_id = o.id
+WHERE o.id = 5
+GROUP BY o.id;
+
+Sales per product:
+SELECT product_name, SUM(quantity) AS sold, SUM(total_price) AS revenue
+FROM order_items
+GROUP BY product_name
+ORDER BY revenue DESC;
+
+-- ============================================================
+-- OPTIONAL: Trigger for Order Status Updates (to sync Sales Status)
+-- ============================================================
+
+-- This trigger fires AFTER UPDATE on 'orders' to update the corresponding sale's status.
+-- Assumption: There is one sale per order (based on the insert trigger above).
+-- Links via a potential order_id in sales? Wait, sales doesn't have order_id.
+-- To make this work properly, we need to add an 'order_id' field to sales table for linking.
+-- For now, this is a placeholder; recommend adding 'order_id INT NULL FOREIGN KEY REFERENCES orders(id)' to sales.
+
+-- First, ALTER sales table to add order_id (if not exists)
+-- ALTER TABLE sales ADD COLUMN IF NOT EXISTS order_id INT NULL AFTER customer,
+-- ADD FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE SET NULL;
+
+-- Then, the trigger (uncomment after ALTER):
+/*
+DELIMITER $$
+
+CREATE TRIGGER trg_orders_after_update_sync_sale
+AFTER UPDATE ON orders
+FOR EACH ROW
+BEGIN
+    DECLARE sale_status VARCHAR(20) DEFAULT 'Pending';
+    
+    -- Map updated order status to sales status
+    CASE NEW.status
+        WHEN 'pending' THEN SET sale_status = 'Pending';
+        WHEN 'confirmed' THEN SET sale_status = 'Paid';
+        WHEN 'preparing' THEN SET sale_status = 'Pending';
+        WHEN 'ready' THEN SET sale_status = 'Paid';
+        WHEN 'completed' THEN SET sale_status = 'Paid';
+        ELSE SET sale_status = 'Pending';
+    END CASE;
+    
+    -- Update the linked sale (assumes order_id in sales)
+    UPDATE sales 
+    SET status = sale_status, 
+        updated_at = CURRENT_TIMESTAMP  -- If you add updated_at to sales
+    WHERE order_id = NEW.id;
+END$$
+
+DELIMITER ;
+*/
