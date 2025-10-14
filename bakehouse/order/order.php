@@ -19,98 +19,122 @@ function refValues($arr){
     foreach ($arr as $k => $v) $refs[$k] = &$arr[$k];
     return $refs;
 }
-
+// Get unique statuses for filter dropdown
+$enumRes = $conn->query("SELECT DISTINCT status FROM orders WHERE deleted_at IS NULL ORDER BY status");
+$enumList = [];
+while ($row = $enumRes->fetch_assoc()) {
+    $enumList[] = $row['status'];
+}
 // Handle POST actions: add / edit / delete
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? null;
 
-    if ($action === 'add') {
-// ensure required fields
-$order_date = !empty($_POST['order_date']) ? $_POST['order_date'] : date('Y-m-d');
-$customer   = trim($_POST['customer_name'] ?? '');
-$product    = trim($_POST['product'] ?? '');
-$quantity   = (int)($_POST['quantity'] ?? 1);
-$price      = (float)($_POST['price'] ?? 0.00);
-$status     = $_POST['status'] ?? 'Pending';
+if ($action === 'add') {
+    $order_date = !empty($_POST['order_date']) ? $_POST['order_date'] : date('Y-m-d');
+    $customer = trim($_POST['customer_name'] ?? '');
+    $product = trim($_POST['product'] ?? '');
+    $quantity = (int)($_POST['quantity'] ?? 1);
+    $price = (float)($_POST['price'] ?? 0.00);
+    $status = $_POST['status'] ?? 'Order Received';  // Align with DB default
 
-$total_amount = $price * $quantity;
+    if (empty($customer) || empty($product)) {
+        $flash_error = "Customer name and product are required.";
+    } else {
+        $total_amount = $price * $quantity;
+        // Generate order number
+        $maxOrdRes = $conn->query("SELECT MAX(id) as max_id FROM orders");
+        $maxId = ($maxOrdRes->fetch_assoc()['max_id'] ?? 0) + 1;
+        $order_number = sprintf('ORD-%06d', $maxId);
 
-$stmt = $conn->prepare("INSERT INTO orders (order_date, customer_name, product, quantity, price, total_amount, status) VALUES (?, ?, ?, ?, ?, ?, ?)");
-if ($stmt) {
-    $stmt->bind_param("sssidds", $order_date, $customer, $product, $quantity, $price, $total_amount, $status);
-    $ok = $stmt->execute();
-    $err = $stmt->error;
-    $stmt->close();
-    if (!$ok) $flash_error = "Insert failed: " . $err;
-    else { header("Location: " . $_SERVER['PHP_SELF']); exit; }
-} else {
-    $flash_error = "Insert failed: " . $conn->error;
- }
-}
+        $stmt = $conn->prepare("INSERT INTO orders (order_number, order_date, customer_name, product, quantity, price, total_amount, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        if ($stmt) {
+            $stmt->bind_param("ssssidds", $order_number, $order_date, $customer, $product, $quantity, $price, $total_amount, $status);
+            $ok = $stmt->execute();
+            $err = $stmt->error;
+            $stmt->close();
+            if (!$ok) $flash_error = "Insert failed: " . $err;
+            else { header("Location: " . $_SERVER['PHP_SELF']); exit; }
+        } else {
+            $flash_error = "Insert failed: " . $conn->error;
+        }
+    }
 }
 
    // require_once __DIR__ . '/sms_helpers.php';
 
-    if ($action === 'edit') {
+ if ($action === 'edit') {
     $id = (int)($_POST['id'] ?? 0);
 
-    // --- IMPORTANT: collect fields from POST (same as add) ---
-    $order_date = !empty($_POST['order_date']) ? $_POST['order_date'] : ($oldRow['order_date'] ?? date('Y-m-d'));
-    $customer   = trim($_POST['customer_name'] ?? '');
-    $product    = trim($_POST['product'] ?? '');
-    $quantity   = (int)($_POST['quantity'] ?? 1);
-    $price      = (float)($_POST['price'] ?? 0.00);
-    $new_status = $_POST['status'] ?? 'Pending';
+    // Fetch old row FIRST (added order_date, product for defaults)
+    $sel = $conn->prepare("SELECT status, customer_name, order_date, product, deleted_at FROM orders WHERE id = ? LIMIT 1");
+    $sel->bind_param("i", $id);
+    $sel->execute();
+    $resOld = $sel->get_result();
+    $oldRow = $resOld->fetch_assoc();
+    $sel->close();
 
-    // fetch old status
-    $sel = $conn->prepare("SELECT status, customer_name, deleted_at FROM orders WHERE id = ? LIMIT 1");
-$sel->bind_param("i", $id);
-$sel->execute();
-$resOld = $sel->get_result();
-$oldRow = $resOld->fetch_assoc();
-$sel->close();
-
-if (!$oldRow || !empty($oldRow['deleted_at'])) {
-    $flash_error = "Order not found or has been deleted.";
-    // stop further processing for this request
-    header("Location: " . $_SERVER['PHP_SELF']);
-    exit;
-}
-$old_status = $oldRow['status'] ?? null;
-$customerName = $oldRow['customer'] ?? '';
-
-    // perform update (existing code)
-    $stmt = $conn->prepare("UPDATE orders SET order_date = ?, customer_name = ?, product = ?, quantity = ?, price = ?, status = ? WHERE id = ?");
-    $stmt->bind_param("sssidsi", $order_date, $customer, $product, $quantity, $price, $new_status, $id);
-    $ok = $stmt->execute();
-    $err = $stmt->error;
-    $stmt->close();
-  
-    if (!$ok) $flash_error = "Update failed: " . $err;
-    else {
-        // if status changed, add history and send SMS
-       if ($old_status !== null && $old_status !== $new_status) {
-    // record who changed it (if available)
-    $changed_by = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
-    $note = "Updated through admin UI";
-
-    $ins = $conn->prepare(
-        "INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, note, created_at)
-         VALUES (?, ?, ?, ?, ?, NOW())"
-    );
-    if ($ins) {
-        // bind params: order_id (i), old_status (s), new_status (s), changed_by (i), note (s)
-        // Note: changed_by may be null; bind_param will accept null but may convert to 0 — acceptable for audit.
-        $ins->bind_param("issis", $id, $old_status, $new_status, $changed_by, $note);
-        $ins->execute();
-        $ins->close();
-    } else {
-        // optional: capture prepare error for debugging in dev
-        $flash_error = "Failed to insert order status history: " . $conn->error;
+    if (!$oldRow || !empty($oldRow['deleted_at'])) {
+        $flash_error = "Order not found or has been deleted.";
+        header("Location: " . $_SERVER['PHP_SELF']);
+        exit;
     }
+    $old_status = $oldRow['status'] ?? null;
 
-    // SMS calls removed intentionally to avoid undefined-function errors.
-}
+    // Collect fields from POST, with old defaults
+    $order_date = !empty($_POST['order_date']) ? $_POST['order_date'] : $oldRow['order_date'];
+    $customer = trim($_POST['customer_name'] ?? ($oldRow['customer_name'] ?? ''));
+    $product = trim($_POST['product'] ?? ($oldRow['product'] ?? ''));
+    $quantity = (int)($_POST['quantity'] ?? 1);
+    $price = (float)($_POST['price'] ?? 0.00);
+    $new_status = $_POST['status'] ?? 'Order Received';
+
+    if (empty($customer) || empty($product)) {
+        $flash_error = "Customer name and product are required.";
+    } else {
+        // Perform update
+        $stmt = $conn->prepare("UPDATE orders SET order_date = ?, customer_name = ?, product = ?, quantity = ?, price = ?, status = ? WHERE id = ?");
+        $stmt->bind_param("sssidsi", $order_date, $customer, $product, $quantity, $price, $new_status, $id);
+        $ok = $stmt->execute();
+        $err = $stmt->error;
+        $stmt->close();
+
+if (!$ok) $flash_error = "Update failed: " . $err;
+        else {
+            // If status changed, add history (unchanged)
+            if ($old_status !== null && $old_status !== $new_status) {
+                $changed_by = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+                $note = "Updated through admin UI";
+                $maxHistRes = $conn->query("SELECT MAX(id_new) as max_id FROM order_status_history");
+                $maxHistId = ($maxHistRes->fetch_assoc()['max_id'] ?? 0) + 1;
+                if ($changed_by === null) {
+                    $ins = $conn->prepare(
+                        "INSERT INTO order_status_history (id_new, id, order_id, old_status, new_status, changed_by, note, created_at)
+                         VALUES (?, 0, ?, ?, ?, NULL, ?, NOW())"
+                    );
+                    if ($ins) {
+                        $ins->bind_param("iisss", $maxHistId, $id, $old_status, $new_status, $note);
+                        $ins->execute();
+                        $ins->close();
+                    } else {
+                        $flash_error = "Failed to insert order status history: " . $conn->error;
+                    }
+                } else {
+                    $ins = $conn->prepare(
+                        "INSERT INTO order_status_history (id_new, id, order_id, old_status, new_status, changed_by, note, created_at)
+                         VALUES (?, 0, ?, ?, ?, ?, ?, NOW())"
+                    );
+                    if ($ins) {
+                        $ins->bind_param("iissis", $maxHistId, $id, $old_status, $new_status, $changed_by, $note);
+                        $ins->execute();
+                        $ins->close();
+                    } else {
+                        $flash_error = "Failed to insert order status history: " . $conn->error;
+                    }
+                }
+            }
+            header("Location: " . $_SERVER['PHP_SELF']);
+            exit;
+        }
     }
 }
 
@@ -176,16 +200,18 @@ if ($action === 'delete') {
             $old_status = $orderRow['status'] ?? null;
             $new_status = 'Deleted';
             $note = "Order soft-deleted via admin UI";
+            $maxHistRes = $conn->query("SELECT MAX(id_new) as max_id FROM order_status_history");
+            $maxHistId = ($maxHistRes->fetch_assoc()['max_id'] ?? 0) + 1;
 
             if ($deleted_by === null) {
                 // insert with changed_by = NULL
-                $ins = $conn->prepare("INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, ?, ?, NULL, ?, NOW())");
+                $ins = $conn->prepare("INSERT INTO order_status_history (id_new, id, order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, 0, ?, ?, ?, NULL, ?, NOW())");
                 if (!$ins) throw new Exception("Prepare failed (insert history): " . $conn->error);
-                $ins->bind_param("isss", $id, $old_status, $new_status, $note);
+                $ins->bind_param("iisss", $maxHistId, $id, $old_status, $new_status, $note);
             } else {
-                $ins = $conn->prepare("INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+                $ins = $conn->prepare("INSERT INTO order_status_history (id_new, id, order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, 0, ?, ?, ?, ?, ?, NOW())");
                 if (!$ins) throw new Exception("Prepare failed (insert history): " . $conn->error);
-                $ins->bind_param("issis", $id, $old_status, $new_status, $deleted_by, $note);
+                $ins->bind_param("iissis", $maxHistId, $id, $old_status, $new_status, $deleted_by, $note);
             }
             $ins->execute();
             $ins->close();
@@ -200,9 +226,7 @@ if ($action === 'delete') {
         }
     }
 }
-
-
- // ---------- Return order handler (improved) ----------
+// ---------- Return order handler (improved) ----------
 if ($action === 'return') {
     $id = (int)($_POST['id'] ?? 0);
     $return_qty = (int)($_POST['return_quantity'] ?? 1);
@@ -233,7 +257,6 @@ if ($action === 'return') {
 
             $order_qty = (int)$order['quantity'];
             $price_per_unit = (float)$order['price'];
-            $current_total = (float)($order['total_amount'] ?? 0.00);
 
             if ($return_qty > $order_qty) {
                 throw new Exception("Return quantity ($return_qty) is greater than order quantity ($order_qty).");
@@ -245,9 +268,6 @@ if ($action === 'return') {
             } else {
                 $refund_amount = (float)$refund_amount;
             }
-
-            // Decide new status
-            $new_status = ($return_qty === $order_qty) ? 'Returned' : 'Partially Returned';
 
             // Ensure original_quantity / original_price are preserved (set them if empty)
             $orig_qty = (int)($order['original_quantity'] ?? 0);
@@ -262,11 +282,15 @@ if ($action === 'return') {
                 $setOrig->close();
             }
 
+            // Get next id_new for returns
+            $maxRes = $conn->query("SELECT MAX(id_new) as max_id FROM returns");
+            $maxId = ($maxRes->fetch_assoc()['max_id'] ?? 0) + 1;
+
             // Insert returns row
-            $ins = $conn->prepare("INSERT INTO returns (order_id, return_date, quantity, reason, refund_amount, processed_by, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())");
+            $ins = $conn->prepare("INSERT INTO returns (id_new, id, order_id, return_date, quantity, reason, refund_amount, processed_by, created_at) VALUES (?, 0, ?, ?, ?, ?, ?, ?, NOW())");
             if (!$ins) throw new Exception("Prepare failed (insert return): " . $conn->error);
             $pb = $processed_by !== null ? (int)$processed_by : null;
-            $ins->bind_param("isisdi", $id, $return_date, $return_qty, $reason, $refund_amount, $pb);
+            $ins->bind_param("iisisdi", $maxId, $id, $return_date, $return_qty, $reason, $refund_amount, $pb);
             if (!$ins->execute()) {
                 $err = $ins->error;
                 $ins->close();
@@ -274,34 +298,8 @@ if ($action === 'return') {
             }
             $ins->close();
 
-            // Update orders: recompute quantity and total from price * new_qty (safer than subtracting refund)
-            $new_qty = $order_qty - $return_qty;
-            $new_total = max(0.00, $price_per_unit * $new_qty);
-
-            $upd = $conn->prepare("UPDATE orders SET quantity = ?, total_amount = ?, status = ? WHERE id = ?");
-            if (!$upd) throw new Exception("Prepare failed (update orders): " . $conn->error);
-            $upd->bind_param("idsi", $new_qty, $new_total, $new_status, $id);
-            if (!$upd->execute()) {
-                $err = $upd->error;
-                $upd->close();
-                throw new Exception("Update orders failed: " . $err);
-            }
-            $upd->close();
-
-            // Insert status history
-            $old_status = $order['status'] ?? null;
-            $note = "Return processed (qty: {$return_qty})";
-            $hist = $conn->prepare("INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
-            if (!$hist) throw new Exception("Prepare failed (insert history): " . $conn->error);
-            $hist->bind_param("issis", $id, $old_status, $new_status, $pb, $note);
-            if (!$hist->execute()) {
-                $err = $hist->error;
-                $hist->close();
-                throw new Exception("Insert history failed: " . $err);
-            }
-            $hist->close();
-
             // TODO: update product stock or order_items if you track them (not implemented here)
+            // Note: Triggers will handle updating the orders table and inserting history
 
             $conn->commit();
             header("Location: " . $_SERVER['PHP_SELF']);
@@ -312,7 +310,6 @@ if ($action === 'return') {
         }
     }
 }
-
 
 if ($action === 'restore') {
     $id = (int)($_POST['id'] ?? 0);
@@ -338,36 +335,55 @@ if ($action === 'restore') {
     $stmt->execute();
     if ($stmt->affected_rows > 0) {
         // insert history
-        $ins = $conn->prepare("INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+        $maxHistRes = $conn->query("SELECT MAX(id_new) as max_id FROM order_status_history");
+        $maxHistId = ($maxHistRes->fetch_assoc()['max_id'] ?? 0) + 1;
         $note = "Order restored by admin";
         $old_status = 'Deleted';
         $new_status = 'Restored';
-        if ($ins) {
-            if ($restored_by === null) {
-                // bind with changed_by as NULL: use the 4-param form where column is provided as NULL in SQL
-                $ins = $conn->prepare("INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, ?, ?, NULL, ?, NOW())");
-                $ins->bind_param("isss", $id, $old_status, $new_status, $note);
-            } else {
-                $ins->bind_param("issis", $id, $old_status, $new_status, $restored_by, $note);
-            }
-            $ins->execute();
-            $ins->close();
+        if ($restored_by === null) {
+            // bind with changed_by as NULL: use the 4-param form where column is provided as NULL in SQL
+            $ins = $conn->prepare("INSERT INTO order_status_history (id_new, id, order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, 0, ?, ?, ?, NULL, ?, NOW())");
+            $ins->bind_param("iisss", $maxHistId, $id, $old_status, $new_status, $note);
+        } else {
+            $ins = $conn->prepare("INSERT INTO order_status_history (id_new, id, order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, 0, ?, ?, ?, ?, ?, NOW())");
+            $ins->bind_param("iissis", $maxHistId, $id, $old_status, $new_status, $restored_by, $note);
         }
+        $ins->execute();
+        $ins->close();
     }
     $stmt->close();
     header("Location: " . $_SERVER['PHP_SELF']); exit;
 }
+}
 
+// Handle GET filters (move here if not already)
+$order_id = (int)($_GET['order_id'] ?? 0);
+$status = trim($_GET['status'] ?? '');
 
-// Fetch orders for display
-$sql = "SELECT id, order_date, customer_name, product, quantity, price, status
-        FROM orders
-        WHERE deleted_at IS NULL
-        ORDER BY id DESC";
+// Build dynamic WHERE clause
+$where = "WHERE deleted_at IS NULL";
+$params = [];
+$types = "";
+if ($order_id > 0) {
+    $where .= " AND id = ?";
+    $params[] = $order_id;
+    $types .= "i";
+}
+if (!empty($status)) {
+    $where .= " AND status = ?";
+    $params[] = $status;
+    $types .= "s";
+}
+
+$sql = "SELECT id, order_date, customer_name, product, quantity, price, status FROM orders $where ORDER BY id DESC";
+
+// Prepare with dynamic params
 $stmt = $conn->prepare($sql);
 if ($stmt === false) {
-    // Helpful debug message — remove or log in production
-    die("SQL prepare failed (orders fetch): " . $conn->error . " -- SQL: " . substr($sql, 0, 200));
+    die("SQL prepare failed: " . $conn->error);
+}
+if ($params) {
+    $stmt->bind_param($types, ...$params);
 }
 $stmt->execute();
 $result = $stmt->get_result();
@@ -442,6 +458,9 @@ $res4 = $conn->query("SELECT COUNT(DISTINCT customer_name) AS total_customers FR
       <section id="orders" class="panel active">
          <div class="content">
         <h2>Order Management</h2>
+        <?php if (isset($flash_error)): ?>
+    <div class="alert error"><?= htmlspecialchars($flash_error) ?></div>
+<?php endif; ?>
          <div class="cards">
             <div class="card">
               <h3>Total Returns</h3>
@@ -456,6 +475,20 @@ $res4 = $conn->query("SELECT COUNT(DISTINCT customer_name) AS total_customers FR
               <p id="cardCustomers"><?= $totalCustomers ?></p>
             </div>
           </div>
+
+        <div class="toolbar">
+            <form method="get"  class="filter-bar">
+              <input type="number" name="order_id" placeholder="Order ID" value="<?= ($order_id ? (int)$order_id : '') ?>" />
+              <select name="status" onchange="this.form.submit();">
+    <option value="">All status</option>
+    <?php foreach ($enumList as $st): $sel = ($st === $status) ? 'selected' : ''; ?>
+        <option value="<?= htmlspecialchars($st) ?>" <?= $sel ?>><?= htmlspecialchars($st) ?></option>
+    <?php endforeach; ?>
+</select>
+              <button class="btn secondary" id="btnAdd" type="button" onclick="openOrderAdd()"><i class="fa-solid fa-circle-plus"></i><b> Add Order</b></button>
+            </form>
+          </div>
+
         <div class="table-wrap">
         <table>
           <thead>
@@ -486,7 +519,7 @@ $res4 = $conn->query("SELECT COUNT(DISTINCT customer_name) AS total_customers FR
                     type="button"
                     data-id="<?= htmlspecialchars($o['id']) ?>"
                     data-order-date="<?= htmlspecialchars($o['order_date']) ?>"
-                    data-customer_name="<?= htmlspecialchars($o['customer_name']) ?>"
+                    data-customer="<?= htmlspecialchars($o['customer_name']) ?>"
                     data-product="<?= htmlspecialchars($o['product']) ?>"
                     data-quantity="<?= (int)$o['quantity'] ?>"
                     data-price="<?= htmlspecialchars($o['price']) ?>"
@@ -507,7 +540,7 @@ $res4 = $conn->query("SELECT COUNT(DISTINCT customer_name) AS total_customers FR
                     <i class="fa-regular fa-pen-to-square"></i>
                   </button>
 
-                  <!-- Return -->
+                 <!-- Return -->
                   <button class="btnreturn"
                     type="button"
                     data-id="<?= htmlspecialchars($o['id']) ?>"
@@ -573,7 +606,7 @@ $res4 = $conn->query("SELECT COUNT(DISTINCT customer_name) AS total_customers FR
           <div><label>Date</label><input id="order_form_date" name="order_date" type="date"></div>
           <div><label>Quantity</label><input id="order_form_quantity" name="quantity" type="number" min="1" value="1"></div>
           <div class="full"><label>Price</label><input id="order_form_price" name="price" type="number" step="0.01" min="0" value="0.00" required></div>
-          <div class="full"><label>Customer</label><input id="order_form_customer" name="customer" type="text" required></div>
+         <div class="full"><label>Customer</label><input id="order_form_customer" name="customer_name" type="text" required></div>
           <div class="full"><label>Product</label><input id="order_form_product" name="product" type="text" required></div>
           <div class="full">
             <label>Status</label>
@@ -601,7 +634,7 @@ $res4 = $conn->query("SELECT COUNT(DISTINCT customer_name) AS total_customers FR
     </div>
   </div>
 
-  <!-- Return Modal -->
+<!-- Return Modal -->
 <div class="modal-backdrop" id="returnModalBackdrop" style="display:none">
   <div class="modal">
     <h2 id="returnModalTitle">Return Order</h2>
@@ -764,7 +797,6 @@ function parseAndCallOpen(btn, fn) {
     returnModalBackdrop.addEventListener('click', (ev) => { if (ev.target === returnModalBackdrop) closeReturnModal(); });
   }
 })();
-
 
 // ---------- Export utilities (works on the orders table DOM) ----------
 (function(){

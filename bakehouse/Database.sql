@@ -377,7 +377,7 @@ INSERT INTO product_customizations (product_id, customization_id) VALUES
 -- ORDER MANAGEMENT SYSTEM
 -- ============================================================
 CREATE TABLE `orders` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `order_number` varchar(64) DEFAULT NULL,
   `user_id` int(11) DEFAULT NULL,
   `order_date` date NOT NULL,
@@ -396,8 +396,10 @@ CREATE TABLE `orders` (
   `customer_phone` varchar(32) DEFAULT NULL,
   `order_summary` longtext DEFAULT NULL,
   `deleted_at` datetime DEFAULT NULL,
-  `deleted_by` int(11) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `deleted_by` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 
 INSERT INTO `orders` (`id`, `order_number`, `user_id`, `session_id`, `order_date`, `customer_name`, `customer_email`, `product`, `quantity`, `original_quantity`, `price`, `total_amount`, `original_price`, `status`, `created_at`, `updated_at`, `customer_phone`, `order_summary`, `deleted_at`, `deleted_by`) VALUES
 (1, 'ORD-000001', NULL, NULL, '2025-09-01', '', '', 'Chocolate Cake', 1, 1, 2500.00, 2500.00, 2500.00, 'Cancelled', '2025-09-03 18:08:03', '2025-10-13 23:00:59', NULL, NULL, NULL, NULL),

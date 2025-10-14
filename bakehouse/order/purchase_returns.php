@@ -45,29 +45,111 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_GET['action'] ?? '') === 'create
 // purchase_returns.php (action=restore)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_GET['action'] ?? '') === 'restore') {
     $return_id = (int)($_POST['return_id'] ?? 0);
+    $restored_by = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+    $flash_error = '';
+
     if ($return_id <= 0) {
-        // error
+        $flash_error = "Invalid return ID.";
     } else {
-        // If you added id_auto as PK earlier, use that. Otherwise adjust column name.
-        $stmt = $conn->prepare("SELECT id_auto, order_id, quantity FROM returns WHERE id_auto = ? LIMIT 1");
-        $stmt->bind_param("i", $return_id);
-        $stmt->execute();
-        $res = $stmt->get_result();
-        if ($row = $res->fetch_assoc()) {
-            // Optionally log who is restoring it before deletion
-            $del = $conn->prepare("DELETE FROM returns WHERE id_auto = ? LIMIT 1");
+        try {
+            $conn->begin_transaction();
+
+            // Lock and fetch the return row
+            $sel_return = $conn->prepare("SELECT order_id, quantity, refund_amount, reason FROM returns WHERE id_auto = ? FOR UPDATE");
+            if (!$sel_return) throw new Exception("Prepare failed (select return): " . $conn->error);
+            $sel_return->bind_param("i", $return_id);
+            $sel_return->execute();
+            $res_return = $sel_return->get_result();
+            $return_row = $res_return->fetch_assoc();
+            $sel_return->close();
+
+            if (!$return_row) {
+                throw new Exception("Return not found (id: $return_id).");
+            }
+
+            $order_id = (int)$return_row['order_id'];
+            $return_qty = (int)$return_row['quantity'];
+            $refund_amount = (float)$return_row['refund_amount'];
+            $reason = $return_row['reason'];
+
+            // Lock and fetch the order row
+            $sel_order = $conn->prepare("SELECT quantity, price, total_amount, status, original_quantity, original_price, deleted_at FROM orders WHERE id = ? FOR UPDATE");
+            if (!$sel_order) throw new Exception("Prepare failed (select order): " . $conn->error);
+            $sel_order->bind_param("i", $order_id);
+            $sel_order->execute();
+            $res_order = $sel_order->get_result();
+            $order_row = $res_order->fetch_assoc();
+            $sel_order->close();
+
+            if (!$order_row) {
+                throw new Exception("Order not found (id: $order_id).");
+            }
+            if (!empty($order_row['deleted_at'])) {
+                throw new Exception("Operation denied: this order has been deleted.");
+            }
+
+            $current_qty = (int)$order_row['quantity'];
+            $price_per_unit = (float)$order_row['price'];
+            $current_total = (float)$order_row['total_amount'];
+            $old_status = $order_row['status'];
+            $original_qty = (int)($order_row['original_quantity'] ?? ($current_qty + $return_qty)); // Fallback if not set
+
+            // Compute new values
+            $new_qty = $current_qty + $return_qty;
+            $new_total = max(0.00, $price_per_unit * $new_qty);
+
+            // Determine new status
+            if ($new_qty == $original_qty) {
+                $new_status = 'Order Received'; // Or whatever the default/pre-return status is
+            } elseif ($new_qty == 0) {
+                $new_status = 'Returned';
+            } else {
+                $new_status = 'Partially Returned';
+            }
+
+            // Update orders
+            $upd_order = $conn->prepare("UPDATE orders SET quantity = ?, total_amount = ?, status = ? WHERE id = ?");
+            if (!$upd_order) throw new Exception("Prepare failed (update orders): " . $conn->error);
+            $upd_order->bind_param("idsi", $new_qty, $new_total, $new_status, $order_id);
+            if (!$upd_order->execute()) {
+                throw new Exception("Update orders failed: " . $upd_order->error);
+            }
+            $upd_order->close();
+
+            // Insert status history
+            $note = "Return undone (qty added back: {$return_qty}, reason was: {$reason})";
+            $hist = $conn->prepare("INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+            if (!$hist) throw new Exception("Prepare failed (insert history): " . $conn->error);
+            if ($restored_by === null) {
+                $hist = $conn->prepare("INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, ?, ?, NULL, ?, NOW())");
+                if (!$hist) throw new Exception("Prepare failed (insert history null): " . $conn->error);
+                $hist->bind_param("isss", $order_id, $old_status, $new_status, $note);
+            } else {
+                $hist->bind_param("issis", $order_id, $old_status, $new_status, $restored_by, $note);
+            }
+            if (!$hist->execute()) {
+                throw new Exception("Insert history failed: " . $hist->error);
+            }
+            $hist->close();
+
+            // Delete the return row
+            $del = $conn->prepare("DELETE FROM returns WHERE id_auto = ?");
+            if (!$del) throw new Exception("Prepare failed (delete return): " . $conn->error);
             $del->bind_param("i", $return_id);
             if (!$del->execute()) {
-                // error
-            } else {
-                // success — AFTER DELETE trigger will restore order qty/total
-                header("Location: returns_list.php?restored=1");
-                exit;
+                throw new Exception("Delete return failed: " . $del->error);
             }
-        } else {
-            // not found
+            $del->close();
+
+            $conn->commit();
+            header("Location: purchase_returns.php?restored=1");
+            exit;
+        } catch (Exception $e) {
+            $conn->rollback();
+            $flash_error = "Restore failed: " . $e->getMessage();
         }
     }
+    // If error, perhaps set session flash or something
 }
 
 // read filters (GET)
@@ -222,7 +304,9 @@ foreach ($rows as $r) {
       <section id="returns-panel" class="panel active">
         <div class="content"> <!-- keep content white for clarity -->
           <h2>Purchase Returns</h2>
-
+<?php if (isset($flash_error)): ?>
+    <div class="alert error"><?= htmlspecialchars($flash_error) ?></div>
+<?php endif; ?>
           <div class="cards" style="grid-template-columns: repeat(3, 1fr);">
             <div class="card">
               <h3>Total Returned Qty</h3>
@@ -286,6 +370,9 @@ foreach ($rows as $r) {
                     <td><?= number_format((float)$r['refund_amount'],2) ?></td>
                     <td><?= htmlspecialchars($r['processed_by_name'] ?: $r['processed_by']) ?></td>
                     <td>
+                      <!-- Add your action buttons here, e.g., -->
+                     <button class="btnrestore" type="button" data-return-id="<?= htmlspecialchars($r['return_id']) ?>"><i class="fa-solid fa-rotate-left"></i></button> 
+
                       <!-- view button inside last cell; data-* attributes used to populate modal -->
                       <button class="btnview" type="button"
                         data-return-id="<?= htmlspecialchars($r['return_id']) ?>"
