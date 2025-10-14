@@ -198,7 +198,7 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
               <label>To:
                 <input type="date" name="to" placeholder="End date" value="<?= htmlspecialchars($to ? substr($to,0,10) : '') ?>" />
               </label>
-              <input type="text" name="customer" placeholder="Customer" value="<?= htmlspecialchars($customer_name) ?>" />
+              <input type="text" name="customer_name" placeholder="customer_name" value="<?= htmlspecialchars($customer_name) ?>" />
               <input type="number" name="order_id" placeholder="Order ID" value="<?= ($order_id ? (int)$order_id : '') ?>" />
               <select name="status">
                 <option value="">All status</option>
