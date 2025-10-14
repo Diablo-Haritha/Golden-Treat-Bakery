@@ -21,10 +21,43 @@ try {
 $cartMessage = '';
 $messageType = '';
 
+/**
+ * Function to get available customizations for a product
+ * Fetches the actual data from the database.
+ * @param PDO $pdo
+ * @param int $productId
+ * @return array
+ */
+function getAvailableCustomizations($pdo, $productId) {
+    $stmt = $pdo->prepare("
+        SELECT c.* FROM customizations c 
+        INNER JOIN product_customizations pc ON c.id = pc.customization_id 
+        WHERE pc.product_id = ? AND c.is_active = 1 
+        ORDER BY c.category, c.name
+    ");
+    $stmt->execute([$productId]);
+    return $stmt->fetchAll();
+}
+
+// Function to get customization names by IDs
+function getCustomizationNames($pdo, $customizationIds) {
+    if (empty($customizationIds)) return [];
+    
+    // Ensure all IDs are integers for security
+    $customizationIds = array_map('intval', $customizationIds);
+    $placeholders = str_repeat('?,', count($customizationIds) - 1) . '?';
+    
+    $stmt = $pdo->prepare("SELECT name, price_adjustment FROM customizations WHERE id IN ($placeholders)");
+    $stmt->execute($customizationIds);
+    return $stmt->fetchAll();
+}
+
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['add_to_cart'])) {
         $productId = intval($_POST['product_id']);
         $quantity = intval($_POST['quantity']);
+        // Selected customizations are received as an array of IDs from the form
         $selectedCustomizations = isset($_POST['customizations']) ? $_POST['customizations'] : [];
         
         // Validate product exists and is visible
@@ -35,40 +68,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($product) {
             if ($product['stock_quantity'] >= $quantity) {
                 $sessionId = session_id();
+                // Apply product discount to base price
                 $basePrice = $product['price'] * (1 - $product['discount_percentage']/100);
                 
                 // Calculate total price with customizations
-                $totalPrice = $basePrice;
-                $customizationDetails = [];
+                $itemCustomizationCost = 0;
                 
                 if (!empty($selectedCustomizations)) {
-                    $placeholders = str_repeat('?,', count($selectedCustomizations) - 1) . '?';
-                    $stmt = $pdo->prepare("SELECT id, name, price_adjustment FROM customizations WHERE id IN ($placeholders) AND is_active = 1");
-                    $stmt->execute($selectedCustomizations);
-                    $customizations = $stmt->fetchAll();
+                    // Security check: Only allow active customizations linked to this product
+                    $cleanCustomizationIds = array_map('intval', $selectedCustomizations);
+                    $placeholders = str_repeat('?,', count($cleanCustomizationIds) - 1) . '?';
                     
-                    foreach ($customizations as $cust) {
-                        $totalPrice += (float)$cust['price_adjustment'];
-                        $customizationDetails[] = $cust;
+                    // Fetch details of selected customizations
+                    $sql = "
+                        SELECT c.price_adjustment 
+                        FROM customizations c 
+                        JOIN product_customizations pc ON c.id = pc.customization_id
+                        WHERE c.id IN ($placeholders) AND c.is_active = 1 AND pc.product_id = ?
+                    ";
+                    
+                    $stmt = $pdo->prepare($sql);
+                    $stmt->execute(array_merge($cleanCustomizationIds, [$productId]));
+                    $customizationCosts = $stmt->fetchAll();
+                    
+                    foreach ($customizationCosts as $cust) {
+                        $itemCustomizationCost += (float)$cust['price_adjustment'];
                     }
                 }
                 
-                $totalPrice *= $quantity;
+                // Total price for one item including base price and customizations
+                $unitPrice = $basePrice + $itemCustomizationCost;
+                $totalPrice = $unitPrice * $quantity;
+
+                // Sort customizations array to ensure the same set of options results in the same key
+                sort($selectedCustomizations);
+                $customizationKey = json_encode($selectedCustomizations);
                 
                 // Check if product already in cart with same customizations
-                $stmt = $pdo->prepare("SELECT id, quantity FROM cart WHERE session_id = ? AND product_id = ? AND selected_customizations = ?");
-                $stmt->execute([$sessionId, $productId, json_encode($selectedCustomizations)]);
+                $stmt = $pdo->prepare("SELECT id, quantity, total_price FROM cart WHERE session_id = ? AND product_id = ? AND selected_customizations = ?");
+                $stmt->execute([$sessionId, $productId, $customizationKey]);
                 $existingItem = $stmt->fetch();
                 
                 if ($existingItem) {
                     // Update quantity
                     $newQuantity = $existingItem['quantity'] + $quantity;
+                    // Recalculate total price for the updated item
+                    $newTotalPrice = $unitPrice * $newQuantity; 
+
                     $stmt = $pdo->prepare("UPDATE cart SET quantity = ?, total_price = ? WHERE id = ?");
-                    $stmt->execute([$newQuantity, $totalPrice, $existingItem['id']]);
+                    $stmt->execute([$newQuantity, $newTotalPrice, $existingItem['id']]);
                 } else {
                     // Add new item
                     $stmt = $pdo->prepare("INSERT INTO cart (session_id, product_id, quantity, selected_customizations, total_price) VALUES (?, ?, ?, ?, ?)");
-                    $stmt->execute([$sessionId, $productId, $quantity, json_encode($selectedCustomizations), $totalPrice]);
+                    $stmt->execute([$sessionId, $productId, $quantity, $customizationKey, $totalPrice]);
                 }
                 
                 // Update stock
@@ -88,6 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     
+    // --- Existing Cart Update/Remove/Checkout Logic (Unchanged) ---
     if (isset($_POST['update_cart_item'])) {
         $cartId = intval($_POST['cart_id']);
         $newQuantity = intval($_POST['quantity']);
@@ -95,7 +148,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if ($newQuantity > 0) {
             // Get current item details
-            $stmt = $pdo->prepare("SELECT c.quantity, c.product_id, p.stock_quantity, p.name 
+            $stmt = $pdo->prepare("SELECT c.quantity, c.product_id, c.selected_customizations, p.stock_quantity, p.price, p.discount_percentage, p.name 
                                   FROM cart c JOIN products p ON c.product_id = p.id 
                                   WHERE c.id = ? AND c.session_id = ?");
             $stmt->execute([$cartId, $sessionId]);
@@ -105,9 +158,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $quantityDiff = $newQuantity - $item['quantity'];
                 
                 if ($item['stock_quantity'] + $item['quantity'] >= $newQuantity) {
+                    
+                    // Recalculate Unit Price (Base Price + Customization Cost)
+                    $basePrice = $item['price'] * (1 - $item['discount_percentage']/100);
+                    $itemCustomizationCost = 0;
+                    $selectedCustomizations = json_decode($item['selected_customizations'], true) ?: [];
+                    
+                    if (!empty($selectedCustomizations)) {
+                        $cleanCustomizationIds = array_map('intval', $selectedCustomizations);
+                        $placeholders = str_repeat('?,', count($cleanCustomizationIds) - 1) . '?';
+                        $stmt_cust = $pdo->prepare("SELECT price_adjustment FROM customizations WHERE id IN ($placeholders) AND is_active = 1");
+                        $stmt_cust->execute($cleanCustomizationIds);
+                        $customizationCosts = $stmt_cust->fetchAll();
+                        
+                        foreach ($customizationCosts as $cust) {
+                            $itemCustomizationCost += (float)$cust['price_adjustment'];
+                        }
+                    }
+                    $unitPrice = $basePrice + $itemCustomizationCost;
+                    $newTotalPrice = $unitPrice * $newQuantity; 
+
                     // Update cart
-                    $stmt = $pdo->prepare("UPDATE cart SET quantity = ? WHERE id = ? AND session_id = ?");
-                    $stmt->execute([$newQuantity, $cartId, $sessionId]);
+                    $stmt = $pdo->prepare("UPDATE cart SET quantity = ?, total_price = ? WHERE id = ? AND session_id = ?");
+                    $stmt->execute([$newQuantity, $newTotalPrice, $cartId, $sessionId]);
                     
                     // Update stock
                     $newStock = $item['stock_quantity'] - $quantityDiff;
@@ -226,27 +299,6 @@ foreach ($products as $product) {
     $productsByCategory[$category][] = $product;
 }
 
-// Function to get available customizations for a product
-function getAvailableCustomizations($pdo, $productId) {
-    $stmt = $pdo->prepare("
-        SELECT c.* FROM customizations c 
-        INNER JOIN product_customizations pc ON c.id = pc.customization_id 
-        WHERE pc.product_id = ? AND c.is_active = 1 
-        ORDER BY c.category, c.name
-    ");
-    $stmt->execute([$productId]);
-    return $stmt->fetchAll();
-}
-
-// Function to get customization names by IDs
-function getCustomizationNames($pdo, $customizationIds) {
-    if (empty($customizationIds)) return [];
-    
-    $placeholders = str_repeat('?,', count($customizationIds) - 1) . '?';
-    $stmt = $pdo->prepare("SELECT name, price_adjustment FROM customizations WHERE id IN ($placeholders)");
-    $stmt->execute($customizationIds);
-    return $stmt->fetchAll();
-}
 
 ob_end_flush();
 ?>
@@ -264,7 +316,7 @@ ob_end_flush();
             --primary-light: #A0522D;
             --secondary: #e0c99d;
             --accent: #d4af37;
-            --light: #111110ff;
+            --light: #f9f9f9; /* Changed to lighter color for backgrounds */
             --dark: #333;
             --success: #28a745;
             --warning: #ffc107;
@@ -285,7 +337,7 @@ ob_end_flush();
             font-family: 'Poppins', sans-serif;
             line-height: 1.6;
             color: var(--text);
-            background: linear-gradient(135deg, #f8f4e9 0%, #000000ff 100%);
+            background: linear-gradient(135deg, #f8f4e9 0%, #ffffff 100%); /* Adjusted background */
             min-height: 100vh;
         }
 
@@ -357,9 +409,10 @@ ob_end_flush();
         .btn-success { background: linear-gradient(135deg, var(--success), #34ce57); }
         .btn-warning { background: linear-gradient(135deg, var(--warning), #ffd760); }
         .btn-danger { background: linear-gradient(135deg, var(--danger), #e4606d); }
+        .btn[disabled] { opacity: 0.6; cursor: not-allowed; }
 
         header {
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
             box-shadow: 0 2px 20px rgba(0,0,0,0.1);
             position: sticky;
@@ -397,14 +450,11 @@ ob_end_flush();
 
         .nav-links a {
             text-decoration: none;
-            color: #ffd900ff;
+            color: var(--dark);
             font-weight: 500;
             transition: all 0.3s ease;
             position: relative;
-            background: #000000ff;
-            padding: 8px 12px;
-            
-            border-radius: 5cm;
+            padding: 8px 0;
         }
 
         .nav-links a:hover {
@@ -416,7 +466,7 @@ ob_end_flush();
             position: absolute;
             width: 0;
             height: 2px;
-            bottom: -5px;
+            bottom: 0;
             left: 0;
             background: var(--primary);
             transition: width 0.3s ease;
@@ -424,8 +474,6 @@ ob_end_flush();
 
         .nav-links a:hover:after {
             width: 100%;
-            color: #ffff;
-            
         }
 
         .header-actions {
@@ -1088,7 +1136,6 @@ ob_end_flush();
 </head>
 <body>
   
-    <!-- Message Display -->
     <?php if (!empty($cartMessage)): ?>
         <div class="message <?php echo $messageType; ?> animated">
             <?php echo $cartMessage; ?>
@@ -1126,7 +1173,6 @@ ob_end_flush();
         </div>
     </header>
 
-    <!-- Cart Modal -->
     <div id="cart-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -1143,6 +1189,7 @@ ob_end_flush();
                     </div>
                 <?php else: ?>
                     <?php foreach ($cartItems as $item): 
+                        // The selected_customizations are stored as a JSON string
                         $selectedCustomizations = json_decode($item['selected_customizations'], true) ?: [];
                         $customizationNames = getCustomizationNames($pdo, $selectedCustomizations);
                         $unitPrice = $item['total_price'] / $item['quantity'];
@@ -1200,7 +1247,6 @@ ob_end_flush();
         </div>
     </div>
 
-    <!-- Checkout Modal -->
     <div id="checkout-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -1228,8 +1274,7 @@ ob_end_flush();
                 <div class="form-group">
                     <label>Order Summary</label>
                     <div id="checkout-summary">
-                        <!-- Order items will be populated by JavaScript -->
-                    </div>
+                        </div>
                 </div>
                 
                 <div class="modal-actions">
@@ -1242,7 +1287,6 @@ ob_end_flush();
         </div>
     </div>
 
-    <!-- Customization Modal -->
     <div id="customization-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -1260,8 +1304,7 @@ ob_end_flush();
                 </div>
                 
                 <div id="customization-options">
-                    <!-- Customization options will be loaded here -->
-                </div>
+                    </div>
                 
                 <div id="customization-total" style="margin: 20px 0; padding: 15px; background: var(--light); border-radius: 10px; font-weight: bold; text-align: center;">
                     Total: $<span id="custom-total-price">0.00</span>
@@ -1313,6 +1356,8 @@ ob_end_flush();
                                 <?php foreach ($categoryProducts as $product): 
                                     $availableCustomizations = getAvailableCustomizations($pdo, $product['id']);
                                     $finalPrice = $product['price'] * (1 - $product['discount_percentage']/100);
+                                    // NEW: Encode the actual customizations data to pass to JS
+                                    $customizationsJson = htmlspecialchars(json_encode($availableCustomizations), ENT_QUOTES, 'UTF-8');
                                 ?>
                                     <div class="product-card animated fadeIn <?php echo $product['is_daily_special'] ? 'special' : ''; ?>">
                                         <?php if ($product['is_daily_special']): ?>
@@ -1373,16 +1418,18 @@ ob_end_flush();
                                                     <button class="btn btn-primary btn-add-to-cart customize-btn" 
                                                             data-product-id="<?php echo $product['id']; ?>"
                                                             data-product-name="<?php echo htmlspecialchars($product['name']); ?>"
-                                                            data-base-price="<?php echo $finalPrice; ?>">
-                                                        <i class="fas fa-magic"></i>You Can only View
+                                                            data-base-price="<?php echo $finalPrice; ?>"
+                                                            data-customizations='<?php echo $customizationsJson; ?>'
+                                                            >
+                                                        <i class="fas fa-magic"></i>Customize & Add to Cart
                                                     </button>
                                                 <?php else: ?>
-                                                    <form method="POST" class="add-to-cart-form">
+                                                    <form method="POST" class="add-to-cart-form" onsubmit="return updateQuantity(this);">
                                                         <input type="hidden" name="product_id" value="<?php echo $product['id']; ?>">
-                                                        <input type="hidden" name="quantity" value="1">
+                                                        <input type="hidden" name="quantity" class="product-quantity-hidden" value="1">
                                                         <input type="hidden" name="add_to_cart" value="1">
                                                         <button type="submit" class="btn btn-primary btn-add-to-cart">
-                                                            <i class="fas fa-shopping-cart"></i> View Only
+                                                            <i class="fas fa-shopping-cart"></i> Add to Cart
                                                         </button>
                                                     </form>
                                                 <?php endif; ?>
@@ -1454,6 +1501,16 @@ ob_end_flush();
     </footer>
     
     <script>
+        // NEW JS FUNCTION: Update quantity for simple Add to Cart forms
+        function updateQuantity(form) {
+            const productInfo = form.closest('.product-info');
+            // Look for the quantity-input sibling within the same product-info
+            const quantityInput = productInfo.querySelector('.quantity-input');
+            // Set the hidden input's value to the quantity input's value
+            form.querySelector('.product-quantity-hidden').value = quantityInput.value;
+            return true; // Allow form submission
+        }
+
         // DOM Elements
         const cartIcon = document.getElementById('cart-icon');
         const cartModal = document.getElementById('cart-modal');
@@ -1489,24 +1546,50 @@ ob_end_flush();
             if (e.target === checkoutModal) closeModal(checkoutModal);
         });
         
-        // Quantity buttons functionality
+        // Quantity buttons functionality (for product cards and cart modal)
         document.querySelectorAll('.quantity-btn').forEach(btn => {
             btn.addEventListener('click', function() {
-                const input = this.closest('.quantity-selector').querySelector('.quantity-input');
+                const parentSelector = this.closest('.quantity-selector') || this.closest('.cart-item-actions');
+                const input = parentSelector.querySelector('.quantity-input');
                 let value = parseInt(input.value);
+                const max = parseInt(input.max) || 999; // Use 999 if max is not defined (e.g., in cart modal)
                 
                 if (this.classList.contains('plus')) {
-                    value = Math.min(value + 1, parseInt(input.max));
+                    value = Math.min(value + 1, max);
                 } else if (this.classList.contains('minus')) {
                     value = Math.max(value - 1, 1);
                 }
                 
                 input.value = value;
                 
-                // Update corresponding form if exists
+                // If it's a product card quantity, update the customization modal quantity input
+                if (this.closest('.product-info')) {
+                    document.getElementById('custom-quantity').value = value;
+                    
+                    // If modal is open, update base price display
+                    const basePriceDisplay = document.getElementById('customization-base-price');
+                    if(basePriceDisplay) {
+                        const basePriceMatch = basePriceDisplay.innerHTML.match(/Base Price: \$<strong>([0-9]+\.[0-9]{2})<\/strong>/);
+                        if (basePriceMatch) {
+                            const basePrice = parseFloat(basePriceMatch[1]);
+                            basePriceDisplay.innerHTML = 
+                                `Base Price: $<strong>${basePrice.toFixed(2)}</strong> × ${value} = $<strong>${(basePrice * value).toFixed(2)}</strong>`;
+                            
+                            // Also trigger a total recalculation if the customization modal is visible
+                            if (customizationModal.style.display === 'block') {
+                                const selected = Array.from(document.querySelectorAll('#customization-options input[type="checkbox"]:checked'))
+                                                    .map(cb => parseFloat(cb.dataset.price));
+                                updateCustomizationTotal(basePrice, value, selected);
+                            }
+                        }
+                    }
+                }
+
+                // If it's a cart item, submit the form for immediate update (only on + / - click, not modal logic)
                 const form = this.closest('.quantity-form');
                 if (form) {
                     form.querySelector('input[name="quantity"]').value = value;
+                    // Note: Actual submission of the cart update form happens by clicking the update button next to the input.
                 }
             });
         });
@@ -1517,8 +1600,22 @@ ob_end_flush();
                 const productId = this.dataset.productId;
                 const productName = this.dataset.productName;
                 const basePrice = parseFloat(this.dataset.basePrice);
-                const quantity = this.closest('.product-info').querySelector('.quantity-input').value;
                 
+                // Get quantity from the closest quantity-input
+                const quantity = parseInt(this.closest('.product-info').querySelector('.quantity-input').value);
+                
+                // --- NEW: Retrieve and parse real customization data ---
+                const customizationDataJson = this.dataset.customizations;
+                let productCustomizations = [];
+                try {
+                    // The data attribute uses single quotes, which is necessary for embedded JSON, but JSON.parse handles it.
+                    productCustomizations = JSON.parse(customizationDataJson); 
+                    console.log('Loaded customizations for product:', productCustomizations); // Debug: Check browser console
+                } catch (e) {
+                    console.error("Error parsing customizations JSON:", e);
+                }
+                // --------------------------------------------------------
+
                 // Populate modal
                 document.getElementById('customization-product-name').textContent = productName;
                 document.getElementById('customization-base-price').innerHTML = 
@@ -1526,46 +1623,32 @@ ob_end_flush();
                 document.getElementById('custom-product-id').value = productId;
                 document.getElementById('custom-quantity').value = quantity;
                 
-                // Load customization options
-                loadCustomizationOptions(productId, basePrice, quantity);
+                // Call display function with real data
+                displayCustomizationOptions(productCustomizations, basePrice, quantity);
                 customizationModal.style.display = 'block';
                 document.body.style.overflow = 'hidden';
             });
         });
         
-        // Load customization options via AJAX simulation
-        function loadCustomizationOptions(productId, basePrice, quantity) {
-            // In a real app, this would be an AJAX call
-            const customizations = {
-                1: [ // Chocolate Croissant
-                    {id: 1, name: 'Extra Chocolate', price: 0.75, category: 'Toppings'},
-                    {id: 2, name: 'Almond Topping', price: 0.50, category: 'Toppings'},
-                    {id: 8, name: 'Gluten-Free', price: 1.00, category: 'Dietary'},
-                    {id: 9, name: 'Vegan', price: 1.50, category: 'Dietary'}
-                ],
-                2: [ // Blueberry Muffin
-                    {id: 3, name: 'Walnut Topping', price: 0.75, category: 'Toppings'},
-                    {id: 4, name: 'Sprinkles', price: 0.25, category: 'Toppings'},
-                    {id: 8, name: 'Gluten-Free', price: 1.00, category: 'Dietary'},
-                    {id: 11, name: 'Extra Large', price: 2.00, category: 'Size'}
-                ]
-                // Add more products as needed
-            };
-            
-            const productCustomizations = customizations[productId] || [];
-            displayCustomizationOptions(productCustomizations, basePrice, quantity);
-        }
-        
+        // REMOVED: The unnecessary and hardcoded loadCustomizationOptions function.
+
+        /**
+         * Renders the customization options based on actual database data.
+         * @param {Array<Object>} customizations - Array of customization objects from PHP (id, name, price_adjustment, category)
+         * @param {number} basePrice 
+         * @param {number} quantity 
+         */
         function displayCustomizationOptions(customizations, basePrice, quantity) {
             const container = document.getElementById('customization-options');
+            container.innerHTML = '';
             
             if (customizations.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">No customizations available for this product.</p>';
+                container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;"><i class="fas fa-info-circle"></i> No customizations assigned to this product by the admin. Add to cart without options.</p>';
                 updateCustomizationTotal(basePrice, quantity, []);
                 return;
             }
             
-            // Group by category
+            // Group by category (using the 'category' property from the database)
             const categories = {};
             customizations.forEach(cust => {
                 if (!categories[cust.category]) {
@@ -1579,12 +1662,16 @@ ob_end_flush();
                 html += `<div class="customization-category">
                             <h4>${category}</h4>`;
                 categories[category].forEach(cust => {
+                    // Use the 'price_adjustment' property from the database
+                    const priceAdjustment = parseFloat(cust.price_adjustment); 
                     html += `
                         <div class="customization-option">
                             <input type="checkbox" name="customizations[]" value="${cust.id}" 
-                                   id="cust-${cust.id}" data-price="${cust.price}">
+                                   id="cust-${cust.id}" data-price="${priceAdjustment.toFixed(2)}">
                             <label for="cust-${cust.id}" class="customization-name">${cust.name}</label>
-                            <span class="customization-price">+$${cust.price.toFixed(2)}</span>
+                            <span class="customization-price">
+                                ${priceAdjustment > 0 ? '+' : ''}$${priceAdjustment.toFixed(2)}
+                            </span>
                         </div>
                     `;
                 });
@@ -1596,12 +1683,14 @@ ob_end_flush();
             // Add event listeners to checkboxes
             container.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
                 checkbox.addEventListener('change', () => {
+                    // Use data-price attribute which holds the price adjustment
                     const selected = Array.from(container.querySelectorAll('input[type="checkbox"]:checked'))
                                         .map(cb => parseFloat(cb.dataset.price));
                     updateCustomizationTotal(basePrice, quantity, selected);
                 });
             });
             
+            // Initialize total display
             updateCustomizationTotal(basePrice, quantity, []);
         }
         

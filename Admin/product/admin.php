@@ -1,4 +1,5 @@
 <?php
+// admin.php - Full Admin Panel Code with Customization Integration
 session_start();
 ob_start();
 
