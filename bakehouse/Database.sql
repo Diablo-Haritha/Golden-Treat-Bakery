@@ -5,7 +5,7 @@
 CREATE DATABASE IF NOT EXISTS golden_treat;
 USE golden_treat;
 
- ============================================================
+-- ============================================================
 -- TABLE: bookings
 -- ============================================================
 CREATE TABLE IF NOT EXISTS bookings (
@@ -381,6 +381,7 @@ CREATE TABLE `orders` (
   `order_number` varchar(64) DEFAULT NULL,
   `user_id` int(11) DEFAULT NULL,
   `order_date` date NOT NULL,
+  `session_id` varchar(255) DEFAULT NULL,
   `customer_name` varchar(100) NOT NULL,
   `customer_email` varchar(255) NOT NULL,
   `product` varchar(100) NOT NULL,
@@ -398,14 +399,14 @@ CREATE TABLE `orders` (
   `deleted_by` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO `orders` (`id`, `order_number`, `user_id`, `order_date`, `customer_name`, `customer_email`, `product`, `quantity`, `original_quantity`, `price`, `total_amount`, `original_price`, `status`, `created_at`, `updated_at`, `customer_phone`, `order_summary`, `deleted_at`, `deleted_by`) VALUES
-(1, 'ORD-000001', NULL, '2025-09-01', '', '', 'Chocolate Cake', 1, 1, 2500.00, 2500.00, 2500.00, 'Cancelled', '2025-09-03 23:38:03', '2025-10-14 04:30:59', NULL, NULL, NULL, NULL),
-(2, 'ORD-000002', NULL, '2025-09-02', '', '', 'Blueberry Muffins (6 pack)', 1, 2, 1800.00, 0.00, 1800.00, 'Completed', '2025-09-03 23:38:03', '2025-10-14 04:55:56', NULL, NULL, NULL, NULL),
-(3, 'ORD-000003', NULL, '2025-09-02', '', '', 'Butter Croissant', 9, 12, 2400.00, 21600.00, 2400.00, 'Cancelled', '2025-09-03 23:38:03', '2025-10-14 04:56:28', NULL, NULL, NULL, NULL),
-(4, 'ORD-000004', NULL, '2025-09-03', 'Dilshan Jayawardena', '', 'Vanilla Cupcakes (12 pack)', 0, 1, 2200.00, 0.00, 2200.00, 'Returned', '2025-09-03 23:38:03', '2025-10-14 04:30:20', NULL, NULL, NULL, NULL),
-(6, 'ORD-000006', NULL, '2025-09-03', 'Fathima Rahman', '', 'Strawberry Tart', 2, 2, 3000.00, 6000.00, 3000.00, 'Ready for Pickup', '2025-09-03 23:38:03', '2025-10-13 04:00:17', NULL, NULL, '2025-10-01 16:19:23', NULL),
-(7, 'ORD-000007', NULL, '2025-09-04', 'Gihan Abeysekera', '', 'Fruit Loaf', 1, 1, 1500.00, 1500.00, 1500.00, 'Out for Delivery', '2025-09-03 23:38:03', '2025-10-13 04:00:17', NULL, NULL, '2025-10-11 13:10:19', NULL),
-(10, 'ORD-000010', NULL, '2025-09-04', 'Janani De Silva', '', 'Brownies', 8, 8, 1600.00, 12800.00, 1600.00, 'Cancelled', '2025-09-03 23:38:03', '2025-10-13 04:00:17', NULL, NULL, NULL, NULL);
+INSERT INTO `orders` (`id`, `order_number`, `user_id`, `session_id`, `order_date`, `customer_name`, `customer_email`, `product`, `quantity`, `original_quantity`, `price`, `total_amount`, `original_price`, `status`, `created_at`, `updated_at`, `customer_phone`, `order_summary`, `deleted_at`, `deleted_by`) VALUES
+(1, 'ORD-000001', NULL, NULL, '2025-09-01', '', '', 'Chocolate Cake', 1, 1, 2500.00, 2500.00, 2500.00, 'Cancelled', '2025-09-03 18:08:03', '2025-10-13 23:00:59', NULL, NULL, NULL, NULL),
+(2, 'ORD-000002', NULL, NULL, '2025-09-02', '', '', 'Blueberry Muffins (6 pack)', 1, 2, 1800.00, 0.00, 1800.00, 'Completed', '2025-09-03 18:08:03', '2025-10-13 23:25:56', NULL, NULL, NULL, NULL),
+(3, 'ORD-000003', NULL, NULL, '2025-09-02', '', '', 'Butter Croissant', 9, 12, 2400.00, 21600.00, 2400.00, 'Cancelled', '2025-09-03 18:08:03', '2025-10-13 23:26:28', NULL, NULL, NULL, NULL),
+(4, 'ORD-000004', NULL, NULL, '2025-09-03', 'Dilshan Jayawardena', '', 'Vanilla Cupcakes (12 pack)', 0, 1, 2200.00, 0.00, 2200.00, 'Returned', '2025-09-03 18:08:03', '2025-10-13 23:00:20', NULL, NULL, NULL, NULL),
+(6, 'ORD-000006', NULL, NULL, '2025-09-03', 'Fathima Rahman', '', 'Strawberry Tart', 2, 2, 3000.00, 6000.00, 3000.00, 'Ready for Pickup', '2025-09-03 18:08:03', '2025-10-12 22:30:17', NULL, NULL, '2025-10-01 16:19:23', NULL),
+(7, 'ORD-000007', NULL, NULL, '2025-09-04', 'Gihan Abeysekera', '', 'Fruit Loaf', 1, 1, 1500.00, 1500.00, 1500.00, 'Out for Delivery', '2025-09-03 18:08:03', '2025-10-12 22:30:17', NULL, NULL, '2025-10-11 13:10:19', NULL),
+(10, 'ORD-000010', NULL, NULL, '2025-09-04', 'Janani De Silva', '', 'Brownies', 8, 8, 1600.00, 12800.00, 1600.00, 'Cancelled', '2025-09-03 18:08:03', '2025-10-12 22:30:17', NULL, NULL, NULL, NULL);
 
 CREATE TABLE `order_items` (
   `id` int(11) NOT NULL,
@@ -577,6 +578,7 @@ BEGIN
 END$$
 
 DELIMITER ;
+
 
 -- ============================================================
 -- OTP SYSTEM (FIXED & RETAINED)

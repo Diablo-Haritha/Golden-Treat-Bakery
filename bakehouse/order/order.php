@@ -1,25 +1,80 @@
 <?php
-// ---------- DB: orders CRUD (keep style unchanged) ----------
-$host = "localhost";
-$user = "root";
-$pass = "";
-$db   = "golden_treat";
+// order.php - cleaned, PDO-only implementation for orders/admin view
+session_start();
+ob_start();
 
-$conn = new mysqli($host, $user, $pass, $db);
-if ($conn->connect_error) {
-    die("DB Connection failed: " . $conn->connect_error);
+/* ----------------- DB config (edit to match your env) ----------------- */
+$DB_HOST = "localhost";
+$DB_NAME = "golden_treat";
+$DB_USER = "root";
+$DB_PASS = "";
+
+/* ----------------- PDO connection ----------------- */
+try {
+    $pdo = new PDO(
+        "mysql:host={$DB_HOST};dbname={$DB_NAME};charset=utf8mb4",
+        $DB_USER,
+        $DB_PASS,
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
+    );
+} catch (PDOException $e) {
+    error_log("Database connection failed: " . $e->getMessage());
+    die("Connection failed: Please try again later.");
 }
-$conn->set_charset('utf8mb4');
 
-if (session_status() === PHP_SESSION_NONE) session_start();
-$action = $_POST['action'] ?? $_GET['action'] ?? null;
-// Helper for bind_param dynamic refs (used if needed)
-function refValues($arr){
-    $refs = [];
-    foreach ($arr as $k => $v) $refs[$k] = &$arr[$k];
-    return $refs;
+/* ----------------- Helpers ----------------- */
+/**
+ * Get a preview (up to $limit) of order items for a given order id
+ */
+function getOrderItemsPreview(PDO $pdo, int $orderId, int $limit = 3): array {
+    $sql = "
+        SELECT oi.*, oi.product_name AS item_product_name, p.price AS product_price, p.id AS product_id
+        FROM order_items oi
+        LEFT JOIN products p ON oi.product_id = p.id
+        WHERE oi.order_id = ?
+        ORDER BY oi.id
+        LIMIT ?
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$orderId, $limit]);
+    return $stmt->fetchAll();
 }
 
+/**
+ * Given JSON customization IDs, return names & price_adjustment
+ */
+function getCustomizationNames(PDO $pdo, ?string $customizationJson): array {
+    if (empty($customizationJson)) return [];
+    $ids = json_decode($customizationJson, true);
+    if (!is_array($ids) || empty($ids)) return [];
+    // safe placeholders
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $sql = "SELECT id, name, price_adjustment FROM customizations WHERE id IN ($placeholders) AND is_active = 1";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($ids);
+    return $stmt->fetchAll();
+}
+
+/* ----------------- Auth: require logged-in user ----------------- */
+$userId = $_SESSION['user_id'] ?? null;
+if (!$userId) {
+    // redirect to login (preserves original behavior)
+    header('Location: login.php?redirect=order.php');
+    exit;
+}
+
+// confirm user exists (defensive)
+$stmt = $pdo->prepare("SELECT id, email FROM users WHERE id = ? LIMIT 1");
+$stmt->execute([$userId]);
+$user = $stmt->fetch();
+if (!$user) {
+    unset($_SESSION['user_id']);
+    header('Location: login.php?redirect=order.php');
+    exit;
+}
+
+/* ----------------- Handle POST actions ----------------- */
+$flash_error = $flash_success = null;
 // Handle POST actions: add / edit / delete
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? null;
