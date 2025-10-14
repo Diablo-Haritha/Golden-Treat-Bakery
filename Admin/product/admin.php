@@ -1,5 +1,5 @@
 <?php
-// admin.php - Full Admin Panel Code with Customization Integration
+// admin.php - Full Admin Panel Code with Customization and Image Upload Integration
 session_start();
 ob_start();
 
@@ -184,6 +184,12 @@ $message = '';
 $messageType = '';
 $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'dashboard';
 
+// Create uploads directory if it doesn't exist
+$uploadDir = 'uploads/';
+if (!is_dir($uploadDir)) {
+    mkdir($uploadDir, 0755, true);
+}
+
 // Handle all form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -197,9 +203,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $is_daily_special = isset($_POST['is_daily_special']) ? 1 : 0;
             $discount = floatval($_POST['discount_percentage']);
             $visibility = isset($_POST['visibility']) ? 1 : 0;
-            
-            $stmt = $pdo->prepare("INSERT INTO products (name, description, price, category, is_daily_special, discount_percentage, visibility, stock_quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$name, $description, $price, $category, $is_daily_special, $discount, $visibility, $stock]);
+            $imagePath = null;
+
+            // Handle image upload
+            if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+                $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+                $maxFileSize = 5 * 1024 * 1024; // 5MB
+                $fileType = $_FILES['image']['type'];
+                $fileSize = $_FILES['image']['size'];
+
+                if (!in_array($fileType, $allowedTypes)) {
+                    throw new Exception("Invalid file type. Only JPEG, PNG, and GIF are allowed.");
+                }
+                if ($fileSize > $maxFileSize) {
+                    throw new Exception("File size exceeds 5MB limit.");
+                }
+
+                $imageName = uniqid() . '-' . basename($_FILES['image']['name']);
+                $imagePath = $uploadDir . $imageName;
+                if (!move_uploaded_file($_FILES['image']['tmp_name'], $imagePath)) {
+                    throw new Exception("Failed to upload image.");
+                }
+            }
+
+            $stmt = $pdo->prepare("INSERT INTO products (name, description, price, category, is_daily_special, discount_percentage, visibility, stock_quantity, image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$name, $description, $price, $category, $is_daily_special, $discount, $visibility, $stock, $imagePath]);
             
             $productId = $pdo->lastInsertId();
             
@@ -228,8 +256,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $discount = floatval($_POST['discount_percentage']);
             $visibility = isset($_POST['visibility']) ? 1 : 0;
             
-            $stmt = $pdo->prepare("UPDATE products SET name = ?, description = ?, price = ?, category = ?, stock_quantity = ?, is_daily_special = ?, discount_percentage = ?, visibility = ? WHERE id = ?");
-            $stmt->execute([$name, $description, $price, $category, $stock, $is_daily_special, $discount, $visibility, $productId]);
+            // Handle image upload
+            $imagePath = $_POST['existing_image'] ?? null;
+            if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+                $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+                $maxFileSize = 5 * 1024 * 1024; // 5MB
+                $fileType = $_FILES['image']['type'];
+                $fileSize = $_FILES['image']['size'];
+
+                if (!in_array($fileType, $allowedTypes)) {
+                    throw new Exception("Invalid file type. Only JPEG, PNG, and GIF are allowed.");
+                }
+                if ($fileSize > $maxFileSize) {
+                    throw new Exception("File size exceeds 5MB limit.");
+                }
+
+                // Delete old image if exists
+                if ($imagePath && file_exists($imagePath)) {
+                    unlink($imagePath);
+                }
+
+                $imageName = uniqid() . '-' . basename($_FILES['image']['name']);
+                $imagePath = $uploadDir . $imageName;
+                if (!move_uploaded_file($_FILES['image']['tmp_name'], $imagePath)) {
+                    throw new Exception("Failed to upload image.");
+                }
+            }
+
+            $stmt = $pdo->prepare("UPDATE products SET name = ?, description = ?, price = ?, category = ?, stock_quantity = ?, is_daily_special = ?, discount_percentage = ?, visibility = ?, image = ? WHERE id = ?");
+            $stmt->execute([$name, $description, $price, $category, $stock, $is_daily_special, $discount, $visibility, $imagePath, $productId]);
             
             // Update customizations
             $stmt = $pdo->prepare("DELETE FROM product_customizations WHERE product_id = ?");
@@ -243,6 +298,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             $message = "✅ Product updated successfully!";
+            $messageType = 'success';
+            $active_tab = 'products';
+        }
+        
+        // Delete product
+        elseif (isset($_POST['delete_product'])) {
+            $productId = intval($_POST['product_id']);
+            
+            // Delete old image if exists
+            $stmt = $pdo->prepare("SELECT image FROM products WHERE id = ?");
+            $stmt->execute([$productId]);
+            $product = $stmt->fetch();
+            if ($product['image'] && file_exists($product['image'])) {
+                unlink($product['image']);
+            }
+            
+            // Delete from product_customizations
+            $stmt = $pdo->prepare("DELETE FROM product_customizations WHERE product_id = ?");
+            $stmt->execute([$productId]);
+            
+            // Delete from cart
+            $stmt = $pdo->prepare("DELETE FROM cart WHERE product_id = ?");
+            $stmt->execute([$productId]);
+            
+            // Delete product
+            $stmt = $pdo->prepare("DELETE FROM products WHERE id = ?");
+            $stmt->execute([$productId]);
+            
+            $message = "🗑️ Product deleted successfully!";
             $messageType = 'success';
             $active_tab = 'products';
         }
@@ -276,27 +360,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = "✅ Customization updated successfully!";
             $messageType = 'success';
             $active_tab = 'customizations';
-        }
-        
-        // Delete product
-        elseif (isset($_POST['delete_product'])) {
-            $productId = intval($_POST['product_id']);
-            
-            // Delete from product_customizations first
-            $stmt = $pdo->prepare("DELETE FROM product_customizations WHERE product_id = ?");
-            $stmt->execute([$productId]);
-            
-            // Delete from cart
-            $stmt = $pdo->prepare("DELETE FROM cart WHERE product_id = ?");
-            $stmt->execute([$productId]);
-            
-            // Delete product
-            $stmt = $pdo->prepare("DELETE FROM products WHERE id = ?");
-            $stmt->execute([$productId]);
-            
-            $message = "🗑️ Product deleted successfully!";
-            $messageType = 'success';
-            $active_tab = 'products';
         }
         
         // Delete customization
@@ -860,6 +923,19 @@ ob_end_flush();
             border-top: 1px solid #ecf0f1;
         }
 
+        /* Image Preview Styles */
+        .image-preview {
+            margin-top: 10px;
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .image-preview.show {
+            display: block;
+        }
+
         /* Customization Options */
         .customization-options {
             max-height: 300px;
@@ -990,6 +1066,15 @@ ob_end_flush();
             border-radius: 8px;
             margin-bottom: 10px;
             border-left: 4px solid var(--primary);
+        }
+
+        /* Product Image in Table */
+        .product-image {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 4px;
+            margin-right: 12px;
         }
 
         /* Responsive Design */
@@ -1192,15 +1277,19 @@ ob_end_flush();
                                         <tr>
                                             <td>
                                                 <div style="display: flex; align-items: center; gap: 12px;">
-                                                    <i class="fas fa-<?php 
-                                                        switch($product['category']) {
-                                                            case 'Pastries': echo 'croissant'; break;
-                                                            case 'Cakes': echo 'birthday-cake'; break;
-                                                            case 'Cupcakes': echo 'cupcake'; break;
-                                                            case 'Breads': echo 'bread-slice'; break;
-                                                            default: echo 'cookie';
-                                                        }
-                                                    ?>" style="color: var(--primary); font-size: 1.2rem;"></i>
+                                                    <?php if ($product['image'] && file_exists($product['image'])): ?>
+                                                        <img src="<?php echo htmlspecialchars($product['image']); ?>" class="product-image" alt="<?php echo htmlspecialchars($product['name']); ?>">
+                                                    <?php else: ?>
+                                                        <i class="fas fa-<?php 
+                                                            switch($product['category']) {
+                                                                case 'Pastries': echo 'croissant'; break;
+                                                                case 'Cakes': echo 'birthday-cake'; break;
+                                                                case 'Cupcakes': echo 'cupcake'; break;
+                                                                case 'Breads': echo 'bread-slice'; break;
+                                                                default: echo 'cookie';
+                                                            }
+                                                        ?>" style="color: var(--primary); font-size: 1.2rem;"></i>
+                                                    <?php endif; ?>
                                                     <div>
                                                         <div style="font-weight: 600;"><?php echo htmlspecialchars($product['name']); ?></div>
                                                         <div style="font-size: 0.8rem; color: #7f8c8d;"><?php echo $product['category']; ?></div>
@@ -1266,9 +1355,10 @@ ob_end_flush();
                         <div class="form-header">
                             <h3><i class="fas fa-edit"></i> Edit Product: <?php echo htmlspecialchars($editProduct['name']); ?></h3>
                         </div>
-                        <form method="POST">
+                        <form method="POST" enctype="multipart/form-data">
                             <input type="hidden" name="product_id" value="<?php echo $editProduct['id']; ?>">
                             <input type="hidden" name="update_product" value="1">
+                            <input type="hidden" name="existing_image" value="<?php echo htmlspecialchars($editProduct['image'] ?? ''); ?>">
                             
                             <div class="form-grid">
                                 <div class="form-group">
@@ -1327,6 +1417,17 @@ ob_end_flush();
                             </div>
                             
                             <div class="form-group">
+                                <label for="image">Product Image</label>
+                                <input type="file" id="image" name="image" accept="image/jpeg,image/png,image/gif">
+                                <?php if ($editProduct['image'] && file_exists($editProduct['image'])): ?>
+                                    <img src="<?php echo htmlspecialchars($editProduct['image']); ?>" class="image-preview show" alt="Current product image">
+                                <?php endif; ?>
+                                <p style="font-size: 0.8rem; color: #7f8c8d; margin-top: 5px;">
+                                    Accepted formats: JPEG, PNG, GIF. Max size: 5MB
+                                </p>
+                            </div>
+                            
+                            <div class="form-group">
                                 <label>Available Customizations</label>
                                 <div class="customization-options">
                                     <?php if (!empty($customizations)): ?>
@@ -1376,7 +1477,7 @@ ob_end_flush();
                         <div class="form-header">
                             <h3><i class="fas fa-plus"></i> Add New Product</h3>
                         </div>
-                        <form method="POST">
+                        <form method="POST" enctype="multipart/form-data">
                             <input type="hidden" name="add_product" value="1">
                             
                             <div class="form-grid">
@@ -1434,6 +1535,15 @@ ob_end_flush();
                                         <label for="visibility">Visible on Website</label>
                                     </div>
                                 </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="image">Product Image</label>
+                                <input type="file" id="image" name="image" accept="image/jpeg,image/png,image/gif">
+                                <img id="imagePreview" class="image-preview" alt="Image preview">
+                                <p style="font-size: 0.8rem; color: #7f8c8d; margin-top: 5px;">
+                                    Accepted formats: JPEG, PNG, GIF. Max size: 5MB
+                                </p>
                             </div>
                             
                             <div class="form-group">
@@ -1504,15 +1614,19 @@ ob_end_flush();
                                             <tr>
                                                 <td>
                                                     <div style="display: flex; align-items: center; gap: 12px;">
-                                                        <i class="fas fa-<?php 
-                                                            switch($product['category']) {
-                                                                case 'Pastries': echo 'croissant'; break;
-                                                                case 'Cakes': echo 'birthday-cake'; break;
-                                                                case 'Cupcakes': echo 'cupcake'; break;
-                                                                case 'Breads': echo 'bread-slice'; break;
-                                                                default: echo 'cookie';
-                                                            }
-                                                        ?>" style="color: var(--primary); font-size: 1.4rem;"></i>
+                                                        <?php if ($product['image'] && file_exists($product['image'])): ?>
+                                                            <img src="<?php echo htmlspecialchars($product['image']); ?>" class="product-image" alt="<?php echo htmlspecialchars($product['name']); ?>">
+                                                        <?php else: ?>
+                                                            <i class="fas fa-<?php 
+                                                                switch($product['category']) {
+                                                                    case 'Pastries': echo 'croissant'; break;
+                                                                    case 'Cakes': echo 'birthday-cake'; break;
+                                                                    case 'Cupcakes': echo 'cupcake'; break;
+                                                                    case 'Breads': echo 'bread-slice'; break;
+                                                                    default: echo 'cookie';
+                                                                }
+                                                            ?>" style="color: var(--primary); font-size: 1.4rem;"></i>
+                                                        <?php endif; ?>
                                                         <div>
                                                             <div style="font-weight: 600;"><?php echo htmlspecialchars($product['name']); ?></div>
                                                             <div style="font-size: 0.8rem; color: #7f8c8d;">
@@ -1774,27 +1888,49 @@ ob_end_flush();
                                             </td>
                                             <td>
                                                 <strong>$<?php echo number_format($order['total_amount'], 2); ?></strong>
+                                                </td>
+                                            <td>
+                                                <span class="status-badge status-<?php echo strtolower($order['status']); ?>">
+                                                    <?php echo ucfirst($order['status']); ?>
+                                                </span>
                                             </td>
                                             <td>
+                                                <?php echo date('M d, Y H:i', strtotime($order['created_at'])); ?>
+                                            </td>
+                                            <td class="actions">
                                                 <form method="POST" style="display: inline;">
                                                     <input type="hidden" name="order_id" value="<?php echo $order['id']; ?>">
-                                                    <select name="status" onchange="this.form.submit()" style="padding: 6px; border-radius: 4px; border: 1px solid #ddd;">
+                                                    <select name="status" onchange="this.form.submit()">
                                                         <option value="pending" <?php echo $order['status'] == 'pending' ? 'selected' : ''; ?>>Pending</option>
-                                                        <option value="confirmed" <?php echo $order['status'] == 'confirmed' ? 'selected' : ''; ?>>Confirmed</option>
-                                                        <option value="preparing" <?php echo $order['status'] == 'preparing' ? 'selected' : ''; ?>>Preparing</option>
-                                                        <option value="ready" <?php echo $order['status'] == 'ready' ? 'selected' : ''; ?>>Ready</option>
+                                                        <option value="processing" <?php echo $order['status'] == 'processing' ? 'selected' : ''; ?>>Processing</option>
                                                         <option value="completed" <?php echo $order['status'] == 'completed' ? 'selected' : ''; ?>>Completed</option>
+                                                        <option value="cancelled" <?php echo $order['status'] == 'cancelled' ? 'selected' : ''; ?>>Cancelled</option>
                                                     </select>
                                                     <input type="hidden" name="update_order_status" value="1">
                                                 </form>
                                             </td>
-                                            <td>
-                                                <?php echo date('M j, Y g:i A', strtotime($order['created_at'])); ?>
-                                            </td>
-                                            <td class="actions">
-                                                <button class="action-btn btn-view" onclick="viewOrder(<?php echo $order['id']; ?>)">
-                                                    <i class="fas fa-eye"></i> View
-                                                </button>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="6">
+                                                <div class="order-details">
+                                                    <h4>Order Details</h4>
+                                                    <div class="order-items">
+                                                        <?php foreach ($order['items'] as $item): ?>
+                                                            <div class="order-item">
+                                                                <div>
+                                                                    <strong><?php echo htmlspecialchars($item['product_name']); ?></strong>
+                                                                    <div style="font-size: 0.8rem; color: #7f8c8d;">
+                                                                        Quantity: <?php echo $item['quantity']; ?>
+                                                                        <?php if (!empty($item['customizations'])): ?>
+                                                                            <br>Customizations: <?php echo htmlspecialchars($item['customizations']); ?>
+                                                                        <?php endif; ?>
+                                                                    </div>
+                                                                </div>
+                                                                <div>$<?php echo number_format($item['price'] * $item['quantity'], 2); ?></div>
+                                                            </div>
+                                                        <?php endforeach; ?>
+                                                    </div>
+                                                </div>
                                             </td>
                                         </tr>
                                         <?php endforeach; ?>
@@ -1804,8 +1940,8 @@ ob_end_flush();
                         <?php else: ?>
                             <div class="empty-state">
                                 <i class="fas fa-shopping-bag"></i>
-                                <h3>No Orders Yet</h3>
-                                <p>Orders will appear here when customers place orders through the website.</p>
+                                <h3>No Orders Found</h3>
+                                <p>Orders will appear here once customers place them.</p>
                             </div>
                         <?php endif; ?>
                     </div>
@@ -1816,99 +1952,46 @@ ob_end_flush();
 
     <script>
         // Tab navigation
-        document.querySelectorAll('.sidebar-menu a[data-tab]').forEach(tab => {
-            tab.addEventListener('click', function(e) {
+        document.querySelectorAll('.sidebar-menu a[data-tab]').forEach(link => {
+            link.addEventListener('click', function(e) {
                 e.preventDefault();
-                
-                // Remove active class from all tabs
-                document.querySelectorAll('.sidebar-menu a').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                
-                // Add active class to clicked tab
-                this.classList.add('active');
                 const tabId = this.getAttribute('data-tab');
-                document.getElementById(tabId).classList.add('active');
                 
-                // Update URL without reloading
-                history.pushState(null, null, '?tab=' + tabId);
-            });
-        });
-
-        // Handle browser back/forward buttons
-        window.addEventListener('popstate', function() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const tab = urlParams.get('tab') || 'dashboard';
-            
-            document.querySelectorAll('.sidebar-menu a').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            
-            document.querySelector('[data-tab="' + tab + '"]').classList.add('active');
-            document.getElementById(tab).classList.add('active');
-        });
-
-        // View order details
-        function viewOrder(orderId) {
-            alert('Order details for order #' + orderId + '\n\nThis would open a detailed order view with items, customer info, etc.');
-            // In a real implementation, this would open a modal with order details
-        }
-
-        // Auto-hide messages after 5 seconds
-        setTimeout(() => {
-            const messages = document.querySelectorAll('.message');
-            messages.forEach(msg => {
-                msg.style.opacity = '0';
-                setTimeout(() => msg.remove(), 300);
-            });
-        }, 5000);
-
-        // Add animations to cards
-        document.addEventListener('DOMContentLoaded', function() {
-            const cards = document.querySelectorAll('.stat-card, .card');
-            cards.forEach((card, index) => {
-                card.style.animationDelay = (index * 0.1) + 's';
-                card.style.animation = 'fadeIn 0.6s ease forwards';
-            });
-        });
-
-        // Form validation
-        document.querySelectorAll('form').forEach(form => {
-            form.addEventListener('submit', function(e) {
-                const requiredFields = this.querySelectorAll('[required]');
-                let valid = true;
-                
-                requiredFields.forEach(field => {
-                    if (!field.value.trim()) {
-                        valid = false;
-                        field.style.borderColor = 'var(--danger)';
-                    } else {
-                        field.style.borderColor = '';
-                    }
+                // Update active tab
+                document.querySelectorAll('.tab-content').forEach(tab => {
+                    tab.classList.remove('active');
                 });
+                document.querySelector(`#${tabId}`).classList.add('active');
                 
-                if (!valid) {
-                    e.preventDefault();
-                    alert('Please fill in all required fields.');
-                }
+                // Update active menu item
+                document.querySelectorAll('.sidebar-menu a').forEach(a => {
+                    a.classList.remove('active');
+                });
+                this.classList.add('active');
+
+                // Update URL without reloading
+                history.pushState(null, null, `?tab=${tabId}`);
             });
         });
 
-        // Real-time stock validation
-        document.querySelectorAll('input[name="stock_quantity"]').forEach(input => {
-            input.addEventListener('change', function() {
-                if (this.value < 0) {
-                    this.value = 0;
+        // Image preview for product image upload
+        const imageInput = document.getElementById('image');
+        const imagePreview = document.getElementById('imagePreview');
+        if (imageInput && imagePreview) {
+            imageInput.addEventListener('change', function() {
+                const file = this.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        imagePreview.src = e.target.result;
+                        imagePreview.classList.add('show');
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    imagePreview.classList.remove('show');
                 }
             });
-        });
-
-        // Price validation
-        document.querySelectorAll('input[name="price"], input[name="price_adjustment"]').forEach(input => {
-            input.addEventListener('change', function() {
-                if (this.value < 0) {
-                    this.value = 0;
-                }
-            });
-        });
+        }
     </script>
 </body>
 </html>

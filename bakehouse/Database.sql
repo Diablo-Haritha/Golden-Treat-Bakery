@@ -330,6 +330,7 @@ CREATE TABLE IF NOT EXISTS orders (
 );
 
 CREATE TABLE IF NOT EXISTS order_items (
+<<<<<<< Updated upstream
     id INT AUTO_INCREMENT PRIMARY KEY,
     order_id INT,
     product_name VARCHAR(255) NOT NULL,
@@ -339,6 +340,169 @@ CREATE TABLE IF NOT EXISTS order_items (
     total_price DECIMAL(10, 2) NOT NULL,
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
 );
+=======
+  id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  order_id INT(11) NOT NULL,
+  product_id INT(11) DEFAULT NULL,
+  product_name VARCHAR(255) NOT NULL,
+  quantity INT(11) NOT NULL DEFAULT 1,
+  unit_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  customizations TEXT DEFAULT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_order_items_order_id (order_id),
+  INDEX idx_order_items_product_id (product_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `order_status_history` (
+  `id_new` int(11) NOT NULL,
+  `id` int(11) NOT NULL,
+  `order_id` int(11) NOT NULL,
+  `old_status` varchar(64) DEFAULT NULL,
+  `new_status` varchar(64) DEFAULT NULL,
+  `changed_by` int(11) DEFAULT NULL,
+  `note` text DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `order_status_history` (`id_new`, `id`, `order_id`, `old_status`, `new_status`, `changed_by`, `note`, `created_at`) VALUES
+(1, 0, 3, 'Queued for Baking', 'Completed', NULL, 'Updated through admin UI', '2025-10-01 15:52:03'),
+(2, 0, 3, 'Returned', 'Partially Returned', NULL, 'Return processed (qty: 1)', '2025-10-01 16:04:17'),
+(3, 0, 4, 'In Preparation', 'Order Received', NULL, 'Updated through admin UI', '2025-10-01 16:07:01'),
+(4, 0, 6, 'Ready for Pickup', 'Deleted', NULL, 'Order soft-deleted via admin UI', '2025-10-01 16:19:23'),
+(5, 0, 7, 'Out for Delivery', 'Deleted', NULL, 'Order soft-deleted via admin UI', '2025-10-11 13:10:19');
+
+DELIMITER $$
+
+/* 1) BEFORE INSERT ON returns
+   Validate order exists and return quantity fits.
+*/
+CREATE TRIGGER trg_returns_before_insert
+BEFORE INSERT ON `returns`
+FOR EACH ROW
+BEGIN
+  DECLARE v_order_qty INT;
+
+  SELECT `quantity` INTO v_order_qty
+    FROM `orders`
+    WHERE `id` = NEW.order_id
+    LIMIT 1;
+
+  IF v_order_qty IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Referenced order not found';
+  END IF;
+
+  IF NEW.quantity IS NULL OR NEW.quantity <= 0 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Return quantity must be at least 1';
+  END IF;
+
+  IF NEW.quantity > v_order_qty THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Return quantity exceeds available order quantity';
+  END IF;
+END$$
+
+
+/* 2) AFTER INSERT ON returns
+   Apply the return: adjust orders and insert history.
+*/
+CREATE TRIGGER trg_returns_after_insert
+AFTER INSERT ON `returns`
+FOR EACH ROW
+BEGIN
+  DECLARE v_old_qty INT DEFAULT 0;
+  DECLARE v_price_per_unit DECIMAL(12,4) DEFAULT 0.00;
+  DECLARE v_old_status VARCHAR(64) DEFAULT '';
+  DECLARE v_new_qty INT DEFAULT 0;
+  DECLARE v_new_total DECIMAL(12,2) DEFAULT 0.00;
+  DECLARE v_new_status VARCHAR(64) DEFAULT '';
+  DECLARE v_changed_by INT;
+
+  -- read current order details
+  SELECT `quantity`, `price`, `status`
+    INTO v_old_qty, v_price_per_unit, v_old_status
+    FROM `orders`
+    WHERE `id` = NEW.order_id
+    LIMIT 1;
+
+  IF v_old_qty IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Order missing during AFTER INSERT';
+  END IF;
+
+  SET v_new_qty = GREATEST(v_old_qty - NEW.quantity, 0);
+  SET v_new_total = ROUND(v_price_per_unit * v_new_qty, 2);
+
+  IF v_new_qty = 0 THEN
+    SET v_new_status = 'Returned';
+  ELSE
+    SET v_new_status = 'Partially Returned';
+  END IF;
+
+  UPDATE `orders`
+    SET `quantity` = v_new_qty,
+        `total_amount` = v_new_total,
+        `status` = v_new_status
+    WHERE `id` = NEW.order_id;
+
+  SET v_changed_by = IFNULL(NEW.processed_by, NULL);
+
+  INSERT INTO `order_status_history`
+    (`order_id`, `old_status`, `new_status`, `changed_by`, `note`, `created_at`)
+  VALUES
+    (NEW.order_id, v_old_status, v_new_status, v_changed_by,
+     CONCAT('Return processed (qty: ', NEW.quantity, ', refund: ', IFNULL(NEW.refund_amount,0), ')'),
+     CURRENT_TIMESTAMP());
+END$$
+
+
+/* 3) AFTER DELETE ON returns
+   Reverse the return when a returns row is deleted (restore).
+*/
+CREATE TRIGGER trg_returns_after_delete
+AFTER DELETE ON `returns`
+FOR EACH ROW
+BEGIN
+  DECLARE v_curr_qty INT DEFAULT 0;
+  DECLARE v_price_per_unit DECIMAL(12,4) DEFAULT 0.00;
+  DECLARE v_old_status VARCHAR(64) DEFAULT '';
+  DECLARE v_new_qty INT DEFAULT 0;
+  DECLARE v_new_total DECIMAL(12,2) DEFAULT 0.00;
+  DECLARE v_new_status VARCHAR(64) DEFAULT '';
+  DECLARE v_changed_by INT;
+
+  SELECT `quantity`, `price`, `status`
+    INTO v_curr_qty, v_price_per_unit, v_old_status
+    FROM `orders`
+    WHERE `id` = OLD.order_id
+    LIMIT 1;
+
+  IF v_curr_qty IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Order missing during AFTER DELETE';
+  END IF;
+
+  SET v_new_qty = v_curr_qty + OLD.quantity;
+  SET v_new_total = ROUND(v_price_per_unit * v_new_qty, 2);
+  SET v_new_status = 'Restored';
+
+  UPDATE `orders`
+    SET `quantity` = v_new_qty,
+        `total_amount` = v_new_total,
+        `status` = v_new_status
+    WHERE `id` = OLD.order_id;
+
+  SET v_changed_by = IFNULL(OLD.processed_by, NULL);
+
+  INSERT INTO `order_status_history`
+    (`order_id`, `old_status`, `new_status`, `changed_by`, `note`, `created_at`)
+  VALUES
+    (OLD.order_id, v_old_status, v_new_status, v_changed_by,
+     CONCAT('Return restored (qty: ', OLD.quantity, ')'),
+     CURRENT_TIMESTAMP());
+END$$
+
+DELIMITER ;
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
 
 -- ============================================================
 -- OTP SYSTEM (FIXED & RETAINED)
