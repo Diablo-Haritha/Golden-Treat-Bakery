@@ -5,7 +5,7 @@
 CREATE DATABASE IF NOT EXISTS golden_treat;
 USE golden_treat;
 
--- ============================================================
+ ============================================================
 -- TABLE: bookings
 -- ============================================================
 CREATE TABLE IF NOT EXISTS bookings (
@@ -18,6 +18,65 @@ CREATE TABLE IF NOT EXISTS bookings (
     status VARCHAR(20) NOT NULL
 );
 
+-- ============================================================
+-- TABLE: bookings_log (Audit / History for bookings)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS bookings_log (
+    log_id INT AUTO_INCREMENT PRIMARY KEY,
+    booking_id INT,
+    operation VARCHAR(50) NOT NULL,
+    booking_ref VARCHAR(50),
+    customerName VARCHAR(100),
+    date DATE,
+    time TIME,
+    tableNumber INT,
+    status VARCHAR(20),
+    log_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE SET NULL
+);
+
+-- ============================================================
+-- TRIGGERS: bookings
+-- ============================================================
+DELIMITER //
+
+-- Trigger AFTER INSERT
+CREATE TRIGGER trg_bookings_after_insert
+AFTER INSERT ON bookings
+FOR EACH ROW
+BEGIN
+    INSERT INTO bookings_log (
+        booking_id, operation, booking_ref, customerName, date, time, tableNumber, status
+    ) VALUES (
+        NEW.id, 'INSERT', NEW.bookingId, NEW.customerName, NEW.date, NEW.time, NEW.tableNumber, NEW.status
+    );
+END//
+
+-- Trigger AFTER UPDATE
+CREATE TRIGGER trg_bookings_after_update
+AFTER UPDATE ON bookings
+FOR EACH ROW
+BEGIN
+    INSERT INTO bookings_log (
+        booking_id, operation, booking_ref, customerName, date, time, tableNumber, status
+    ) VALUES (
+        NEW.id, 'UPDATE', NEW.bookingId, NEW.customerName, NEW.date, NEW.time, NEW.tableNumber, NEW.status
+    );
+END//
+
+-- Trigger BEFORE DELETE
+CREATE TRIGGER trg_bookings_before_delete
+BEFORE DELETE ON bookings
+FOR EACH ROW
+BEGIN
+    INSERT INTO bookings_log (
+        booking_id, operation, booking_ref, customerName, date, time, tableNumber, status
+    ) VALUES (
+        OLD.id, 'DELETE', OLD.bookingId, OLD.customerName, OLD.date, OLD.time, OLD.tableNumber, OLD.status
+    );
+END//
+
+DELIMITER ;
 -- ============================================================
 -- BILLING SYSTEM
 -- ============================================================
@@ -723,3 +782,4 @@ BEGIN
 END$$
 
 DELIMITER ;
+
