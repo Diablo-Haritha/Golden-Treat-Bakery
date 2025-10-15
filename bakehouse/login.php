@@ -6,7 +6,7 @@ date_default_timezone_set('Asia/Kolkata');
 require 'config.php'; // Create a config.php file with sensitive data
 
 // Composer autoloader
-require 'vendor/autoload.php';
+require '../vendor/autoload.php';
 
 // Import PHPMailer classes
 use PHPMailer\PHPMailer\PHPMailer;
