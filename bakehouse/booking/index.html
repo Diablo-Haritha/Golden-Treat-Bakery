@@ -884,8 +884,83 @@
     let currentRole='Manager';
     const roleBtn=$('#roleBtn');
     if(roleBtn) roleBtn.onclick=()=>{currentRole=currentRole==='Manager'?'Admin':'Manager'; roleBtn.textContent=currentRole;};
+    // Dashboard export
+    $('#btnExportCsv').onclick = exportCSV;
 
+    // Export panel buttons
+    $('#expCsv').onclick = exportCSV;
+    $('#expXlsx').onclick = exportExcel;
+    $('#expPdf').onclick = exportPDF;
     renderTable();
+        /* ---------- EXPORT FUNCTIONS ---------- */
+
+// Convert data to CSV string
+function toCSV(data) {
+  const headers = ["Booking ID", "Customer Name", "Date", "Time", "Table Number", "Status"];
+  const rows = data.map(r => [
+    r.bookingId,
+    r.customerName,
+    r.date,
+    r.time,
+    r.tableNumber,
+    r.status
+  ]);
+  return [headers, ...rows].map(e => e.join(",")).join("\n");
+}
+
+// Download CSV file
+function exportCSV() {
+  const filtered = applyFilters(bookings);
+  const csvContent = toCSV(filtered);
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", "bookings.csv");
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// Export Excel using SheetJS
+function exportExcel() {
+  const filtered = applyFilters(bookings);
+  const worksheet = XLSX.utils.json_to_sheet(filtered);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Bookings");
+  XLSX.writeFile(workbook, "bookings.xlsx");
+}
+
+// Export PDF using jsPDF
+function exportPDF() {
+  const filtered = applyFilters(bookings);
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  doc.setFontSize(14);
+  doc.text("Booking Report", 14, 15);
+
+  let startY = 25;
+  const lineHeight = 8;
+  doc.setFontSize(10);
+  doc.text("Booking ID | Customer | Date | Time | Table | Status", 14, startY);
+  startY += lineHeight;
+
+  filtered.forEach(r => {
+    doc.text(
+      `${r.bookingId} | ${r.customerName} | ${r.date} | ${r.time} | ${r.tableNumber} | ${r.status}`,
+      14,
+      startY
+    );
+    startY += lineHeight;
+    if (startY > 270) { // new page if overflowing
+      doc.addPage();
+      startY = 20;
+    }
+  });
+
+  doc.save("bookings.pdf");
+}
   </script>
 </body>
 </html>
