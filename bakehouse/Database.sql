@@ -5,13 +5,16 @@
 CREATE DATABASE IF NOT EXISTS golden_treat;
 USE golden_treat;
 
- ============================================================
+-- ============================================================
 -- TABLE: bookings
 -- ============================================================
+
 CREATE TABLE IF NOT EXISTS bookings (
     id INT AUTO_INCREMENT PRIMARY KEY,
     bookingId VARCHAR(50) UNIQUE NOT NULL,
     customerName VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL,
+    phone VARCHAR(10) NOT NULL,
     date DATE NOT NULL,
     time TIME NOT NULL,
     tableNumber INT NOT NULL,
@@ -21,23 +24,25 @@ CREATE TABLE IF NOT EXISTS bookings (
 -- ============================================================
 -- TABLE: bookings_log (Audit / History for bookings)
 -- ============================================================
+USE golden_treat;
+
 CREATE TABLE IF NOT EXISTS bookings_log (
     log_id INT AUTO_INCREMENT PRIMARY KEY,
     booking_id INT,
     operation VARCHAR(50) NOT NULL,
     booking_ref VARCHAR(50),
-    customerName VARCHAR(100),
+    customer_name VARCHAR(100),
+    email VARCHAR(100),
+    phone VARCHAR(10),
     date DATE,
     time TIME,
-    tableNumber INT,
+    guests INT,
     status VARCHAR(20),
     log_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE SET NULL
 );
 
--- ============================================================
--- TRIGGERS: bookings
--- ============================================================
+
 DELIMITER //
 
 -- Trigger AFTER INSERT
@@ -46,9 +51,9 @@ AFTER INSERT ON bookings
 FOR EACH ROW
 BEGIN
     INSERT INTO bookings_log (
-        booking_id, operation, booking_ref, customerName, date, time, tableNumber, status
+        booking_id, operation, booking_ref, customer_name, email, phone, date, time, guests, status
     ) VALUES (
-        NEW.id, 'INSERT', NEW.bookingId, NEW.customerName, NEW.date, NEW.time, NEW.tableNumber, NEW.status
+        NEW.id, 'INSERT', NEW.bookingId, NEW.customerName, NEW.email, NEW.phone, NEW.date, NEW.time, NEW.tableNumber, NEW.status
     );
 END//
 
@@ -58,9 +63,9 @@ AFTER UPDATE ON bookings
 FOR EACH ROW
 BEGIN
     INSERT INTO bookings_log (
-        booking_id, operation, booking_ref, customerName, date, time, tableNumber, status
+        booking_id, operation, booking_ref, customer_name, email, phone, date, time, guests, status
     ) VALUES (
-        NEW.id, 'UPDATE', NEW.bookingId, NEW.customerName, NEW.date, NEW.time, NEW.tableNumber, NEW.status
+        NEW.id, 'UPDATE', NEW.bookingId, NEW.customerName, NEW.email, NEW.phone, NEW.date, NEW.time, NEW.tableNumber, NEW.status
     );
 END//
 
@@ -70,13 +75,17 @@ BEFORE DELETE ON bookings
 FOR EACH ROW
 BEGIN
     INSERT INTO bookings_log (
-        booking_id, operation, booking_ref, customerName, date, time, tableNumber, status
+        booking_id, operation, booking_ref, customer_name, email, phone, date, time, guests, status
     ) VALUES (
-        OLD.id, 'DELETE', OLD.bookingId, OLD.customerName, OLD.date, OLD.time, OLD.tableNumber, OLD.status
+        OLD.id, 'DELETE', OLD.bookingId, OLD.customerName, OLD.email, OLD.phone, OLD.date, OLD.time, OLD.tableNumber, OLD.status
     );
 END//
 
 DELIMITER ;
+
+DROP TRIGGER IF EXISTS trg_bookings_after_insert;
+DROP TRIGGER IF EXISTS trg_bookings_after_update;
+DROP TRIGGER IF EXISTS trg_bookings_before_delete;
 -- ============================================================
 -- BILLING SYSTEM
 -- ============================================================
@@ -377,10 +386,11 @@ INSERT INTO product_customizations (product_id, customization_id) VALUES
 -- ORDER MANAGEMENT SYSTEM
 -- ============================================================
 CREATE TABLE `orders` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `order_number` varchar(64) DEFAULT NULL,
   `user_id` int(11) DEFAULT NULL,
   `order_date` date NOT NULL,
+  `session_id` varchar(255) DEFAULT NULL,
   `customer_name` varchar(100) NOT NULL,
   `customer_email` varchar(255) NOT NULL,
   `product` varchar(100) NOT NULL,
@@ -395,17 +405,19 @@ CREATE TABLE `orders` (
   `customer_phone` varchar(32) DEFAULT NULL,
   `order_summary` longtext DEFAULT NULL,
   `deleted_at` datetime DEFAULT NULL,
-  `deleted_by` int(11) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `deleted_by` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO `orders` (`id`, `order_number`, `user_id`, `order_date`, `customer_name`, `customer_email`, `product`, `quantity`, `original_quantity`, `price`, `total_amount`, `original_price`, `status`, `created_at`, `updated_at`, `customer_phone`, `order_summary`, `deleted_at`, `deleted_by`) VALUES
-(1, 'ORD-000001', NULL, '2025-09-01', '', '', 'Chocolate Cake', 1, 1, 2500.00, 2500.00, 2500.00, 'Cancelled', '2025-09-03 23:38:03', '2025-10-14 04:30:59', NULL, NULL, NULL, NULL),
-(2, 'ORD-000002', NULL, '2025-09-02', '', '', 'Blueberry Muffins (6 pack)', 1, 2, 1800.00, 0.00, 1800.00, 'Completed', '2025-09-03 23:38:03', '2025-10-14 04:55:56', NULL, NULL, NULL, NULL),
-(3, 'ORD-000003', NULL, '2025-09-02', '', '', 'Butter Croissant', 9, 12, 2400.00, 21600.00, 2400.00, 'Cancelled', '2025-09-03 23:38:03', '2025-10-14 04:56:28', NULL, NULL, NULL, NULL),
-(4, 'ORD-000004', NULL, '2025-09-03', 'Dilshan Jayawardena', '', 'Vanilla Cupcakes (12 pack)', 0, 1, 2200.00, 0.00, 2200.00, 'Returned', '2025-09-03 23:38:03', '2025-10-14 04:30:20', NULL, NULL, NULL, NULL),
-(6, 'ORD-000006', NULL, '2025-09-03', 'Fathima Rahman', '', 'Strawberry Tart', 2, 2, 3000.00, 6000.00, 3000.00, 'Ready for Pickup', '2025-09-03 23:38:03', '2025-10-13 04:00:17', NULL, NULL, '2025-10-01 16:19:23', NULL),
-(7, 'ORD-000007', NULL, '2025-09-04', 'Gihan Abeysekera', '', 'Fruit Loaf', 1, 1, 1500.00, 1500.00, 1500.00, 'Out for Delivery', '2025-09-03 23:38:03', '2025-10-13 04:00:17', NULL, NULL, '2025-10-11 13:10:19', NULL),
-(10, 'ORD-000010', NULL, '2025-09-04', 'Janani De Silva', '', 'Brownies', 8, 8, 1600.00, 12800.00, 1600.00, 'Cancelled', '2025-09-03 23:38:03', '2025-10-13 04:00:17', NULL, NULL, NULL, NULL);
+
+INSERT INTO `orders` (`id`, `order_number`, `user_id`, `session_id`, `order_date`, `customer_name`, `customer_email`, `product`, `quantity`, `original_quantity`, `price`, `total_amount`, `original_price`, `status`, `created_at`, `updated_at`, `customer_phone`, `order_summary`, `deleted_at`, `deleted_by`) VALUES
+(1, 'ORD-000001', NULL, NULL, '2025-09-01', '', '', 'Chocolate Cake', 1, 1, 2500.00, 2500.00, 2500.00, 'Cancelled', '2025-09-03 18:08:03', '2025-10-13 23:00:59', NULL, NULL, NULL, NULL),
+(2, 'ORD-000002', NULL, NULL, '2025-09-02', '', '', 'Blueberry Muffins (6 pack)', 1, 2, 1800.00, 0.00, 1800.00, 'Completed', '2025-09-03 18:08:03', '2025-10-13 23:25:56', NULL, NULL, NULL, NULL),
+(3, 'ORD-000003', NULL, NULL, '2025-09-02', '', '', 'Butter Croissant', 9, 12, 2400.00, 21600.00, 2400.00, 'Cancelled', '2025-09-03 18:08:03', '2025-10-13 23:26:28', NULL, NULL, NULL, NULL),
+(4, 'ORD-000004', NULL, NULL, '2025-09-03', 'Dilshan Jayawardena', '', 'Vanilla Cupcakes (12 pack)', 0, 1, 2200.00, 0.00, 2200.00, 'Returned', '2025-09-03 18:08:03', '2025-10-13 23:00:20', NULL, NULL, NULL, NULL),
+(6, 'ORD-000006', NULL, NULL, '2025-09-03', 'Fathima Rahman', '', 'Strawberry Tart', 2, 2, 3000.00, 6000.00, 3000.00, 'Ready for Pickup', '2025-09-03 18:08:03', '2025-10-12 22:30:17', NULL, NULL, '2025-10-01 16:19:23', NULL),
+(7, 'ORD-000007', NULL, NULL, '2025-09-04', 'Gihan Abeysekera', '', 'Fruit Loaf', 1, 1, 1500.00, 1500.00, 1500.00, 'Out for Delivery', '2025-09-03 18:08:03', '2025-10-12 22:30:17', NULL, NULL, '2025-10-11 13:10:19', NULL),
+(10, 'ORD-000010', NULL, NULL, '2025-09-04', 'Janani De Silva', '', 'Brownies', 8, 8, 1600.00, 12800.00, 1600.00, 'Cancelled', '2025-09-03 18:08:03', '2025-10-12 22:30:17', NULL, NULL, NULL, NULL);
 
 CREATE TABLE `order_items` (
   `id` int(11) NOT NULL,
@@ -577,6 +589,7 @@ BEGIN
 END$$
 
 DELIMITER ;
+
 
 -- ============================================================
 -- OTP SYSTEM (FIXED & RETAINED)

@@ -318,8 +318,28 @@
     }
 
     .btn.secondary {
-      background: #10b981
+      background: #10b981;
+            color: #333;
+            border: 1px solid #ccc;
     }
+     .btn.secondary:hover {
+            background-color: #08ee23;
+            border-color: #bbb;
+            color: #000;
+            transition: transform 0.25s ease;
+            font-size: 14px;
+        }
+
+        .btn.secondary i {
+            font-size: 14px;
+            color: #007bff;
+            transition: transform 0.25s ease;
+        }
+
+        .btn.secondary:hover i {
+            transform: scale(1.1);
+            color: #0056b3;
+        }
 
     .btn.warn {
       background: var(--warn);

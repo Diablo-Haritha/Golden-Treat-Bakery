@@ -1,5 +1,4 @@
 <?php
-
 session_start();
 ob_start();
 
@@ -43,7 +42,10 @@ function getAvailableCustomizations($pdo, $productId) {
 function getCustomizationNames($pdo, $customizationIds) {
     if (empty($customizationIds)) return [];
     
+<<<<<<< HEAD
     // Ensure all IDs are integers for security
+=======
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
     $customizationIds = array_map('intval', $customizationIds);
     $placeholders = str_repeat('?,', count($customizationIds) - 1) . '?';
     
@@ -52,7 +54,10 @@ function getCustomizationNames($pdo, $customizationIds) {
     return $stmt->fetchAll();
 }
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['add_to_cart'])) {
         $productId = intval($_POST['product_id']);
@@ -60,7 +65,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Selected customizations are received as an array of IDs from the form
         $selectedCustomizations = isset($_POST['customizations']) ? $_POST['customizations'] : [];
         
-        // Validate product exists and is visible
         $stmt = $pdo->prepare("SELECT * FROM products WHERE id = ? AND visibility = 1");
         $stmt->execute([$productId]);
         $product = $stmt->fetch();
@@ -71,6 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Apply product discount to base price
                 $basePrice = $product['price'] * (1 - $product['discount_percentage']/100);
                 
+<<<<<<< HEAD
                 // Calculate total price with customizations
                 $itemCustomizationCost = 0;
                 
@@ -80,6 +85,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $placeholders = str_repeat('?,', count($cleanCustomizationIds) - 1) . '?';
                     
                     // Fetch details of selected customizations
+=======
+                $itemCustomizationCost = 0;
+                
+                if (!empty($selectedCustomizations)) {
+                    $cleanCustomizationIds = array_map('intval', $selectedCustomizations);
+                    $placeholders = str_repeat('?,', count($cleanCustomizationIds) - 1) . '?';
+                    
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
                     $sql = "
                         SELECT c.price_adjustment 
                         FROM customizations c 
@@ -96,6 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
                 
+<<<<<<< HEAD
                 // Total price for one item including base price and customizations
                 $unitPrice = $basePrice + $itemCustomizationCost;
                 $totalPrice = $unitPrice * $quantity;
@@ -105,25 +119,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $customizationKey = json_encode($selectedCustomizations);
                 
                 // Check if product already in cart with same customizations
+=======
+                $unitPrice = $basePrice + $itemCustomizationCost;
+                $totalPrice = $unitPrice * $quantity;
+
+                sort($selectedCustomizations);
+                $customizationKey = json_encode($selectedCustomizations);
+                
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
                 $stmt = $pdo->prepare("SELECT id, quantity, total_price FROM cart WHERE session_id = ? AND product_id = ? AND selected_customizations = ?");
                 $stmt->execute([$sessionId, $productId, $customizationKey]);
                 $existingItem = $stmt->fetch();
                 
                 if ($existingItem) {
-                    // Update quantity
                     $newQuantity = $existingItem['quantity'] + $quantity;
+<<<<<<< HEAD
                     // Recalculate total price for the updated item
+=======
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
                     $newTotalPrice = $unitPrice * $newQuantity; 
 
                     $stmt = $pdo->prepare("UPDATE cart SET quantity = ?, total_price = ? WHERE id = ?");
                     $stmt->execute([$newQuantity, $newTotalPrice, $existingItem['id']]);
                 } else {
-                    // Add new item
                     $stmt = $pdo->prepare("INSERT INTO cart (session_id, product_id, quantity, selected_customizations, total_price) VALUES (?, ?, ?, ?, ?)");
                     $stmt->execute([$sessionId, $productId, $quantity, $customizationKey, $totalPrice]);
                 }
                 
-                // Update stock
                 $newStock = $product['stock_quantity'] - $quantity;
                 $stmt = $pdo->prepare("UPDATE products SET stock_quantity = ? WHERE id = ?");
                 $stmt->execute([$newStock, $productId]);
@@ -147,7 +169,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sessionId = session_id();
         
         if ($newQuantity > 0) {
+<<<<<<< HEAD
             // Get current item details
+=======
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
             $stmt = $pdo->prepare("SELECT c.quantity, c.product_id, c.selected_customizations, p.stock_quantity, p.price, p.discount_percentage, p.name 
                                   FROM cart c JOIN products p ON c.product_id = p.id 
                                   WHERE c.id = ? AND c.session_id = ?");
@@ -158,8 +183,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $quantityDiff = $newQuantity - $item['quantity'];
                 
                 if ($item['stock_quantity'] + $item['quantity'] >= $newQuantity) {
+<<<<<<< HEAD
                     
                     // Recalculate Unit Price (Base Price + Customization Cost)
+=======
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
                     $basePrice = $item['price'] * (1 - $item['discount_percentage']/100);
                     $itemCustomizationCost = 0;
                     $selectedCustomizations = json_decode($item['selected_customizations'], true) ?: [];
@@ -178,11 +206,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $unitPrice = $basePrice + $itemCustomizationCost;
                     $newTotalPrice = $unitPrice * $newQuantity; 
 
+<<<<<<< HEAD
                     // Update cart
+=======
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
                     $stmt = $pdo->prepare("UPDATE cart SET quantity = ?, total_price = ? WHERE id = ? AND session_id = ?");
                     $stmt->execute([$newQuantity, $newTotalPrice, $cartId, $sessionId]);
                     
-                    // Update stock
                     $newStock = $item['stock_quantity'] - $quantityDiff;
                     $stmt = $pdo->prepare("UPDATE products SET stock_quantity = ? WHERE id = ?");
                     $stmt->execute([$newStock, $item['product_id']]);
@@ -201,18 +231,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $cartId = intval($_POST['cart_id']);
         $sessionId = session_id();
         
-        // Get product info to restore stock
         $stmt = $pdo->prepare("SELECT p.id, p.stock_quantity, c.quantity, p.name FROM cart c JOIN products p ON c.product_id = p.id WHERE c.id = ? AND c.session_id = ?");
         $stmt->execute([$cartId, $sessionId]);
         $item = $stmt->fetch();
         
         if ($item) {
-            // Restore stock
             $newStock = $item['stock_quantity'] + $item['quantity'];
             $stmt = $pdo->prepare("UPDATE products SET stock_quantity = ? WHERE id = ?");
             $stmt->execute([$newStock, $item['id']]);
             
-            // Remove from cart
             $stmt = $pdo->prepare("DELETE FROM cart WHERE id = ? AND session_id = ?");
             $stmt->execute([$cartId, $sessionId]);
             
@@ -222,18 +249,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     if (isset($_POST['checkout'])) {
-        // Process checkout
         $sessionId = session_id();
         $customerName = trim($_POST['customer_name']);
         $customerEmail = trim($_POST['customer_email']);
         $customerPhone = trim($_POST['customer_phone']);
         
-        // Validate inputs
         if (empty($customerName) || empty($customerEmail)) {
             $cartMessage = "❌ Please fill in all required fields.";
             $messageType = 'error';
         } else {
-            // Get cart items
             $stmt = $pdo->prepare("SELECT c.*, p.name as product_name FROM cart c JOIN products p ON c.product_id = p.id WHERE c.session_id = ?");
             $stmt->execute([$sessionId]);
             $cartItems = $stmt->fetchAll();
@@ -244,22 +268,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $totalAmount += $item['total_price'];
                 }
                 
-                // Generate order number
                 $orderNumber = 'GT' . date('Ymd') . str_pad(mt_rand(1, 999), 3, '0', STR_PAD_LEFT);
                 
-                // Create order
                 $stmt = $pdo->prepare("INSERT INTO orders (order_number, customer_name, customer_email, customer_phone, total_amount) VALUES (?, ?, ?, ?, ?)");
                 $stmt->execute([$orderNumber, $customerName, $customerEmail, $customerPhone, $totalAmount]);
                 $orderId = $pdo->lastInsertId();
                 
-                // Add order items
                 foreach ($cartItems as $item) {
                     $stmt = $pdo->prepare("INSERT INTO order_items (order_id, product_name, quantity, unit_price, customizations) VALUES (?, ?, ?, ?, ?)");
                     $unitPrice = $item['total_price'] / $item['quantity'];
                     $stmt->execute([$orderId, $item['product_name'], $item['quantity'], $unitPrice, $item['selected_customizations']]);
                 }
                 
-                // Clear cart
                 $stmt = $pdo->prepare("DELETE FROM cart WHERE session_id = ?");
                 $stmt->execute([$sessionId]);
                 
@@ -270,13 +290,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get cart items
+// Get cart items with product image
 $sessionId = session_id();
-$stmt = $pdo->prepare("SELECT c.*, p.name as product_name, p.price as base_price FROM cart c JOIN products p ON c.product_id = p.id WHERE c.session_id = ? ORDER BY c.added_at DESC");
+$stmt = $pdo->prepare("SELECT c.*, p.name as product_name, p.price as base_price, p.image as product_image FROM cart c JOIN products p ON c.product_id = p.id WHERE c.session_id = ? ORDER BY c.added_at DESC");
 $stmt->execute([$sessionId]);
 $cartItems = $stmt->fetchAll();
 
-// Calculate cart total and count
 $cartTotal = 0;
 $cartCount = 0;
 foreach ($cartItems as $item) {
@@ -284,12 +303,10 @@ foreach ($cartItems as $item) {
     $cartCount += $item['quantity'];
 }
 
-// Get all visible products with categories
 $stmt = $pdo->prepare("SELECT * FROM products WHERE visibility = 1 ORDER BY is_daily_special DESC, category, name");
 $stmt->execute();
 $products = $stmt->fetchAll();
 
-// Group products by category
 $productsByCategory = [];
 foreach ($products as $product) {
     $category = $product['category'];
@@ -299,7 +316,10 @@ foreach ($products as $product) {
     $productsByCategory[$category][] = $product;
 }
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
 ob_end_flush();
 ?>
 <!DOCTYPE html>
@@ -316,7 +336,11 @@ ob_end_flush();
             --primary-light: #A0522D;
             --secondary: #e0c99d;
             --accent: #d4af37;
+<<<<<<< HEAD
             --light: #f9f9f9; /* Changed to lighter color for backgrounds */
+=======
+            --light: #f9f9f9;
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
             --dark: #333;
             --success: #28a745;
             --warning: #ffc107;
@@ -337,7 +361,11 @@ ob_end_flush();
             font-family: 'Poppins', sans-serif;
             line-height: 1.6;
             color: var(--text);
+<<<<<<< HEAD
             background: linear-gradient(135deg, #f8f4e9 0%, #ffffff 100%); /* Adjusted background */
+=======
+            background: linear-gradient(135deg, #f8f4e9 0%, #ffffff 100%);
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
             min-height: 100vh;
         }
 
@@ -348,7 +376,6 @@ ob_end_flush();
             padding: 0 15px;
         }
 
-        /* Animations */
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
@@ -653,6 +680,12 @@ ob_end_flush();
             position: relative;
         }
 
+        .product-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
         .product-image:before {
             content: '';
             position: absolute;
@@ -783,7 +816,6 @@ ob_end_flush();
             justify-content: center;
         }
 
-        /* Modal Styles */
         .modal {
             display: none;
             position: fixed;
@@ -907,7 +939,6 @@ ob_end_flush();
             margin-top: 25px;
         }
 
-        /* Cart Styles */
         .cart-item {
             display: flex;
             padding: 20px 0;
@@ -918,13 +949,19 @@ ob_end_flush();
         .cart-item-image {
             width: 80px;
             height: 80px;
-            background: linear-gradient(135deg, var(--secondary), #e8d4a6);
             border-radius: 10px;
+            overflow: hidden;
+            margin-right: 15px;
+            background: linear-gradient(135deg, var(--secondary), #e8d4a6);
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-right: 15px;
-            font-size: 1.5rem;
+        }
+
+        .cart-item-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
         .cart-item-details {
@@ -1057,7 +1094,6 @@ ob_end_flush();
             font-size: 0.9rem;
         }
 
-        /* Message Styles */
         .message {
             position: fixed;
             top: 100px;
@@ -1075,7 +1111,6 @@ ob_end_flush();
         .message.error { background: linear-gradient(135deg, var(--danger), #e4606d); }
         .message.warning { background: linear-gradient(135deg, var(--warning), #ffd760); }
 
-        /* Loading Spinner */
         .loading {
             display: inline-block;
             width: 20px;
@@ -1090,7 +1125,6 @@ ob_end_flush();
             to { transform: rotate(360deg); }
         }
 
-        /* Responsive Design */
         @media (max-width: 768px) {
             .navbar {
                 flex-direction: column;
@@ -1135,7 +1169,10 @@ ob_end_flush();
     </style>
 </head>
 <body>
+<<<<<<< HEAD
   
+=======
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
     <?php if (!empty($cartMessage)): ?>
         <div class="message <?php echo $messageType; ?> animated">
             <?php echo $cartMessage; ?>
@@ -1158,7 +1195,6 @@ ob_end_flush();
                     <li><a href="../index.php">Admin Home</a></li>
                     <li><a href="#products">Products</a></li>
                     <li><a href="#about">About</a></li>
-                    
                 </ul>
                 <div class="header-actions">
                     <div class="cart-icon" id="cart-icon">
@@ -1196,7 +1232,11 @@ ob_end_flush();
                     ?>
                     <div class="cart-item" data-cart-id="<?php echo $item['id']; ?>">
                         <div class="cart-item-image">
-                            <i class="fas fa-bread-slice"></i>
+                            <?php if (!empty($item['product_image']) && file_exists($item['product_image'])): ?>
+                                <img src="<?php echo htmlspecialchars($item['product_image']); ?>" alt="<?php echo htmlspecialchars($item['product_name']); ?>">
+                            <?php else: ?>
+                                <i class="fas fa-bread-slice"></i>
+                            <?php endif; ?>
                         </div>
                         <div class="cart-item-details">
                             <div class="cart-item-name"><?php echo htmlspecialchars($item['product_name']); ?></div>
@@ -1274,7 +1314,11 @@ ob_end_flush();
                 <div class="form-group">
                     <label>Order Summary</label>
                     <div id="checkout-summary">
+<<<<<<< HEAD
                         </div>
+=======
+                    </div>
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
                 </div>
                 
                 <div class="modal-actions">
@@ -1304,7 +1348,11 @@ ob_end_flush();
                 </div>
                 
                 <div id="customization-options">
+<<<<<<< HEAD
                     </div>
+=======
+                </div>
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
                 
                 <div id="customization-total" style="margin: 20px 0; padding: 15px; background: var(--light); border-radius: 10px; font-weight: bold; text-align: center;">
                     Total: $<span id="custom-total-price">0.00</span>
@@ -1321,8 +1369,6 @@ ob_end_flush();
     </div>
 
     <main>
-
-        
         <section id="products" class="all-products">
             <div class="container">
                 <h2 class="section-title animated fadeIn">
@@ -1356,7 +1402,10 @@ ob_end_flush();
                                 <?php foreach ($categoryProducts as $product): 
                                     $availableCustomizations = getAvailableCustomizations($pdo, $product['id']);
                                     $finalPrice = $product['price'] * (1 - $product['discount_percentage']/100);
+<<<<<<< HEAD
                                     // NEW: Encode the actual customizations data to pass to JS
+=======
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
                                     $customizationsJson = htmlspecialchars(json_encode($availableCustomizations), ENT_QUOTES, 'UTF-8');
                                 ?>
                                     <div class="product-card animated fadeIn <?php echo $product['is_daily_special'] ? 'special' : ''; ?>">
@@ -1369,17 +1418,21 @@ ob_end_flush();
                                         <?php endif; ?>
                                         
                                         <div class="product-image">
-                                            <i class="fas fa-<?php 
-                                                switch($product['category']) {
-                                                    case 'Pastries': echo 'croissant'; break;
-                                                    case 'Cakes': echo 'birthday-cake'; break;
-                                                    case 'Cupcakes': echo 'cupcake'; break;
-                                                    case 'Breads': echo 'bread-slice'; break;
-                                                    case 'Tarts': echo 'pie-chart'; break;
-                                                    case 'Muffins': echo 'muffin'; break;
-                                                    default: echo 'cookie';
-                                                }
-                                            ?>"></i>
+                                            <?php if (!empty($product['image']) && file_exists($product['image'])): ?>
+                                                <img src="<?php echo htmlspecialchars($product['image']); ?>" alt="<?php echo htmlspecialchars($product['name']); ?>">
+                                            <?php else: ?>
+                                                <i class="fas fa-<?php 
+                                                    switch($product['category']) {
+                                                        case 'Pastries': echo 'croissant'; break;
+                                                        case 'Cakes': echo 'birthday-cake'; break;
+                                                        case 'Cupcakes': echo 'cupcake'; break;
+                                                        case 'Breads': echo 'bread-slice'; break;
+                                                        case 'Tarts': echo 'pie-chart'; break;
+                                                        case 'Muffins': echo 'muffin'; break;
+                                                        default: echo 'cookie';
+                                                    }
+                                                ?>"></i>
+                                            <?php endif; ?>
                                         </div>
                                         <div class="product-info">
                                             <h3><?php echo htmlspecialchars($product['name']); ?></h3>
@@ -1421,7 +1474,11 @@ ob_end_flush();
                                                             data-base-price="<?php echo $finalPrice; ?>"
                                                             data-customizations='<?php echo $customizationsJson; ?>'
                                                             >
+<<<<<<< HEAD
                                                         <i class="fas fa-magic"></i>Customize & Add to Cart
+=======
+                                                        <i class="fas fa-magic"></i> Customize & Add to Cart
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
                                                     </button>
                                                 <?php else: ?>
                                                     <form method="POST" class="add-to-cart-form" onsubmit="return updateQuantity(this);">
@@ -1487,7 +1544,7 @@ ob_end_flush();
                 <div class="footer-column">
                     <h3>Contact Info</h3>
                     <ul>
-                        <li><i class="fas fa-map-marker-alt"></i> No.12,Kuliyapitiya,Kurunegala</li>
+                        <li><i class="fas fa-map-marker-alt"></i> No.12, Kuliyapitiya, Kurunegala</li>
                         <li><i class="fas fa-phone"></i> (+94) xxx xx xxx</li>
                         <li><i class="fas fa-envelope"></i> info@goldentreat.com</li>
                         <li><i class="fas fa-clock"></i> Mon-Sat: 6AM-8PM, Sun: 7AM-6PM</li>
@@ -1501,6 +1558,7 @@ ob_end_flush();
     </footer>
     
     <script>
+<<<<<<< HEAD
         // NEW JS FUNCTION: Update quantity for simple Add to Cart forms
         function updateQuantity(form) {
             const productInfo = form.closest('.product-info');
@@ -1512,6 +1570,15 @@ ob_end_flush();
         }
 
         // DOM Elements
+=======
+        function updateQuantity(form) {
+            const productInfo = form.closest('.product-info');
+            const quantityInput = productInfo.querySelector('.quantity-input');
+            form.querySelector('.product-quantity-hidden').value = quantityInput.value;
+            return true;
+        }
+
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
         const cartIcon = document.getElementById('cart-icon');
         const cartModal = document.getElementById('cart-modal');
         const closeCart = document.getElementById('close-cart');
@@ -1522,13 +1589,11 @@ ob_end_flush();
         const cancelCheckout = document.getElementById('cancel-checkout');
         const checkoutBtn = document.getElementById('checkout-btn');
         
-        // Open cart modal
         cartIcon.addEventListener('click', () => {
             cartModal.style.display = 'block';
             document.body.style.overflow = 'hidden';
         });
         
-        // Close modals
         function closeModal(modal) {
             modal.style.display = 'none';
             document.body.style.overflow = 'auto';
@@ -1539,20 +1604,26 @@ ob_end_flush();
         closeCheckout.addEventListener('click', () => closeModal(checkoutModal));
         cancelCheckout.addEventListener('click', () => closeModal(checkoutModal));
         
-        // Close modal when clicking outside
         window.addEventListener('click', (e) => {
             if (e.target === cartModal) closeModal(cartModal);
             if (e.target === customizationModal) closeModal(customizationModal);
             if (e.target === checkoutModal) closeModal(checkoutModal);
         });
         
+<<<<<<< HEAD
         // Quantity buttons functionality (for product cards and cart modal)
+=======
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
         document.querySelectorAll('.quantity-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const parentSelector = this.closest('.quantity-selector') || this.closest('.cart-item-actions');
                 const input = parentSelector.querySelector('.quantity-input');
                 let value = parseInt(input.value);
+<<<<<<< HEAD
                 const max = parseInt(input.max) || 999; // Use 999 if max is not defined (e.g., in cart modal)
+=======
+                const max = parseInt(input.max) || 999;
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
                 
                 if (this.classList.contains('plus')) {
                     value = Math.min(value + 1, max);
@@ -1562,11 +1633,17 @@ ob_end_flush();
                 
                 input.value = value;
                 
+<<<<<<< HEAD
                 // If it's a product card quantity, update the customization modal quantity input
                 if (this.closest('.product-info')) {
                     document.getElementById('custom-quantity').value = value;
                     
                     // If modal is open, update base price display
+=======
+                if (this.closest('.product-info')) {
+                    document.getElementById('custom-quantity').value = value;
+                    
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
                     const basePriceDisplay = document.getElementById('customization-base-price');
                     if(basePriceDisplay) {
                         const basePriceMatch = basePriceDisplay.innerHTML.match(/Base Price: \$<strong>([0-9]+\.[0-9]{2})<\/strong>/);
@@ -1575,7 +1652,10 @@ ob_end_flush();
                             basePriceDisplay.innerHTML = 
                                 `Base Price: $<strong>${basePrice.toFixed(2)}</strong> × ${value} = $<strong>${(basePrice * value).toFixed(2)}</strong>`;
                             
+<<<<<<< HEAD
                             // Also trigger a total recalculation if the customization modal is visible
+=======
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
                             if (customizationModal.style.display === 'block') {
                                 const selected = Array.from(document.querySelectorAll('#customization-options input[type="checkbox"]:checked'))
                                                     .map(cb => parseFloat(cb.dataset.price));
@@ -1585,7 +1665,10 @@ ob_end_flush();
                     }
                 }
 
+<<<<<<< HEAD
                 // If it's a cart item, submit the form for immediate update (only on + / - click, not modal logic)
+=======
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
                 const form = this.closest('.quantity-form');
                 if (form) {
                     form.querySelector('input[name="quantity"]').value = value;
@@ -1594,13 +1677,13 @@ ob_end_flush();
             });
         });
         
-        // Customize buttons
         document.querySelectorAll('.customize-btn').forEach(button => {
             button.addEventListener('click', function() {
                 const productId = this.dataset.productId;
                 const productName = this.dataset.productName;
                 const basePrice = parseFloat(this.dataset.basePrice);
                 
+<<<<<<< HEAD
                 // Get quantity from the closest quantity-input
                 const quantity = parseInt(this.closest('.product-info').querySelector('.quantity-input').value);
                 
@@ -1617,19 +1700,35 @@ ob_end_flush();
                 // --------------------------------------------------------
 
                 // Populate modal
+=======
+                const quantity = parseInt(this.closest('.product-info').querySelector('.quantity-input').value);
+                
+                const customizationDataJson = this.dataset.customizations;
+                let productCustomizations = [];
+                try {
+                    productCustomizations = JSON.parse(customizationDataJson); 
+                } catch (e) {
+                    console.error("Error parsing customizations JSON:", e);
+                }
+
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
                 document.getElementById('customization-product-name').textContent = productName;
                 document.getElementById('customization-base-price').innerHTML = 
                     `Base Price: $<strong>${basePrice.toFixed(2)}</strong> × ${quantity} = $<strong>${(basePrice * quantity).toFixed(2)}</strong>`;
                 document.getElementById('custom-product-id').value = productId;
                 document.getElementById('custom-quantity').value = quantity;
                 
+<<<<<<< HEAD
                 // Call display function with real data
+=======
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
                 displayCustomizationOptions(productCustomizations, basePrice, quantity);
                 customizationModal.style.display = 'block';
                 document.body.style.overflow = 'hidden';
             });
         });
         
+<<<<<<< HEAD
         // REMOVED: The unnecessary and hardcoded loadCustomizationOptions function.
 
         /**
@@ -1638,6 +1737,8 @@ ob_end_flush();
          * @param {number} basePrice 
          * @param {number} quantity 
          */
+=======
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
         function displayCustomizationOptions(customizations, basePrice, quantity) {
             const container = document.getElementById('customization-options');
             container.innerHTML = '';
@@ -1648,7 +1749,10 @@ ob_end_flush();
                 return;
             }
             
+<<<<<<< HEAD
             // Group by category (using the 'category' property from the database)
+=======
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
             const categories = {};
             customizations.forEach(cust => {
                 if (!categories[cust.category]) {
@@ -1662,7 +1766,10 @@ ob_end_flush();
                 html += `<div class="customization-category">
                             <h4>${category}</h4>`;
                 categories[category].forEach(cust => {
+<<<<<<< HEAD
                     // Use the 'price_adjustment' property from the database
+=======
+>>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
                     const priceAdjustment = parseFloat(cust.price_adjustment); 
                     html += `
                         <div class="customization-option">
@@ -1680,7 +1787,6 @@ ob_end_flush();
             
             container.innerHTML = html;
             
-            // Add event listeners to checkboxes
             container.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
                 checkbox.addEventListener('change', () => {
                     // Use data-price attribute which holds the price adjustment
@@ -1700,9 +1806,7 @@ ob_end_flush();
             document.getElementById('custom-total-price').textContent = total.toFixed(2);
         }
         
-        // Checkout functionality
         checkoutBtn?.addEventListener('click', () => {
-            // Populate checkout summary
             const summary = document.getElementById('checkout-summary');
             summary.innerHTML = '';
             
@@ -1728,7 +1832,6 @@ ob_end_flush();
             checkoutModal.style.display = 'block';
         });
         
-        // Smooth scrolling for navigation links
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function (e) {
                 e.preventDefault();
@@ -1742,7 +1845,6 @@ ob_end_flush();
             });
         });
         
-        // Header scroll effect
         window.addEventListener('scroll', () => {
             const header = document.querySelector('header');
             if (window.scrollY > 100) {
@@ -1754,7 +1856,6 @@ ob_end_flush();
             }
         });
         
-        // Add animation on scroll
         const observerOptions = {
             threshold: 0.1,
             rootMargin: '0px 0px -50px 0px'
@@ -1769,13 +1870,11 @@ ob_end_flush();
             });
         }, observerOptions);
         
-        // Observe all animated elements
         document.querySelectorAll('.animated').forEach(el => {
             el.style.animationPlayState = 'paused';
             observer.observe(el);
         });
         
-        // Product card hover effects
         document.querySelectorAll('.product-card').forEach(card => {
             card.addEventListener('mouseenter', () => {
                 card.style.transform = 'translateY(-10px) scale(1.02)';

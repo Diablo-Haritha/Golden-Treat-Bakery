@@ -3,7 +3,7 @@
 $servername = "localhost";
 $username = "root";
 $password = "";
-$dbname = "golden_treat";   // Change if different
+$dbname = "golden_treat";   
 
 try {
     $pdo = new PDO("mysql:host=$servername;dbname=$dbname;charset=utf8mb4", $username, $password);
@@ -13,7 +13,7 @@ try {
 }
 
 // Build SQL query with filters
-$sql = "SELECT * FROM booking_log WHERE 1=1";
+$sql = "SELECT * FROM bookings_log WHERE 1=1";
 $params = [];
 
 if (!empty($_GET['from'])) {

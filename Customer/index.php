@@ -1,7 +1,7 @@
-
 <?php
 session_start();
 ob_start();
+
 // Generate CSRF token
 if (!isset($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -45,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($product) {
                     if ($product['stock_quantity'] >= $quantity) {
                         $sessionId = session_id();
-                        $basePrice = $product['price'] * (1 - $product['discount_percentage']/100);
+                        $basePrice = $product['price'] * (1 - $product['discount_percentage'] / 100);
                         $itemCustomizationCost = 0;
 
                         // Validate and calculate customization cost
@@ -128,7 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($item) {
                         $quantityDiff = $newQuantity - $item['quantity'];
                         if ($item['stock_quantity'] + $item['quantity'] >= $newQuantity) {
-                            $basePrice = $item['price'] * (1 - $item['discount_percentage']/100);
+                            $basePrice = $item['price'] * (1 - $item['discount_percentage'] / 100);
                             $selectedCustomizations = json_decode($item['selected_customizations'], true) ?: [];
                             $itemCustomizationCost = 0;
 
@@ -278,7 +278,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $sessionId = session_id();
-$stmt = $pdo->prepare("SELECT c.*, p.name as product_name, p.price as base_price FROM cart c JOIN products p ON c.product_id = p.id WHERE c.session_id = ? ORDER BY c.added_at DESC");
+$stmt = $pdo->prepare("SELECT c.*, p.name as product_name, p.price as base_price, p.image as product_image FROM cart c JOIN products p ON c.product_id = p.id WHERE c.session_id = ? ORDER BY c.added_at DESC");
 $stmt->execute([$sessionId]);
 $cartItems = $stmt->fetchAll();
 
@@ -302,7 +302,8 @@ foreach ($products as $product) {
     $productsByCategory[$category][] = $product;
 }
 
-function getAvailableCustomizations($pdo, $productId) {
+function getAvailableCustomizations($pdo, $productId)
+{
     $stmt = $pdo->prepare("
         SELECT c.* FROM customizations c 
         INNER JOIN product_customizations pc ON c.id = pc.customization_id 
@@ -313,7 +314,8 @@ function getAvailableCustomizations($pdo, $productId) {
     return $stmt->fetchAll();
 }
 
-function getCustomizationNames($pdo, $customizationIds) {
+function getCustomizationNames($pdo, $customizationIds)
+{
     if (empty($customizationIds)) return [];
     $customizationIds = array_map('intval', $customizationIds);
     $placeholders = str_repeat('?,', count($customizationIds) - 1) . '?';
@@ -327,6 +329,7 @@ ob_end_flush();
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -346,38 +349,114 @@ ob_end_flush();
             --danger: #dc3545;
             --text: #444;
             --border: #ddd;
-            --shadow: 0 4px 6px rgba(0,0,0,0.1);
-            --shadow-lg: 0 10px 30px rgba(0,0,0,0.15);
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.15);
         }
+
         body {
             cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="%23D4AF37" opacity="0.5"/></svg>'), auto;
             font-family: 'Poppins', sans-serif;
             line-height: 1.6;
             color: var(--text);
-            background: linear-gradient(135deg, #ddbf92ff 0%, #fff8e1 100%);
+            background: linear-gradient(135deg, #FFE8B7 0%, #fff8e1 100%);
             min-height: 100vh;
             margin: 0;
         }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
+
         .container {
             width: 90%;
             max-width: 1200px;
             margin: 0 auto;
             padding: 0 15px;
         }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes slideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
-        @keyframes bounce { 0%, 20%, 53%, 80%, 100% { transform: translate3d(0,0,0); } 40%, 43% { transform: translate3d(0,-8px,0); } 70% { transform: translate3d(0,-4px,0); } 90% { transform: translate3d(0,-2px,0); } }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-        .animated { animation-duration: 0.6s; animation-fill-mode: both; }
-        .fadeIn { animation-name: fadeIn; }
-        .slideIn { animation-name: slideIn; }
-        .bounce { animation-name: bounce; }
-        .pulse { animation-name: pulse; }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(-100%);
+            }
+
+            to {
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes bounce {
+
+            0%,
+            20%,
+            53%,
+            80%,
+            100% {
+                transform: translate3d(0, 0, 0);
+            }
+
+            40%,
+            43% {
+                transform: translate3d(0, -8px, 0);
+            }
+
+            70% {
+                transform: translate3d(0, -4px, 0);
+            }
+
+            90% {
+                transform: translate3d(0, -2px, 0);
+            }
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .animated {
+            animation-duration: 0.6s;
+            animation-fill-mode: both;
+        }
+
+        .fadeIn {
+            animation-name: fadeIn;
+        }
+
+        .slideIn {
+            animation-name: slideIn;
+        }
+
+        .bounce {
+            animation-name: bounce;
+        }
+
+        .pulse {
+            animation-name: pulse;
+        }
+
         .btn {
             display: inline-flex;
             align-items: center;
@@ -395,15 +474,32 @@ ob_end_flush();
             text-align: center;
             box-shadow: var(--shadow);
         }
-        .btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
-        .btn-primary { background: linear-gradient(135deg, var(--primary), var(--primary-light)); }
-        .btn-success { background: linear-gradient(135deg, var(--success), #34ce57); }
-        .btn-warning { background: linear-gradient(135deg, var(--warning), #ffd760); }
-        .btn-danger { background: linear-gradient(135deg, var(--danger), #e4606d); }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--success), #34ce57);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, var(--warning), #ffd760);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger), #e4606d);
+        }
+
         header {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
-            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
             position: fixed;
             top: 10px;
             left: 20px;
@@ -411,12 +507,14 @@ ob_end_flush();
             transition: all 0.3s ease;
             border-radius: 5cm;
         }
+
         .navbar {
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 5px 0;
         }
+
         .logo {
             font-size: 32px;
             font-weight: 700;
@@ -427,12 +525,17 @@ ob_end_flush();
             padding-right: 30px;
             gap: 10px;
         }
-        .logo span { color: var(--accent); }
+
+        .logo span {
+            color: var(--accent);
+        }
+
         .nav-links {
             display: flex;
             list-style: none;
             gap: 30px;
         }
+
         .nav-links a {
             text-decoration: none;
             color: var(--dark);
@@ -440,7 +543,11 @@ ob_end_flush();
             transition: all 0.3s ease;
             position: relative;
         }
-        .nav-links a:hover { color: var(--primary); }
+
+        .nav-links a:hover {
+            color: var(--primary);
+        }
+
         .nav-links a:after {
             content: '';
             position: absolute;
@@ -451,12 +558,17 @@ ob_end_flush();
             background: var(--primary);
             transition: width 0.3s ease;
         }
-        .nav-links a:hover:after { width: 100%; }
+
+        .nav-links a:hover:after {
+            width: 100%;
+        }
+
         .header-actions {
             display: flex;
             align-items: center;
             gap: 20px;
         }
+
         .cart-icon {
             position: relative;
             font-size: 24px;
@@ -466,10 +578,12 @@ ob_end_flush();
             padding: 10px;
             border-radius: 50%;
         }
+
         .cart-icon:hover {
             background: var(--light);
             transform: scale(1.1);
         }
+
         .cart-count {
             position: absolute;
             top: -5px;
@@ -486,6 +600,7 @@ ob_end_flush();
             font-weight: bold;
             animation: pulse 2s infinite;
         }
+
         .hero {
             background: linear-gradient(135deg, rgba(139, 69, 19, 0.8), rgba(160, 82, 45, 0.8)), url('https://images.unsplash.com/photo-1509440159596-0249088772ff?ixlib=rb-4.0.3&auto=format&fit=crop&w=1350&q=80');
             background-size: cover;
@@ -499,6 +614,7 @@ ob_end_flush();
             position: relative;
             overflow: hidden;
         }
+
         .hero:before {
             content: '';
             position: absolute;
@@ -506,26 +622,30 @@ ob_end_flush();
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0,0,0,0.3);
+            background: rgba(0, 0, 0, 0.3);
         }
+
         .hero-content {
             position: relative;
             z-index: 2;
             max-width: 800px;
             padding: 0 20px;
         }
+
         .hero-content h1 {
             font-size: 4rem;
             margin-bottom: 20px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
             animation: fadeIn 1s ease;
         }
+
         .hero-content p {
             font-size: 1.5rem;
             margin-bottom: 30px;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
             animation: fadeIn 1s ease 0.2s both;
         }
+
         .section-title {
             text-align: center;
             margin: 60px 0 40px;
@@ -533,6 +653,7 @@ ob_end_flush();
             color: var(--primary);
             position: relative;
         }
+
         .section-title:after {
             content: '';
             display: block;
@@ -542,9 +663,11 @@ ob_end_flush();
             margin: 15px auto;
             border-radius: 2px;
         }
+
         .category-section {
             margin: 60px 0;
         }
+
         .category-title {
             font-size: 2rem;
             color: var(--primary);
@@ -552,12 +675,14 @@ ob_end_flush();
             padding-left: 20px;
             border-left: 4px solid var(--accent);
         }
+
         .products-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 30px;
             margin-bottom: 40px;
         }
+
         .product-card {
             background: white;
             border-radius: 20px;
@@ -566,14 +691,17 @@ ob_end_flush();
             transition: all 0.3s ease;
             position: relative;
         }
+
         .product-card:hover {
             transform: translateY(-10px);
             box-shadow: var(--shadow-lg);
         }
+
         .product-card.special {
             border: 3px solid var(--accent);
             animation: pulse 2s infinite;
         }
+
         .product-badge {
             position: absolute;
             top: 15px;
@@ -587,6 +715,7 @@ ob_end_flush();
             z-index: 2;
             box-shadow: var(--shadow);
         }
+
         .customizable-indicator {
             position: absolute;
             top: 15px;
@@ -600,42 +729,45 @@ ob_end_flush();
             z-index: 2;
             box-shadow: var(--shadow);
         }
+
         .product-image {
             height: 200px;
             overflow: hidden;
-            background: linear-gradient(135deg, var(--secondary), #e8d4a6);
             display: flex;
             align-items: center;
             justify-content: center;
             position: relative;
+            background: #f0f0f0;
         }
-        .product-image:before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.1);
+
+        .product-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
+
         .product-image i {
             font-size: 4rem;
             color: var(--primary);
             z-index: 1;
         }
+
         .product-info {
             padding: 25px;
         }
+
         .product-info h3 {
             font-size: 1.4rem;
             margin-bottom: 10px;
             color: var(--dark);
         }
+
         .product-description {
             color: #666;
             margin-bottom: 15px;
             min-height: 60px;
         }
+
         .price-container {
             display: flex;
             align-items: center;
@@ -643,16 +775,19 @@ ob_end_flush();
             margin: 15px 0;
             flex-wrap: wrap;
         }
+
         .original-price {
             text-decoration: line-through;
             color: #999;
             font-size: 1rem;
         }
+
         .discounted-price {
             font-size: 1.5rem;
             font-weight: 700;
             color: var(--primary);
         }
+
         .discount-badge {
             background: linear-gradient(135deg, var(--danger), #e4606d);
             color: white;
@@ -661,6 +796,7 @@ ob_end_flush();
             font-size: 0.9rem;
             font-weight: bold;
         }
+
         .stock-status {
             font-size: 0.9rem;
             font-weight: 600;
@@ -669,15 +805,29 @@ ob_end_flush();
             border-radius: 20px;
             display: inline-block;
         }
-        .stock-status.in-stock { background: #d4edda; color: #155724; }
-        .stock-status.low-stock { background: #fff3cd; color: #856404; }
-        .stock-status.out-of-stock { background: #f8d7da; color: #721c24; }
+
+        .stock-status.in-stock {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .stock-status.low-stock {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .stock-status.out-of-stock {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
         .quantity-selector {
             display: flex;
             align-items: center;
             gap: 10px;
             margin: 15px 0;
         }
+
         .quantity-btn {
             width: 35px;
             height: 35px;
@@ -692,10 +842,12 @@ ob_end_flush();
             justify-content: center;
             transition: all 0.3s ease;
         }
+
         .quantity-btn:hover {
             background: var(--primary);
             color: white;
         }
+
         .quantity-input {
             width: 60px;
             text-align: center;
@@ -705,6 +857,7 @@ ob_end_flush();
             font-size: 1rem;
             font-weight: 600;
         }
+
         .btn-add-to-cart {
             width: 100%;
             margin-top: 15px;
@@ -712,6 +865,7 @@ ob_end_flush();
             font-size: 1rem;
             justify-content: center;
         }
+
         .modal {
             display: none;
             position: fixed;
@@ -721,9 +875,10 @@ ob_end_flush();
             width: 100%;
             height: 100%;
             overflow: auto;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0, 0, 0, 0.5);
             backdrop-filter: blur(5px);
         }
+
         .modal-content {
             background: white;
             margin: 5% auto;
@@ -736,6 +891,7 @@ ob_end_flush();
             overflow-y: auto;
             animation: fadeIn 0.3s ease;
         }
+
         .modal-header {
             display: flex;
             justify-content: space-between;
@@ -744,6 +900,7 @@ ob_end_flush();
             padding-bottom: 15px;
             border-bottom: 2px solid var(--secondary);
         }
+
         .close {
             color: #aaa;
             font-size: 28px;
@@ -751,15 +908,25 @@ ob_end_flush();
             cursor: pointer;
             transition: color 0.3s;
         }
-        .close:hover { color: black; }
-        .form-group { margin-bottom: 20px; }
+
+        .close:hover {
+            color: black;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
         label {
             display: block;
             margin-bottom: 8px;
             font-weight: 600;
             color: var(--primary);
         }
-        input, textarea, select {
+
+        input,
+        textarea,
+        select {
             width: 100%;
             padding: 12px;
             border: 2px solid var(--border);
@@ -767,20 +934,26 @@ ob_end_flush();
             font-size: 1rem;
             transition: border-color 0.3s ease;
         }
-        input:focus, textarea:focus, select:focus {
+
+        input:focus,
+        textarea:focus,
+        select:focus {
             outline: none;
             border-color: var(--primary);
         }
+
         .customization-category {
             margin-top: 20px;
             padding-top: 15px;
             border-top: 1px solid var(--border);
         }
+
         .customization-category h4 {
             color: var(--dark);
             margin-bottom: 10px;
             font-size: 1.1rem;
         }
+
         .customization-option {
             display: flex;
             align-items: center;
@@ -790,58 +963,82 @@ ob_end_flush();
             border-radius: 10px;
             transition: all 0.3s ease;
         }
+
         .customization-option:hover {
             background: #f0e6d2;
             transform: translateX(5px);
         }
+
         .customization-option input[type="checkbox"] {
             margin-right: 15px;
             width: 20px;
             height: 20px;
             accent-color: var(--primary);
         }
+
         .customization-name {
             flex: 1;
             font-weight: 600;
         }
+
         .customization-price {
             color: var(--primary);
             font-weight: bold;
         }
+
         .modal-actions {
             display: flex;
             justify-content: flex-end;
             gap: 15px;
             margin-top: 25px;
         }
+
         .cart-item {
             display: flex;
             padding: 20px 0;
             border-bottom: 1px solid var(--border);
             align-items: center;
         }
+
         .cart-item-image {
             width: 80px;
             height: 80px;
-            background: linear-gradient(135deg, var(--secondary), #e8d4a6);
             border-radius: 10px;
+            overflow: hidden;
+            margin-right: 15px;
+            background: #f0f0f0;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-right: 15px;
-            font-size: 1.5rem;
         }
-        .cart-item-details { flex: 1; }
+
+        .cart-item-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .cart-item-image i {
+            font-size: 2rem;
+            color: var(--primary);
+        }
+
+        .cart-item-details {
+            flex: 1;
+        }
+
         .cart-item-name {
             font-weight: bold;
             margin-bottom: 5px;
             color: var(--dark);
         }
+
         .cart-item-customizations {
             font-size: 0.9rem;
             color: #666;
             margin-bottom: 8px;
         }
+
         .cart-item-customization {
             display: inline-block;
             background: var(--light);
@@ -851,16 +1048,19 @@ ob_end_flush();
             margin-bottom: 5px;
             font-size: 0.8rem;
         }
+
         .cart-item-price {
             font-weight: bold;
             color: var(--primary);
             margin-bottom: 8px;
         }
+
         .cart-item-actions {
             display: flex;
             align-items: center;
             gap: 10px;
         }
+
         .cart-total {
             display: flex;
             justify-content: space-between;
@@ -870,62 +1070,81 @@ ob_end_flush();
             border-top: 2px solid var(--secondary);
             margin-top: 20px;
         }
+
         .empty-cart {
             text-align: center;
             padding: 40px;
             color: #666;
         }
+
         .empty-cart i {
             font-size: 4rem;
             color: var(--secondary);
             margin-bottom: 20px;
         }
+
         footer {
             background: linear-gradient(135deg, var(--dark), #2c2c2c);
             color: white;
             padding: 60px 0 20px;
             margin-top: 80px;
         }
+
         .footer-content {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 40px;
             margin-bottom: 40px;
         }
+
         .footer-column h3 {
             font-size: 1.3rem;
             margin-bottom: 20px;
             color: var(--accent);
         }
-        .footer-column ul { list-style: none; }
-        .footer-column ul li { margin-bottom: 10px; }
+
+        .footer-column ul {
+            list-style: none;
+        }
+
+        .footer-column ul li {
+            margin-bottom: 10px;
+        }
+
         .footer-column ul li a {
             color: #ccc;
             text-decoration: none;
             transition: color 0.3s;
         }
-        .footer-column ul li a:hover { color: white; }
+
+        .footer-column ul li a:hover {
+            color: white;
+        }
+
         .social-links {
             display: flex;
             gap: 15px;
             margin-top: 20px;
         }
+
         .social-links a {
             display: flex;
             align-items: center;
             justify-content: center;
             width: 40px;
             height: 40px;
-            background: rgba(255,255,255,0.1);
+            background: rgba(255, 255, 255, 0.1);
             border-radius: 50%;
             color: white;
             text-decoration: none;
             transition: all 0.3s ease;
         }
+
         .social-links a:hover {
             background: var(--accent);
             transform: translateY(-3px);
         }
+
         .copyright {
             text-align: center;
             padding-top: 20px;
@@ -933,6 +1152,7 @@ ob_end_flush();
             color: #aaa;
             font-size: 0.9rem;
         }
+
         .message {
             position: fixed;
             top: 100px;
@@ -945,30 +1165,77 @@ ob_end_flush();
             animation: slideIn 0.3s ease, fadeIn 0.3s ease;
             box-shadow: var(--shadow-lg);
         }
-        .message.success { background: linear-gradient(135deg, var(--success), #34ce57); }
-        .message.error { background: linear-gradient(135deg, var(--danger), #e4606d); }
-        .message.warning { background: linear-gradient(135deg, var(--warning), #ffd760); }
+
+        .message.success {
+            background: linear-gradient(135deg, var(--success), #34ce57);
+        }
+
+        .message.error {
+            background: linear-gradient(135deg, var(--danger), #e4606d);
+        }
+
+        .message.warning {
+            background: linear-gradient(135deg, var(--warning), #ffd760);
+        }
+
         .loading {
             display: inline-block;
             width: 20px;
             height: 20px;
-            border: 3px solid rgba(255,255,255,.3);
+            border: 3px solid rgba(255, 255, 255, .3);
             border-radius: 50%;
             border-top-color: white;
             animation: spin 1s ease-in-out infinite;
         }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @media (max-width: 768px) {
-            .navbar { flex-direction: column; gap: 15px; }
-            .nav-links { gap: 15px; }
-            .hero-content h1 { font-size: 2.5rem; }
-            .hero-content p { font-size: 1.2rem; }
-            .products-grid { grid-template-columns: 1fr; }
-            .cart-item { flex-direction: column; text-align: center; }
-            .cart-item-image { margin-bottom: 15px; }
-            .modal-content { width: 95%; padding: 20px; }
-            .footer-content { grid-template-columns: 1fr; text-align: center; }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
         }
+
+        @media (max-width: 768px) {
+            .navbar {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .nav-links {
+                gap: 15px;
+            }
+
+            .hero-content h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero-content p {
+                font-size: 1.2rem;
+            }
+
+            .products-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .cart-item {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .cart-item-image {
+                margin-bottom: 15px;
+            }
+
+            .modal-content {
+                width: 95%;
+                padding: 20px;
+            }
+
+            .footer-content {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+        }
+
         .cartbtn {
             position: fixed;
             bottom: 30px;
@@ -986,66 +1253,25 @@ ob_end_flush();
             transition: all 0.3s ease;
             animation: pulse 2s infinite;
         }
+
         .cartbtn:hover {
             transform: scale(1.1);
         }
+
         .customization-list {
             font-size: 0.9rem;
             color: #666;
             margin-top: 10px;
             padding-left: 20px;
         }
+
         .customization-list li {
             list-style-type: disc;
             margin-bottom: 5px;
         }
-         /* Nav 8: Cookie Crumble */
-        .nav8 {
-            background: #ffe4b5;
-            padding: 20px 40px;
-            border-radius: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 8px 20px rgba(139, 69, 19, 0.2);
-            height:10px;
-        margin-right:50px;
-        }
-
-        .nav8 .logo {
-            font-size: 28px;
-            font-weight: bold;
-            color: #8b4513;
-            font-family: 'Brush Script MT', cursive;
-        }
-
-        .nav8 .logo::before {
-            content: '🍪 ';
-        }
-
-        .nav8 .menu {
-            display: flex;
-            gap: 25px;
-            list-style: none;
-        }
-
-        .nav8 .menu a {
-            color: #8b4513;
-            text-decoration: none;
-            padding: 10px 20px;
-            border-radius: 50px;
-            transition: all 0.3s;
-            background: rgba(139, 69, 19, 0);
-        }
-
-        .nav8 .menu a:hover {
-            background: #8b4513;
-            color: white;
-            transform: translateY(-2px);
-        }
-
     </style>
 </head>
+
 <body>
     <!-- Floating cart -->
     <div class="cartbtn">
@@ -1070,7 +1296,6 @@ ob_end_flush();
     <?php endif; ?>
 
     <header>
-        
         <div class="container">
             <nav class="navbar">
                 <a href="index.php" class="logo animated fadeIn">
@@ -1078,23 +1303,8 @@ ob_end_flush();
                     Golden <span>Treat</span>
                 </a>
                 <ul class="nav-links"></ul>
-                
-            
-    <!-- Nav 8 -->
-        <div class="nav-section">
-            
-            <nav class="nav8">
-                 
-                <ul class="menu">
-                    <li><a href="../bakehouse/booking/untitled-1.php">Booking</a></li>
-                    <li><a href="..bakehouse/about.php">About</a></li>
-                    
-                    <li><a href="#contact">Contact</a></li>
-                </ul>
             </nav>
-        </div></nav>
         </div>
-        
     </header>
 
     <!-- Cart Modal -->
@@ -1112,50 +1322,54 @@ ob_end_flush();
                         <p>Add some delicious treats to your cart!</p>
                     </div>
                 <?php else: ?>
-                    <?php foreach ($cartItems as $item): 
+                    <?php foreach ($cartItems as $item):
                         $selectedCustomizations = json_decode($item['selected_customizations'], true) ?: [];
                         $customizationNames = getCustomizationNames($pdo, $selectedCustomizations);
                         $unitPrice = $item['total_price'] / $item['quantity'];
                     ?>
-                    <div class="cart-item" data-cart-id="<?php echo $item['id']; ?>">
-                        <div class="cart-item-image">
-                            <i class="fas fa-bread-slice"></i>
-                        </div>
-                        <div class="cart-item-details">
-                            <div class="cart-item-name"><?php echo htmlspecialchars($item['product_name']); ?></div>
-                            <?php if (!empty($customizationNames)): ?>
-                                <div class="cart-item-customizations">
-                                    <?php foreach ($customizationNames as $cust): ?>
-                                        <span class="cart-item-customization">
-                                            <?php echo htmlspecialchars($cust['name']); ?> (+Rs. <?php echo number_format($cust['price_adjustment'], 2); ?>)
-                                        </span>
-                                    <?php endforeach; ?>
+                        <div class="cart-item" data-cart-id="<?php echo $item['id']; ?>">
+                            <div class="cart-item-image">
+                                <?php if (!empty($item['product_image']) && file_exists($item['product_image'])): ?>
+                                    <img src="<?php echo htmlspecialchars($item['product_image']); ?>" alt="<?php echo htmlspecialchars($item['product_name']); ?>">
+                                <?php else: ?>
+                                    <i class="fas fa-bread-slice"></i>
+                                <?php endif; ?>
+                            </div>
+                            <div class="cart-item-details">
+                                <div class="cart-item-name"><?php echo htmlspecialchars($item['product_name']); ?></div>
+                                <?php if (!empty($customizationNames)): ?>
+                                    <div class="cart-item-customizations">
+                                        <?php foreach ($customizationNames as $cust): ?>
+                                            <span class="cart-item-customization">
+                                                <?php echo htmlspecialchars($cust['name']); ?> (+Rs. <?php echo number_format($cust['price_adjustment'], 2); ?>)
+                                            </span>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php endif; ?>
+                                <div class="cart-item-price">Rs. <?php echo number_format($unitPrice, 2); ?> each</div>
+                                <div class="cart-item-actions">
+                                    <form method="POST" class="quantity-form" style="display: flex; align-items: center; gap: 10px;">
+                                        <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                                        <input type="hidden" name="cart_id" value="<?php echo $item['id']; ?>">
+                                        <input type="hidden" name="update_cart_item" value="1">
+                                        <button type="button" class="quantity-btn minus">-</button>
+                                        <input type="number" name="quantity" value="<?php echo $item['quantity']; ?>" min="1" class="quantity-input">
+                                        <button type="button" class="quantity-btn plus">+</button>
+                                        <button type="submit" class="btn btn-warning" style="padding: 8px 15px;">
+                                            <i class="fas fa-sync-alt"></i>
+                                        </button>
+                                    </form>
+                                    <form method="POST" style="display: inline;">
+                                        <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                                        <input type="hidden" name="cart_id" value="<?php echo $item['id']; ?>">
+                                        <input type="hidden" name="remove_from_cart" value="1">
+                                        <button type="submit" class="btn btn-danger" style="padding: 8px 15px;">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
                                 </div>
-                            <?php endif; ?>
-                            <div class="cart-item-price">Rs. <?php echo number_format($unitPrice, 2); ?> each</div>
-                            <div class="cart-item-actions">
-                                <form method="POST" class="quantity-form" style="display: flex; align-items: center; gap: 10px;">
-                                    <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
-                                    <input type="hidden" name="cart_id" value="<?php echo $item['id']; ?>">
-                                    <input type="hidden" name="update_cart_item" value="1">
-                                    <button type="button" class="quantity-btn minus">-</button>
-                                    <input type="number" name="quantity" value="<?php echo $item['quantity']; ?>" min="1" class="quantity-input">
-                                    <button type="button" class="quantity-btn plus">+</button>
-                                    <button type="submit" class="btn btn-warning" style="padding: 8px 15px;">
-                                        <i class="fas fa-sync-alt"></i>
-                                    </button>
-                                </form>
-                                <form method="POST" style="display: inline;">
-                                    <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
-                                    <input type="hidden" name="cart_id" value="<?php echo $item['id']; ?>">
-                                    <input type="hidden" name="remove_from_cart" value="1">
-                                    <button type="submit" class="btn btn-danger" style="padding: 8px 15px;">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </form>
                             </div>
                         </div>
-                    </div>
                     <?php endforeach; ?>
                 <?php endif; ?>
             </div>
@@ -1254,23 +1468,36 @@ ob_end_flush();
                     <?php foreach ($productsByCategory as $category => $categoryProducts): ?>
                         <div class="category-section animated fadeIn">
                             <h3 class="category-title">
-                                <i class="fas fa-<?php 
-                                    switch($category) {
-                                        case 'Pastries': echo 'croissant'; break;
-                                        case 'Cakes': echo 'birthday-cake'; break;
-                                        case 'Cupcakes': echo 'cupcake'; break;
-                                        case 'Breads': echo 'bread-slice'; break;
-                                        case 'Tarts': echo 'pie-chart'; break;
-                                        case 'Muffins': echo 'muffin'; break;
-                                        default: echo 'cookie';
-                                    }
-                                ?>"></i>
+                                <i class="fas fa-<?php
+                                                    switch ($category) {
+                                                        case 'Pastries':
+                                                            echo 'croissant';
+                                                            break;
+                                                        case 'Cakes':
+                                                            echo 'birthday-cake';
+                                                            break;
+                                                        case 'Cupcakes':
+                                                            echo 'cupcake';
+                                                            break;
+                                                        case 'Breads':
+                                                            echo 'bread-slice';
+                                                            break;
+                                                        case 'Tarts':
+                                                            echo 'pie-chart';
+                                                            break;
+                                                        case 'Muffins':
+                                                            echo 'muffin';
+                                                            break;
+                                                        default:
+                                                            echo 'cookie';
+                                                    }
+                                                    ?>"></i>
                                 <?php echo htmlspecialchars($category); ?>
                             </h3>
                             <div class="products-grid">
-                                <?php foreach ($categoryProducts as $product): 
+                                <?php foreach ($categoryProducts as $product):
                                     $availableCustomizations = getAvailableCustomizations($pdo, $product['id']);
-                                    $finalPrice = $product['price'] * (1 - $product['discount_percentage']/100);
+                                    $finalPrice = $product['price'] * (1 - $product['discount_percentage'] / 100);
                                 ?>
                                     <div class="product-card animated fadeIn <?php echo $product['is_daily_special'] ? 'special' : ''; ?>" data-customizations='<?php echo json_encode($availableCustomizations); ?>'>
                                         <?php if ($product['is_daily_special']): ?>
@@ -1280,17 +1507,22 @@ ob_end_flush();
                                             <div class="customizable-indicator">Customizable</div>
                                         <?php endif; ?>
                                         <div class="product-image">
-                                            <i class="fas fa-<?php 
-                                                switch($product['category']) {
-                                                    case 'Pastries': echo 'croissant'; break;
-                                                    case 'Cakes': echo 'birthday-cake'; break;
-                                                    case 'Cupcakes': echo 'cupcake'; break;
-                                                    case 'Breads': echo 'bread-slice'; break;
-                                                    case 'Tarts': echo 'pie-chart'; break;
-                                                    case 'Muffins': echo 'muffin'; break;
-                                                    default: echo 'cookie';
-                                                }
-                                            ?>"></i>
+                                            <?php if (!empty($product['image'])): ?>
+    <img src="../Admin/product/<?php echo htmlspecialchars($product['image']); ?>" alt="<?php echo htmlspecialchars($product['name']); ?>">
+<?php else: ?>
+    <i class="fas fa-<?php 
+        switch($product['category']) {
+            case 'Pastries': echo 'croissant'; break;
+            case 'Cakes': echo 'birthday-cake'; break;
+            case 'Cupcakes': echo 'cupcake'; break;
+            case 'Breads': echo 'bread-slice'; break;
+            case 'Tarts': echo 'pie-chart'; break;
+            case 'Muffins': echo 'muffin'; break;
+            default: echo 'cookie';
+        }
+    ?>"></i>
+<?php endif; ?>
+
                                         </div>
                                         <div class="product-info">
                                             <h3><?php echo htmlspecialchars($product['name']); ?></h3>
@@ -1332,10 +1564,10 @@ ob_end_flush();
                                                     <button type="button" class="quantity-btn plus">+</button>
                                                 </div>
                                                 <?php if (!empty($availableCustomizations)): ?>
-                                                    <button type="button" class="btn btn-primary btn-add-to-cart customize-btn" 
-                                                            data-product-id="<?php echo $product['id']; ?>"
-                                                            data-product-name="<?php echo htmlspecialchars($product['name']); ?>"
-                                                            data-base-price="<?php echo $finalPrice; ?>">
+                                                    <button type="button" class="btn btn-primary btn-add-to-cart customize-btn"
+                                                        data-product-id="<?php echo $product['id']; ?>"
+                                                        data-product-name="<?php echo htmlspecialchars($product['name']); ?>"
+                                                        data-base-price="<?php echo $finalPrice; ?>">
                                                         <i class="fas fa-magic"></i> Customize & Add to Cart
                                                     </button>
                                                 <?php else: ?>
@@ -1369,8 +1601,8 @@ ob_end_flush();
                 <h2 class="section-title">About Golden Treat Bakery</h2>
                 <div style="text-align: center; max-width: 800px; margin: 0 auto;">
                     <p style="font-size: 1.2rem; line-height: 1.8; color: #666;">
-                        Since 2010, Golden Treat Bakery has been serving the community with freshly baked goods made from 
-                        the finest ingredients. Our master bakers combine traditional techniques with innovative recipes 
+                        Since 2010, Golden Treat Bakery has been serving the community with freshly baked goods made from
+                        the finest ingredients. Our master bakers combine traditional techniques with innovative recipes
                         to create unforgettable treats that bring joy to every occasion.
                     </p>
                 </div>
@@ -1508,7 +1740,7 @@ ob_end_flush();
                 const quantity = parseInt(this.closest('.product-info').querySelector('.quantity-input').value);
 
                 document.getElementById('customization-product-name').textContent = productName;
-                document.getElementById('customization-base-price').innerHTML = 
+                document.getElementById('customization-base-price').innerHTML =
                     `Base Price: Rs. <strong>${basePrice.toFixed(2)}</strong> × ${quantity} = Rs. <strong>${(basePrice * quantity).toFixed(2)}</strong>`;
                 document.getElementById('custom-product-id').value = productId;
                 document.getElementById('custom-quantity').value = quantity;
@@ -1555,7 +1787,7 @@ ob_end_flush();
             container.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
                 checkbox.addEventListener('change', () => {
                     const selected = Array.from(container.querySelectorAll('input[type="checkbox"]:checked'))
-                                        .map(cb => parseFloat(cb.dataset.price));
+                        .map(cb => parseFloat(cb.dataset.price));
                     updateCustomizationTotal(basePrice, quantity, selected);
                 });
             });
@@ -1572,7 +1804,7 @@ ob_end_flush();
         checkoutBtn?.addEventListener('click', () => {
             const summary = document.getElementById('checkout-summary');
             summary.innerHTML = '';
-            <?php foreach ($cartItems as $item): 
+            <?php foreach ($cartItems as $item):
                 $selectedCustomizations = json_decode($item['selected_customizations'], true) ?: [];
                 $customizationNames = getCustomizationNames($pdo, $selectedCustomizations);
             ?>
@@ -1580,11 +1812,11 @@ ob_end_flush();
                 itemDiv.style.cssText = 'padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; flex-wrap: wrap;';
                 let customizations = '';
                 <?php if (!empty($customizationNames)): ?>
-                    customizations = '<div style="width: 100%; margin-top: 5px; font-size: 0.9rem; color: #666;">Customizations: <?php 
-                        foreach ($customizationNames as $cust) {
-                            echo htmlspecialchars($cust['name']) . ' (+Rs. ' . number_format($cust['price_adjustment'], 2) . '), ';
-                        }
-                    ?></div>';
+                    customizations = '<div style="width: 100%; margin-top: 5px; font-size: 0.9rem; color: #666;">Customizations: <?php
+                                                                                                                                    foreach ($customizationNames as $cust) {
+                                                                                                                                        echo htmlspecialchars($cust['name']) . ' (+Rs. ' . number_format($cust['price_adjustment'], 2) . '), ';
+                                                                                                                                    }
+                                                                                                                                    ?></div>';
                 <?php endif; ?>
                 itemDiv.innerHTML = `
                     <span><?php echo htmlspecialchars($item['product_name']); ?> × <?php echo $item['quantity']; ?></span>
@@ -1606,11 +1838,14 @@ ob_end_flush();
 
         // Smooth scroll & animations
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
+            anchor.addEventListener('click', function(e) {
                 e.preventDefault();
                 const target = document.querySelector(this.getAttribute('href'));
                 if (target) {
-                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
                 }
             });
         });
@@ -1633,7 +1868,10 @@ ob_end_flush();
                     observer.unobserve(entry.target);
                 }
             });
-        }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+        }, {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        });
 
         document.querySelectorAll('.animated').forEach(el => {
             el.style.animationPlayState = 'paused';
@@ -1646,4 +1884,5 @@ ob_end_flush();
         });
     </script>
 </body>
+
 </html>

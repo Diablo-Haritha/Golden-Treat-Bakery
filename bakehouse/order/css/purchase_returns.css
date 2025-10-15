@@ -553,7 +553,7 @@
       }
     }
     /* Common button style */
-  .btnview, .btnupdate, .btndelete, .btnreturn {
+  .btnview, .btnupdate, .btndelete, .btnreturn, .btnrestore {
     padding: 8px 16px;
     border: none;
     border-radius: 6px;
@@ -578,10 +578,10 @@
   .btnupdate:hover {
     background-color: #28a745;
   }
-  .btnreturn {
+  .btnreturn, .btnrestore {
     background-color: #f39c12;
   }
-  .btnreturn:hover {
+  .btnreturn , .btnrestore:hover {
     background-color: #d98200;
   }
 

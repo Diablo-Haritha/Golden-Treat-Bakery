@@ -651,7 +651,7 @@ if ($conn->connect_error) {
     <ul>
       <li><a href="#home">Home</a></li>
       <li><a href="../Customer/index.php">Products</a></li>
-      <li><a href="untitled-1.php">Table booking</a></li>
+      <li><a href="./booking/untitled-1.php">Table booking</a></li>
       <li><a href="about.php">About</a></li>
       <li><a href="profile.php">Contact</a></li>
     </ul>

@@ -6,7 +6,7 @@ date_default_timezone_set('Asia/Kolkata');
 require 'config.php'; // Create a config.php file with sensitive data
 
 // Composer autoloader
-require 'vendor/autoload.php';
+require '../vendor/autoload.php';
 
 // Import PHPMailer classes
 use PHPMailer\PHPMailer\PHPMailer;
@@ -26,14 +26,20 @@ if ($conn->connect_error) {
 }
 
 // Configure session cookie parameters
+$is_production = false; // Set to true in production with HTTPS
 session_set_cookie_params([
     'lifetime' => 0, // Session cookie expires when browser closes
     'path' => '/',
-    'secure' => false, // Set to true in production with HTTPS
+    'secure' => $is_production, // Enforce HTTPS in production
     'httponly' => true, // Prevent JavaScript access
     'samesite' => 'Strict' // Prevent CSRF
 ]);
 session_start();
+
+// Generate CSRF token if not set
+if (!isset($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
 
 // Session timeout (30 minutes)
 if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > 1800)) {
@@ -44,231 +50,275 @@ if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > 
 }
 $_SESSION['last_activity'] = time(); // Update last activity time
 
+// Add security headers
+header("X-Frame-Options: DENY");
+header("X-Content-Type-Options: nosniff");
+header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' https://images.unsplash.com; font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com");
+
 // Initialize message
 $message = "";
 
-// Debug session data (remove in production)
-error_log("Session data: " . print_r($_SESSION, true));
+// Rate limiting for login attempts
+if (!isset($_SESSION['login_attempts'])) {
+    $_SESSION['login_attempts'] = ['count' => 0, 'last_attempt' => time()];
+}
+if ($_SESSION['login_attempts']['count'] >= 5 && (time() - $_SESSION['login_attempts']['last_attempt'] < 300)) {
+    $message = "Too many login attempts. Please try again in 5 minutes.";
+} else {
+    // Reset attempts after 5 minutes
+    if (time() - $_SESSION['login_attempts']['last_attempt'] >= 300) {
+        $_SESSION['login_attempts'] = ['count' => 0, 'last_attempt' => time()];
+    }
+}
+
+// Rate limiting for OTP requests
+if (!isset($_SESSION['otp_attempts'])) {
+    $_SESSION['otp_attempts'] = ['count' => 0, 'last_attempt' => time()];
+}
+if ($_SESSION['otp_attempts']['count'] >= 3 && (time() - $_SESSION['otp_attempts']['last_attempt'] < 600)) {
+    $message = "Too many OTP requests. Please try again in 10 minutes.";
+}
 
 // Handle form submissions and AJAX requests
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action'])) {
-    if ($_POST['action'] == 'register') {
-        // Registration logic
-        $fullName = mysqli_real_escape_string($conn, $_POST['reg-fullname']);
-        $email = mysqli_real_escape_string($conn, $_POST['reg-email']);
-        $mobile = mysqli_real_escape_string($conn, $_POST['reg-mobile']);
-        $address = mysqli_real_escape_string($conn, $_POST['reg-address']);
-        $district = mysqli_real_escape_string($conn, $_POST['reg-district']);
-        $password = mysqli_real_escape_string($conn, $_POST['reg-password']);
-        $confirmPassword = mysqli_real_escape_string($conn, $_POST['reg-confirm-password']);
-        $role = 'customer';
-        $dateJoined = date('Y-m-d');
-
-        if ($password !== $confirmPassword) {
-            $message = "Passwords do not match!";
-        } elseif (strlen($password) < 8 || !preg_match("/[A-Za-z].*[0-9]|[0-9].*[A-Za-z]/", $password)) {
-            $message = "Password must be at least 8 characters long and contain letters and numbers!";
+    // Validate CSRF token
+    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        if (in_array($_POST['action'], ['send_otp', 'verify_otp', 'reset_password'])) {
+            echo json_encode(['status' => 'error', 'message' => 'Invalid CSRF token!']);
+            exit();
         } else {
-            $checkEmail = "SELECT * FROM users WHERE email = ?";
-            $stmt = $conn->prepare($checkEmail);
+            $message = "Invalid CSRF token!";
+        }
+    } else {
+        if ($_POST['action'] == 'register') {
+            // Registration logic
+            $fullName = mysqli_real_escape_string($conn, $_POST['reg-fullname']);
+            $email = filter_var($_POST['reg-email'], FILTER_VALIDATE_EMAIL);
+            $mobile = mysqli_real_escape_string($conn, $_POST['reg-mobile']);
+            $address = mysqli_real_escape_string($conn, $_POST['reg-address']);
+            $district = mysqli_real_escape_string($conn, $_POST['reg-district']);
+            $password = mysqli_real_escape_string($conn, $_POST['reg-password']);
+            $confirmPassword = mysqli_real_escape_string($conn, $_POST['reg-confirm-password']);
+            $role = 'customer';
+            $dateJoined = date('Y-m-d');
+
+            if (!$email) {
+                $message = "Invalid email format!";
+            } elseif (!preg_match("/^[0-9]{10}$/", $mobile)) {
+                $message = "Mobile number must be exactly 10 digits!";
+            } elseif ($password !== $confirmPassword) {
+                $message = "Passwords do not match!";
+            } elseif (strlen($password) < 8 || !preg_match("/[A-Za-z].*[0-9]|[0-9].*[A-Za-z]/", $password)) {
+                $message = "Password must be at least 8 characters long and contain letters and numbers!";
+            } else {
+                $checkEmail = "SELECT * FROM users WHERE email = ?";
+                $stmt = $conn->prepare($checkEmail);
+                $stmt->bind_param("s", $email);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                if ($result->num_rows > 0) {
+                    $message = "Email already registered!";
+                } else {
+                    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+                    $sql = "INSERT INTO users (full_name, email, mobile, address, district, password, role, date_joined) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                    $stmt = $conn->prepare($sql);
+                    $stmt->bind_param("ssssssss", $fullName, $email, $mobile, $address, $district, $hashedPassword, $role, $dateJoined);
+                    if ($stmt->execute()) {
+                        $message = "Registration successful! Please log in.";
+                    } else {
+                        $message = "Registration failed. Please try again.";
+                    }
+                }
+                $stmt->close();
+            }
+        } elseif ($_POST['action'] == 'login') {
+            // Login logic
+            if ($_SESSION['login_attempts']['count'] < 5) {
+                $email = filter_var($_POST['login-email'], FILTER_VALIDATE_EMAIL);
+                $password = mysqli_real_escape_string($conn, $_POST['login-password']);
+
+                if (!$email) {
+                    $message = "Invalid email format!";
+                } else {
+                    $_SESSION['login_attempts']['count']++;
+                    $_SESSION['login_attempts']['last_attempt'] = time();
+
+                    $sql = "SELECT id, full_name, password, role FROM users WHERE email = ?";
+                    $stmt = $conn->prepare($sql);
+                    $stmt->bind_param("s", $email);
+                    $stmt->execute();
+                    $result = $stmt->get_result();
+                    if ($result->num_rows > 0) {
+                        $row = $result->fetch_assoc();
+                        if (password_verify($password, $row['password'])) {
+                            session_regenerate_id(true); // Prevent session fixation
+                            $_SESSION['user_id'] = (int)$row['id']; // Ensure user_id is an integer
+                            $_SESSION['role'] = $row['role'];
+                            $_SESSION['full_name'] = $row['full_name'];
+                            $_SESSION['last_activity'] = time();
+                            $_SESSION['session_id'] = session_id(); // Store session ID for guest order linking
+                            $_SESSION['login_attempts'] = ['count' => 0, 'last_attempt' => time()]; // Reset attempts
+
+                            if (in_array($row['role'], ['admin', 'manager'])) {
+                                header("Location: adminproduct.php");
+                                exit();
+                            } else {
+                                header("Location: ../Customer/index.php");
+                                exit();
+                            }
+                        } else {
+                            $message = "Incorrect password!";
+                        }
+                    } else {
+                        $message = "Email not found!";
+                    }
+                    $stmt->close();
+                }
+            }
+        } elseif ($_POST['action'] == 'send_otp') {
+            // Send OTP logic
+            if ($_SESSION['otp_attempts']['count'] < 3) {
+                $email = filter_var($_POST['email'], FILTER_VALIDATE_EMAIL);
+                if (!$email) {
+                    echo json_encode(['status' => 'error', 'message' => 'Invalid email format!']);
+                    exit();
+                }
+                $_SESSION['otp_attempts']['count']++;
+                $_SESSION['otp_attempts']['last_attempt'] = time();
+
+                $sql = "SELECT id FROM users WHERE email = ?";
+                $stmt = $conn->prepare($sql);
+                $stmt->bind_param("s", $email);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                if ($result->num_rows > 0) {
+                    $user = $result->fetch_assoc();
+                    $user_id = $user['id'];
+                    $otp = sprintf("%06d", mt_rand(100000, 999999));
+
+                    // Clear previous OTPs
+                    $stmt = $conn->prepare("DELETE FROM otps WHERE user_id = ?");
+                    $stmt->bind_param("i", $user_id);
+                    $stmt->execute();
+
+                    // Store new OTP
+                    $sql = "INSERT INTO otps (user_id, otp, expires_at) VALUES (?, ?, NOW() + INTERVAL 10 MINUTE)";
+                    $stmt = $conn->prepare($sql);
+                    $stmt->bind_param("is", $user_id, $otp);
+                    if ($stmt->execute()) {
+                        $mail = new PHPMailer(true);
+                        try {
+                            $mail->SMTPDebug = SMTP::DEBUG_OFF;
+                            $mail->isSMTP();
+                            $mail->Host = 'smtp.gmail.com';
+                            $mail->SMTPAuth = true;
+                            $mail->Username = SMTP_USERNAME; // From config.php
+                            $mail->Password = SMTP_PASSWORD; // From config.php
+                            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                            $mail->Port = 587;
+
+                            $mail->setFrom(SMTP_USERNAME, 'Golden Treat');
+                            $mail->addAddress($email);
+                            $mail->isHTML(true);
+                            $mail->Subject = 'Golden Treat Password Reset OTP';
+                            $mail->Body = "Dear User,<br>Your OTP for password reset is: <strong>$otp</strong><br>This OTP is valid for 10 minutes.<br><br>Best regards,<br>Golden Treat Team";
+                            $mail->send();
+                            echo json_encode(['status' => 'success', 'message' => 'OTP sent to your email!']);
+                        } catch (Exception $e) {
+                            echo json_encode(['status' => 'error', 'message' => 'Failed to send OTP. Please try again.']);
+                        }
+                    } else {
+                        echo json_encode(['status' => 'error', 'message' => 'Error storing OTP. Please try again.']);
+                    }
+                } else {
+                    echo json_encode(['status' => 'error', 'message' => 'Email not found!']);
+                }
+                $stmt->close();
+                exit();
+            } else {
+                echo json_encode(['status' => 'error', 'message' => 'Too many OTP requests. Please try again in 10 minutes.']);
+                exit();
+            }
+        } elseif ($_POST['action'] == 'verify_otp') {
+            // Verify OTP logic
+            $email = filter_var($_POST['email'], FILTER_VALIDATE_EMAIL);
+            $otp = trim(mysqli_real_escape_string($conn, $_POST['otp']));
+            if (!$email) {
+                echo json_encode(['status' => 'error', 'message' => 'Invalid email format!']);
+                exit();
+            }
+            if (!preg_match("/^\d{6}$/", $otp)) {
+                echo json_encode(['status' => 'error', 'message' => 'Invalid OTP format!']);
+                exit();
+            }
+
+            $sql = "SELECT id FROM users WHERE email = ?";
+            $stmt = $conn->prepare($sql);
             $stmt->bind_param("s", $email);
             $stmt->execute();
             $result = $stmt->get_result();
             if ($result->num_rows > 0) {
-                $message = "Email already registered!";
-            } else {
-                $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-                $sql = "INSERT INTO users (full_name, email, mobile, address, district, password, role, date_joined) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                $user = $result->fetch_assoc();
+                $user_id = $user['id'];
+
+                $sql = "SELECT otp, expires_at FROM otps WHERE user_id = ? AND otp = ? AND expires_at > NOW()";
                 $stmt = $conn->prepare($sql);
-                $stmt->bind_param("ssssssss", $fullName, $email, $mobile, $address, $district, $hashedPassword, $role, $dateJoined);
-                if ($stmt->execute()) {
-                    $message = "Registration successful! Please log in.";
+                $stmt->bind_param("is", $user_id, $otp);
+                $stmt->execute();
+                $result = $stmt->get_result();
+
+                if ($result->num_rows > 0) {
+                    $stmt = $conn->prepare("DELETE FROM otps WHERE user_id = ?");
+                    $stmt->bind_param("i", $user_id);
+                    $stmt->execute();
+                    echo json_encode(['status' => 'success', 'message' => 'OTP verified successfully!']);
                 } else {
-                    $message = "Registration failed. Please try again.";
-                    error_log("SQL Error (register): " . $conn->error);
+                    echo json_encode(['status' => 'error', 'message' => 'Invalid or expired OTP!']);
                 }
+            } else {
+                echo json_encode(['status' => 'error', 'message' => 'Email not found!']);
             }
             $stmt->close();
-        }
-    } elseif ($_POST['action'] == 'login') {
-        // Login logic
-        $email = mysqli_real_escape_string($conn, $_POST['login-email']);
-        $password = mysqli_real_escape_string($conn, $_POST['login-password']);
-
-        $sql = "SELECT id, full_name, password, role FROM users WHERE email = ?";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("s", $email);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        if ($result->num_rows > 0) {
-            $row = $result->fetch_assoc();
-            if (password_verify($password, $row['password'])) {
-                session_regenerate_id(true); // Prevent session fixation
-                $_SESSION['user_id'] = (int)$row['id']; // Ensure user_id is an integer
-                $_SESSION['role'] = $row['role'];
-                $_SESSION['full_name'] = $row['full_name'];
-                $_SESSION['last_activity'] = time();
-                $_SESSION['session_id'] = session_id(); // Store session ID for guest order linking
-
-                error_log("Login successful: user_id={$_SESSION['user_id']}, session_id={$_SESSION['session_id']}");
-
-                if (in_array($row['role'], ['admin', 'manager'])) {
-                    header("Location: adminproduct.php");
-                    exit();
-                } else {
-                    // Redirect to index.php with user_id for cart/order linking
-                    header("Location: ../Customer/index.php");
-                    exit();
-                }
-            } else {
-                $message = "Incorrect password!";
+            exit();
+        } elseif ($_POST['action'] == 'reset_password') {
+            // Reset password logic
+            $email = filter_var($_POST['email'], FILTER_VALIDATE_EMAIL);
+            $new_password = mysqli_real_escape_string($conn, $_POST['new_password']);
+            if (!$email) {
+                echo json_encode(['status' => 'error', 'message' => 'Invalid email format!']);
+                exit();
             }
-        } else {
-            $message = "Email not found!";
-        }
-        $stmt->close();
-    } elseif ($_POST['action'] == 'send_otp') {
-        // Send OTP logic
-        $email = mysqli_real_escape_string($conn, $_POST['email']);
-        $sql = "SELECT id FROM users WHERE email = ?";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("s", $email);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        if ($result->num_rows > 0) {
-            $user = $result->fetch_assoc();
-            $user_id = $user['id'];
-            $otp = sprintf("%06d", mt_rand(100000, 999999));
-
-            // Clear previous OTPs
-            $stmt = $conn->prepare("DELETE FROM otps WHERE user_id = ?");
-            $stmt->bind_param("i", $user_id);
-            $stmt->execute();
-
-            // Store new OTP
-            $sql = "INSERT INTO otps (user_id, otp, expires_at) VALUES (?, ?, NOW() + INTERVAL 10 MINUTE)";
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param("is", $user_id, $otp);
-            if ($stmt->execute()) {
-                $mail = new PHPMailer(true);
-                try {
-                    $mail->SMTPDebug = SMTP::DEBUG_OFF;
-                    $mail->isSMTP();
-                    $mail->Host = 'smtp.gmail.com';
-                    $mail->SMTPAuth = true;
-                    $mail->Username = SMTP_USERNAME; // From config.php
-                    $mail->Password = SMTP_PASSWORD; // From config.php
-                    $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-                    $mail->Port = 587;
-
-                    $mail->setFrom(SMTP_USERNAME, 'Golden Treat');
-                    $mail->addAddress($email);
-                    $mail->isHTML(true);
-                    $mail->Subject = 'Golden Treat Password Reset OTP';
-                    $mail->Body = "Dear User,<br>Your OTP for password reset is: <strong>$otp</strong><br>This OTP is valid for 10 minutes.<br><br>Best regards,<br>Golden Treat Team";
-                    $mail->send();
-                    echo json_encode(['status' => 'success', 'message' => 'OTP sent to your email!']);
-                } catch (Exception $e) {
-                    error_log("PHPMailer Error: " . $mail->ErrorInfo);
-                    echo json_encode(['status' => 'error', 'message' => 'Failed to send OTP. Please try again.']);
-                }
-            } else {
-                error_log("SQL Error (insert OTP): " . $conn->error);
-                echo json_encode(['status' => 'error', 'message' => 'Error storing OTP. Please try again.']);
+            if (strlen($new_password) < 8 || !preg_match("/[A-Za-z].*[0-9]|[0-9].*[A-Za-z]/", $new_password)) {
+                echo json_encode(['status' => 'error', 'message' => 'Password must be at least 8 characters long and contain letters and numbers!']);
+                exit();
             }
-        } else {
-            error_log("No user found for email=$email");
-            echo json_encode(['status' => 'error', 'message' => 'Email not found!']);
-        }
-        $stmt->close();
-        exit();
-    } elseif ($_POST['action'] == 'verify_otp') {
-        // Verify OTP logic
-        $email = mysqli_real_escape_string($conn, $_POST['email']);
-        $otp = trim(mysqli_real_escape_string($conn, $_POST['otp']));
 
-        error_log("Verifying OTP: email=$email, otp=$otp");
-
-        $sql = "SELECT id FROM users WHERE email = ?";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("s", $email);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        if ($result->num_rows > 0) {
-            $user = $result->fetch_assoc();
-            $user_id = $user['id'];
-
-            $sql = "SELECT otp, expires_at FROM otps WHERE user_id = ? AND otp = ? AND expires_at > NOW()";
+            $sql = "SELECT id FROM users WHERE email = ?";
             $stmt = $conn->prepare($sql);
-            $stmt->bind_param("is", $user_id, $otp);
+            $stmt->bind_param("s", $email);
             $stmt->execute();
             $result = $stmt->get_result();
-
             if ($result->num_rows > 0) {
-                $stmt = $conn->prepare("DELETE FROM otps WHERE user_id = ?");
-                $stmt->bind_param("i", $user_id);
-                $stmt->execute();
-                echo json_encode(['status' => 'success', 'message' => 'OTP verified successfully!']);
-            } else {
-                $sql = "SELECT otp, expires_at FROM otps WHERE user_id = ?";
-                $stmt = $conn->prepare($sql);
-                $stmt->bind_param("i", $user_id);
-                $stmt->execute();
-                $debug_result = $stmt->get_result();
-                if ($debug_result->num_rows > 0) {
-                    $debug_row = $debug_result->fetch_assoc();
-                    error_log("Debug OTP: otp=" . $debug_row['otp'] . ", Expires: " . $debug_row['expires_at']);
-                    if ($debug_row['expires_at'] <= date('Y-m-d H:i:s')) {
-                        echo json_encode(['status' => 'error', 'message' => 'OTP has expired! Please request a new one.']);
-                    } else {
-                        echo json_encode(['status' => 'error', 'message' => 'Invalid OTP entered!']);
-                    }
-                } else {
-                    error_log("No OTP found for user_id=$user_id");
-                    echo json_encode(['status' => 'error', 'message' => 'No OTP found! Please request a new one.']);
-                }
-            }
-        } else {
-            error_log("No user found for email=$email");
-            echo json_encode(['status' => 'error', 'message' => 'Email not found!']);
-        }
-        $stmt->close();
-        exit();
-    } elseif ($_POST['action'] == 'reset_password') {
-        // Reset password logic
-        $email = mysqli_real_escape_string($conn, $_POST['email']);
-        $new_password = mysqli_real_escape_string($conn, $_POST['new_password']);
+                $user = $result->fetch_assoc();
+                $user_id = $user['id'];
+                $hashedPassword = password_hash($new_password, PASSWORD_DEFAULT);
 
-        if (strlen($new_password) < 8 || !preg_match("/[A-Za-z].*[0-9]|[0-9].*[A-Za-z]/", $new_password)) {
-            echo json_encode(['status' => 'error', 'message' => 'Password must be at least 8 characters long and contain letters and numbers!']);
+                $sql = "UPDATE users SET password = ? WHERE id = ?";
+                $stmt = $conn->prepare($sql);
+                $stmt->bind_param("si", $hashedPassword, $user_id);
+                if ($stmt->execute()) {
+                    $_SESSION['otp_attempts'] = ['count' => 0, 'last_attempt' => time()]; // Reset OTP attempts
+                    echo json_encode(['status' => 'success', 'message' => 'Password reset successful! Redirecting to login...']);
+                } else {
+                    echo json_encode(['status' => 'error', 'message' => 'Error updating password. Please try again.']);
+                }
+            } else {
+                echo json_encode(['status' => 'error', 'message' => 'Email not found!']);
+            }
+            $stmt->close();
             exit();
         }
-
-        $sql = "SELECT id FROM users WHERE email = ?";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("s", $email);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        if ($result->num_rows > 0) {
-            $user = $result->fetch_assoc();
-            $user_id = $user['id'];
-            $hashedPassword = password_hash($new_password, PASSWORD_DEFAULT);
-
-            $sql = "UPDATE users SET password = ? WHERE id = ?";
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param("si", $hashedPassword, $user_id);
-            if ($stmt->execute()) {
-                echo json_encode(['status' => 'success', 'message' => 'Password reset successful! Redirecting to login...']);
-            } else {
-                error_log("SQL Error (reset password): " . $conn->error);
-                echo json_encode(['status' => 'error', 'message' => 'Error updating password. Please try again.']);
-            }
-        } else {
-            echo json_encode(['status' => 'error', 'message' => 'Email not found!']);
-        }
-        $stmt->close();
-        exit();
     }
 }
 
@@ -796,6 +846,7 @@ $conn->close();
                 <input type="email" name="login-email" id="login-email" placeholder="Email" required>
                 <input type="password" name="login-password" id="login-password" placeholder="Password" required>
                 <input type="hidden" name="action" value="login">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                 <button type="submit">Login 🍰</button>
                 <div class="forgot-password" onclick="showForgotPasswordPopup()">Forgot Password?</div>
                 <div class="switch" onclick="showRegister()">Don't have an account? Register here</div>
@@ -811,6 +862,7 @@ $conn->close();
                 <input type="password" name="reg-password" id="reg-password" placeholder="Password (8+ chars, letters & numbers)" required>
                 <input type="password" name="reg-confirm-password" id="reg-confirm-password" placeholder="Confirm Password" required>
                 <input type="hidden" name="action" value="register">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                 <button type="submit">Register 🥐</button>
                 <div class="switch" onclick="showLogin()">Already have an account? Login here</div>
             </form>
@@ -922,6 +974,21 @@ $conn->close();
             }, 3000);
         }
 
+        // Client-side validation for password
+        function validatePassword() {
+            const password = document.getElementById('reg-password')?.value || document.getElementById('new-password')?.value;
+            const confirmPassword = document.getElementById('reg-confirm-password')?.value || document.getElementById('confirm-new-password')?.value;
+            if (!password || password.length < 8 || !/[A-Za-z].*[0-9]|[0-9].*[A-Za-z]/.test(password)) {
+                showMessage('Password must be at least 8 characters long and contain letters and numbers!', 'error');
+                return false;
+            }
+            if (password !== confirmPassword) {
+                showMessage('Passwords do not match!', 'error');
+                return false;
+            }
+            return true;
+        }
+
         async function sendOtp() {
             const email = document.getElementById('forgot-email').value.trim();
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -936,11 +1003,9 @@ $conn->close();
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
-                    body: `action=send_otp&email=${encodeURIComponent(email)}`
+                    body: `action=send_otp&email=${encodeURIComponent(email)}&csrf_token=${encodeURIComponent('<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>')}`
                 });
-                const text = await response.text();
-                console.log('Send OTP Raw response:', text);
-                const result = JSON.parse(text);
+                const result = await response.json();
                 showMessage(result.message, result.status);
                 if (result.status === 'success') {
                     document.getElementById('email-section').style.display = 'none';
@@ -951,7 +1016,6 @@ $conn->close();
                     document.getElementById('forgot-email').value = '';
                 }
             } catch (error) {
-                console.error('Send OTP Error:', error);
                 showMessage('Error sending OTP. Please try again.', 'error');
                 document.getElementById('forgot-email').value = '';
             }
@@ -971,11 +1035,9 @@ $conn->close();
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
-                    body: `action=verify_otp&email=${encodeURIComponent(email)}&otp=${encodeURIComponent(otp)}`
+                    body: `action=verify_otp&email=${encodeURIComponent(email)}&otp=${encodeURIComponent(otp)}&csrf_token=${encodeURIComponent('<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>')}`
                 });
-                const text = await response.text();
-                console.log('Verify OTP Raw response:', text);
-                const result = JSON.parse(text);
+                const result = await response.json();
                 showMessage(result.message, result.status);
                 if (result.status === 'success') {
                     document.getElementById('email-section').style.display = 'none';
@@ -986,7 +1048,6 @@ $conn->close();
                     document.getElementById('forgot-otp').value = '';
                 }
             } catch (error) {
-                console.error('Verify OTP Error:', error);
                 showMessage('Error verifying OTP. Please try again.', 'error');
                 document.getElementById('forgot-otp').value = '';
             }
@@ -997,20 +1058,7 @@ $conn->close();
             const newPassword = document.getElementById('new-password').value;
             const confirmPassword = document.getElementById('confirm-new-password').value;
 
-            if (!newPassword || !confirmPassword) {
-                showMessage('Please fill in both password fields!', 'error');
-                return;
-            }
-
-            if (newPassword.length < 8 || !/[A-Za-z].*[0-9]|[0-9].*[A-Za-z]/.test(newPassword)) {
-                showMessage('Password must be at least 8 characters long and contain letters and numbers!', 'error');
-                document.getElementById('new-password').value = '';
-                document.getElementById('confirm-new-password').value = '';
-                return;
-            }
-
-            if (newPassword !== confirmPassword) {
-                showMessage('Passwords do not match! Please try again.', 'error');
+            if (!validatePassword()) {
                 document.getElementById('new-password').value = '';
                 document.getElementById('confirm-new-password').value = '';
                 return;
@@ -1022,11 +1070,9 @@ $conn->close();
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
-                    body: `action=reset_password&email=${encodeURIComponent(email)}&new_password=${encodeURIComponent(newPassword)}`
+                    body: `action=reset_password&email=${encodeURIComponent(email)}&new_password=${encodeURIComponent(newPassword)}&csrf_token=${encodeURIComponent('<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>')}`
                 });
-                const text = await response.text();
-                console.log('Reset Password Raw response:', text);
-                const result = JSON.parse(text);
+                const result = await response.json();
                 showMessage(result.message, result.status);
                 if (result.status === 'success') {
                     setTimeout(() => {
@@ -1038,12 +1084,18 @@ $conn->close();
                     document.getElementById('confirm-new-password').value = '';
                 }
             } catch (error) {
-                console.error('Reset Password Error:', error);
                 showMessage('Error resetting password. Please try again.', 'error');
                 document.getElementById('new-password').value = '';
                 document.getElementById('confirm-new-password').value = '';
             }
         }
+
+        // Attach client-side validation to forms
+        document.getElementById('register-form')?.addEventListener('submit', (e) => {
+            if (!validatePassword()) {
+                e.preventDefault();
+            }
+        });
 
         window.addEventListener('DOMContentLoaded', () => {
             createSprinkles();

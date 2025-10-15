@@ -4,13 +4,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Stock Management Admin UI</title>
+  <title>Table Booking Management</title>
   <!-- Charts & export -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
-    <style>
+  <style>
     :root {
       --brand: #edcd00;
       --ink: #111827;
@@ -48,7 +48,7 @@
     }
 
     .header-left img {
-      width: 55px;
+      width: 56px;
       height: auto;
       border-radius: 8px;
       display: block;
@@ -175,7 +175,7 @@
       background: #00a619;
       border: none;
       text-align: left;
-      padding: 20px;
+      padding: 10px;
       margin: 10px;
       border-radius: 6px;
       cursor: pointer;
@@ -577,7 +577,6 @@
       }
     }
   </style>
-
 </head>
 
 <body>
@@ -586,10 +585,10 @@
     <div class="header-left"><img src="logo.jpg" alt="Logo" /></div>
     <div class="header-middle">
       <div class="header-middle-title">Table Booking Management</div>
-      <div class="search-bar"><input id="globalSearch" type="text" placeholder="Search by customer, table, or status..." /></div>
+      <div class="search-bar"><input id="globalSearch" type="text" placeholder="Search by customer, email, phone, table, or status..." /></div>
     </div>
     <div class="header-right">
-     <button class="role-btn" onclick="window.location.href='../index.html'">Dashboard</button>
+      <button class="role-btn" onclick="window.location.href='../Home&Admin/index.html'">Dashboard</button>
       <div class="user-icon"></div>
     </div>
   </div>
@@ -657,6 +656,8 @@
                 <tr>
                   <th data-sort="bookingId">Booking ID ▲▼</th>
                   <th data-sort="customerName">Customer ▲▼</th>
+                  <th data-sort="email">Email ▲▼</th>
+                  <th data-sort="phone">Phone ▲▼</th>
                   <th data-sort="date">Date ▲▼</th>
                   <th data-sort="time">Time ▲▼</th>
                   <th data-sort="tableNumber">Table ▲▼</th>
@@ -705,6 +706,8 @@
       <div class="form-grid">
         <div><label>Booking ID</label><input id="fBookingId" type="text" placeholder="e.g. BID1001"></div>
         <div><label>Customer Name</label><input id="fCustomerName" type="text" placeholder="Customer name"></div>
+        <div><label>Email</label><input id="fEmail" type="email" placeholder="Email"></div>
+        <div><label>Phone</label><input id="fPhone" type="tel" placeholder="Phone (10 digits)" pattern="\d{10}" maxlength="10"></div>
         <div><label>Date</label><input id="fDate" type="date"></div>
         <div><label>Time</label><input id="fTime" type="time"></div>
         <div><label>Table Number</label><input id="fTableNumber" type="number" min="1" max="10" placeholder="1-10"></div>
@@ -728,27 +731,44 @@
     /* ---------- UTIL & STATE ---------- */
     const $ = (s, root = document) => root.querySelector(s);
     const $$ = (s, root = document) => [...root.querySelectorAll(s)];
-    const TOTAL_TABLES = 10; 
+    const TOTAL_TABLES = 10;
     let bookings = [];
     let sortState = { key: 'date', dir: 'desc' };
     let editingIndex = null;
 
     /* ---------- API FUNCTIONS ---------- */
-    async function getBookings() { return await (await fetch("api.php")).json(); }
-    async function addBooking(data) { await fetch("api.php", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(data)}); }
-    async function updateBooking(id, data) { await fetch("api.php?id="+id, {method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify(data)}); }
-    async function deleteBooking(id) { await fetch("api.php?id="+id, {method:"DELETE"}); }
+    async function getBookings() {
+      const response = await fetch("api.php");
+      return await response.json();
+    }
+    async function addBooking(data) {
+      await fetch("api.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+    }
+    async function updateBooking(id, data) {
+      await fetch(`api.php?id=${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+    }
+    async function deleteBooking(id) {
+      await fetch(`api.php?id=${id}`, { method: "DELETE" });
+    }
 
     function getAvailableTables(date, time) {
-      const booked = bookings.filter(b => b.date===date && b.time===time && b.status!=="Rejected").map(b => +b.tableNumber);
+      const booked = bookings.filter(b => b.date === date && b.time === time && b.status !== "Rejected").map(b => +b.tableNumber);
       return TOTAL_TABLES - new Set(booked).size;
     }
 
     function renderCards(data = bookings) {
       const totalBookings = data.length;
-      const confirmedBookings = data.filter(b => b.status==="Confirmed").length;
+      const confirmedBookings = data.filter(b => b.status === "Confirmed").length;
       const filterDate = $('#filterDate').value;
-      const filterTime = data.length>0 ? data[0].time : "18:00";
+      const filterTime = data.length > 0 ? data[0].time : "18:00";
       const availableTables = filterDate ? getAvailableTables(filterDate, filterTime) : TOTAL_TABLES;
       $('#cardTotalBookings').textContent = totalBookings;
       $('#cardConfirmedBookings').textContent = confirmedBookings;
@@ -759,6 +779,8 @@
       return `<tr data-idx="${idx}">
         <td>${r.bookingId}</td>
         <td>${r.customerName}</td>
+        <td>${r.email || ''}</td>
+        <td>${r.phone || ''}</td>
         <td>${r.date}</td>
         <td>${r.time}</td>
         <td>${r.tableNumber}</td>
@@ -766,7 +788,7 @@
         <td class="row-actions">
           <button class="edit">✏ Edit</button>
           <button class="del">🗑 Delete</button>
-          ${r.status==="Pending"?`<button class="accept">✔ Accept</button><button class="reject">✖ Reject</button>`:''}
+          ${r.status === "Pending" ? `<button class="accept">✔ Accept</button><button class="reject">✖ Reject</button>` : ''}
         </td>
       </tr>`;
     }
@@ -781,113 +803,163 @@
     }
 
     function applyFilters(data) {
-      const {date, tableNumber, status, search} = getFilters();
-      return data.filter(r => (!date||r.date===date)&&(!tableNumber||String(r.tableNumber)===tableNumber)&&(!status||r.status===status)&&(!search||(r.bookingId.toLowerCase().includes(search)||r.customerName.toLowerCase().includes(search)||String(r.tableNumber).includes(search)||r.status.toLowerCase().includes(search))));
+      const { date, tableNumber, status, search } = getFilters();
+      return data.filter(r =>
+        (!date || r.date === date) &&
+        (!tableNumber || String(r.tableNumber) === tableNumber) &&
+        (!status || r.status === status) &&
+        (!search || (
+          r.bookingId.toLowerCase().includes(search) ||
+          r.customerName.toLowerCase().includes(search) ||
+          (r.email || '').toLowerCase().includes(search) ||
+          (r.phone || '').toLowerCase().includes(search) ||
+          String(r.tableNumber).includes(search) ||
+          r.status.toLowerCase().includes(search)
+        ))
+      );
     }
 
     function applySort(data) {
-      const {key, dir} = sortState, mult = dir==='asc'?1:-1;
-      return data.slice().sort((a,b)=>{
-        let va=a[key], vb=b[key];
-        if(key==='tableNumber'){va=+va; vb=+vb;}
-        if(key==='date'||key==='time'){return (new Date(`${va}${key==='time'?'':''}`)-new Date(`${vb}${key==='time'?'':''}`))*mult;}
-        if(va<vb) return -1*mult;
-        if(va>vb) return 1*mult;
+      const { key, dir } = sortState, mult = dir === 'asc' ? 1 : -1;
+      return data.slice().sort((a, b) => {
+        let va = a[key], vb = b[key];
+        if (key === 'tableNumber') { va = +va; vb = +vb; }
+        if (key === 'date' || key === 'time') { return (new Date(`${va}${key === 'time' ? '' : ''}`) - new Date(`${vb}${key === 'time' ? '' : ''}`)) * mult; }
+        if (key === 'email' || key === 'phone') { va = va || ''; vb = vb || ''; }
+        if (va < vb) return -1 * mult;
+        if (va > vb) return 1 * mult;
         return 0;
       });
     }
 
     async function renderTable() {
-      bookings = await getBookings();
-      const filtered = applyFilters(bookings);
-      const sorted = applySort(filtered);
-      const tbody = $('#bookingTable tbody');
-      tbody.innerHTML = sorted.map(r=>rowHTML(r, bookings.indexOf(r))).join('');
-      renderCards(filtered);
-      wireRowButtons();
+      try {
+        bookings = await getBookings();
+        const filtered = applyFilters(bookings);
+        const sorted = applySort(filtered);
+        const tbody = $('#bookingTable tbody');
+        tbody.innerHTML = sorted.map(r => rowHTML(r, bookings.indexOf(r))).join('');
+        renderCards(filtered);
+        wireRowButtons();
+      } catch (error) {
+        alert('Error fetching bookings: ' + error.message);
+      }
     }
 
     function wireRowButtons() {
-      $$('#bookingTable .edit').forEach(btn=>btn.onclick=(e)=>{
-        const idx=+e.target.closest('tr').dataset.idx;
+      $$('#bookingTable .edit').forEach(btn => btn.onclick = (e) => {
+        const idx = +e.target.closest('tr').dataset.idx;
         openModal('Edit Booking', bookings[idx], idx);
       });
-      $$('#bookingTable .del').forEach(btn=>btn.onclick=async(e)=>{
-        const idx=+e.target.closest('tr').dataset.idx;
-        if(confirm('Delete booking #'+bookings[idx].bookingId+'?')) {await deleteBooking(bookings[idx].id); renderTable();}
+      $$('#bookingTable .del').forEach(btn => btn.onclick = async (e) => {
+        const idx = +e.target.closest('tr').dataset.idx;
+        if (confirm('Delete booking #' + bookings[idx].bookingId + '?')) {
+          await deleteBooking(bookings[idx].id);
+          renderTable();
+        }
       });
-      $$('#bookingTable .accept').forEach(btn=>btn.onclick=async(e)=>{
-        const idx=+e.target.closest('tr').dataset.idx;
-        bookings[idx].status='Confirmed';
-        await updateBooking(bookings[idx].id, bookings[idx]);
+      $$('#bookingTable .accept').forEach(btn => btn.onclick = async (e) => {
+        const idx = +e.target.closest('tr').dataset.idx;
+        bookings[idx].status = 'Confirmed';
+        await updateBooking(bookings[idx].id, { ...bookings[idx], source: 'admin' });
         renderTable();
       });
-      $$('#bookingTable .reject').forEach(btn=>btn.onclick=async(e)=>{
-        const idx=+e.target.closest('tr').dataset.idx;
-        bookings[idx].status='Rejected';
-        await updateBooking(bookings[idx].id, bookings[idx]);
+      $$('#bookingTable .reject').forEach(btn => btn.onclick = async (e) => {
+        const idx = +e.target.closest('tr').dataset.idx;
+        bookings[idx].status = 'Rejected';
+        await updateBooking(bookings[idx].id, { ...bookings[idx], source: 'admin' });
         renderTable();
       });
     }
 
-    $$('#bookingTable thead th').forEach(th=>{
-      const key=th.dataset.sort;
-      if(!key) return;
-      th.onclick=()=>{sortState.key===key?sortState.dir=sortState.dir==='asc'?'desc':'asc':sortState.key=key, sortState.dir='asc'; renderTable();};
+    $$('#bookingTable thead th').forEach(th => {
+      const key = th.dataset.sort;
+      if (!key) return;
+      th.onclick = () => {
+        sortState.key = key;
+        sortState.dir = sortState.key === key && sortState.dir === 'asc' ? 'desc' : 'asc';
+        renderTable();
+      };
     });
 
-    const backdrop=$('#modalBackdrop');
-    function openModal(title, record=null, idx=null){
-      $('#modalTitle').textContent=title;
-      editingIndex=idx;
-      $('#fBookingId').value=record?.bookingId??`BID${nextId()}`;
-      $('#fCustomerName').value=record?.customerName??'';
-      $('#fDate').value=record?.date??new Date().toISOString().slice(0,10);
-      $('#fTime').value=record?.time??'18:00';
-      $('#fTableNumber').value=record?.tableNumber??'';
-      $('#fStatus').value=record?.status??'Pending';
-      backdrop.style.display='flex';
+    const backdrop = $('#modalBackdrop');
+    function openModal(title, record = null, idx = null) {
+      $('#modalTitle').textContent = title;
+      editingIndex = idx;
+      $('#fBookingId').value = record?.bookingId ?? `BID${nextId()}`;
+      $('#fCustomerName').value = record?.customerName ?? '';
+      $('#fEmail').value = record?.email ?? '';
+      $('#fPhone').value = record?.phone ?? '';
+      $('#fDate').value = record?.date ?? new Date().toISOString().slice(0, 10);
+      $('#fTime').value = record?.time ?? '18:00';
+      $('#fTableNumber').value = record?.tableNumber ?? '';
+      $('#fStatus').value = record?.status ?? 'Pending';
+      backdrop.style.display = 'flex';
     }
-    function closeModal(){backdrop.style.display='none';}
-    function nextId(){return (bookings.reduce((m,r)=>Math.max(m,parseInt(r.bookingId.replace('BID','')||0)),0)||1000)+1;}
+    function closeModal() { backdrop.style.display = 'none'; }
+    function nextId() {
+      return (bookings.reduce((m, r) => Math.max(m, parseInt(r.bookingId.replace('BID', '') || 0)), 0) || 1000) + 1;
+    }
 
-    $('#btnAdd').onclick=()=>openModal('Add Booking');
-    $('#btnCancel').onclick=closeModal;
-    $('#btnSave').onclick=async()=>{
-      const tableNum=+$('#fTableNumber').value;
-      const rec={
-        bookingId:($('#fBookingId').value||'').trim()||`BID${nextId()}`,
-        customerName:($('#fCustomerName').value||'').trim()||'Unknown',
-        date:$('#fDate').value,
-        time:$('#fTime').value,
-        tableNumber:tableNum,
-        status:$('#fStatus').value
+    $('#btnAdd').onclick = () => openModal('Add Booking');
+    $('#btnCancel').onclick = closeModal;
+    $('#btnSave').onclick = async () => {
+      const tableNum = +$('#fTableNumber').value;
+      const phone = $('#fPhone').value.trim();
+      const rec = {
+        bookingId: ($('#fBookingId').value || '').trim() || `BID${nextId()}`,
+        customerName: ($('#fCustomerName').value || '').trim() || 'Unknown',
+        email: ($('#fEmail').value || '').trim(),
+        phone: phone,
+        date: $('#fDate').value,
+        time: $('#fTime').value,
+        tableNumber: tableNum,
+        status: $('#fStatus').value,
+        source: 'admin'
       };
-      if(!rec.date){alert('Please select a date'); return;}
-      if(!rec.time){alert('Please select a time'); return;}
-      if(!rec.tableNumber || rec.tableNumber<1 || rec.tableNumber>TOTAL_TABLES){alert(`Please enter a valid table number (1-${TOTAL_TABLES})`); return;}
-      if(editingIndex==null){await addBooking(rec);}else{await updateBooking(bookings[editingIndex].id, rec);}
-      closeModal(); renderTable();
+      if (!rec.date) { alert('Please select a date'); return; }
+      if (!rec.time) { alert('Please select a time'); return; }
+      if (!rec.tableNumber || rec.tableNumber < 1 || rec.tableNumber > TOTAL_TABLES) { alert(`Please enter a valid table number (1-${TOTAL_TABLES})`); return; }
+      if (rec.email && !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(rec.email)) { alert('Please enter a valid email'); return; }
+      if (rec.phone && !/^\d{10}$/.test(rec.phone)) { alert('Phone number must be exactly 10 digits'); return; }
+      try {
+        if (editingIndex == null) { await addBooking(rec); } else { await updateBooking(bookings[editingIndex].id, rec); }
+        closeModal();
+        renderTable();
+      } catch (error) {
+        alert('Error saving booking: ' + error.message);
+      }
     };
 
-    $('#btnFilter').onclick=renderTable;
-    $('#btnReset').onclick=()=>{$('#filterDate').value='';$('#filterTable').value='';$('#filterStatus').value=''; renderTable();};
+    // Phone input validation
+    $('#fPhone').addEventListener('input', (e) => {
+      e.target.value = e.target.value.replace(/\D/g, '').substring(0, 10);
+    });
+
+    $('#btnFilter').onclick = renderTable;
+    $('#btnReset').onclick = () => {
+      $('#filterDate').value = '';
+      $('#filterTable').value = '';
+      $('#filterStatus').value = '';
+      renderTable();
+    };
     $('#globalSearch').addEventListener('input', renderTable);
 
-    function activatePanel(id){
-      $$('.panel').forEach(p=>p.classList.remove('active'));
-      $('#'+id).classList.add('active');
-      $$('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.page===id));
+    function activatePanel(id) {
+      $$('.panel').forEach(p => p.classList.remove('active'));
+      $('#' + id).classList.add('active');
+      $$('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.page === id));
     }
-    $$('.tab-btn').forEach(btn=>btn.onclick=()=>activatePanel(btn.dataset.page));
+    $$('.tab-btn').forEach(btn => btn.onclick = () => activatePanel(btn.dataset.page));
 
-    let currentRole='Manager';
-    const roleBtn=$('#roleBtn');
-    if(roleBtn) roleBtn.onclick=()=>{currentRole=currentRole==='Manager'?'Admin':'Manager'; roleBtn.textContent=currentRole;};
+    let currentRole = 'Manager';
+    const roleBtn = $('#roleBtn');
+    if (roleBtn) roleBtn.onclick = () => {
+      currentRole = currentRole === 'Manager' ? 'Admin' : 'Manager';
+      roleBtn.textContent = currentRole;
+    };
 
     renderTable();
   </script>
 </body>
 </html>
-
-
