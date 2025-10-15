@@ -146,6 +146,7 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
     </div>
     <div class="header-right">
       <button class="role-btn" onclick="window.location.href='index.html'">Dashboard</button>
+      <div class="user-icon"></div>
     </div>
   </div>
 
@@ -155,9 +156,9 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
       <nav>
         <button class="salesbtn" disabled>Order</button>
         <div class="otherbtn">
-          <button class="Sbtn" onclick="window.location.href='stoke.html'">Stock</button>
-          <button class="Ubtn" onclick="window.location.href='sales.html'">Sales</button>
-          <button class="Bbtn" onclick="window.location.href='booking.html'">Booking</button>
+          <button class="Sbtn" onclick="window.location.href='../stoke/stock.php'">Stock</button>
+          <button class="Ubtn" onclick="window.location.href='../sales/index.php'">Sales</button>
+          <button class="Bbtn" onclick="window.location.href='../booking/index.html'">Booking</button>
         </div>
         <hr />
         <p class="muted">Order Management</p>

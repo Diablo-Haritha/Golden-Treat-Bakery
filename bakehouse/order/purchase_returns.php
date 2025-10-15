@@ -285,9 +285,9 @@ foreach ($rows as $r) {
       <nav>
         <button class="salesbtn" disabled>Order</button>
         <div class="otherbtn">
-          <button class="Sbtn" onclick="window.location.href='stoke.html'">Stock</button>
-          <button class="Ubtn" onclick="window.location.href='sales.html'">Sales</button>
-          <button class="Bbtn" onclick="window.location.href='booking.html'">Booking</button>
+          <button class="Sbtn" onclick="window.location.href='../stoke/stock.php'">Stock</button>
+          <button class="Ubtn" onclick="window.location.href='../sales/index.php'">Sales</button>
+          <button class="Bbtn" onclick="window.location.href='../booking/index.html'">Booking</button>
         </div>
         <hr />
         <p>Order Management</p>
