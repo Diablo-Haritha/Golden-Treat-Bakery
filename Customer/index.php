@@ -1,11 +1,7 @@
-
 <?php
 session_start();
 ob_start();
-<<<<<<< HEAD
-=======
 
->>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
 // Generate CSRF token
 if (!isset($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -49,11 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($product) {
                     if ($product['stock_quantity'] >= $quantity) {
                         $sessionId = session_id();
-<<<<<<< HEAD
-                        $basePrice = $product['price'] * (1 - $product['discount_percentage']/100);
-=======
                         $basePrice = $product['price'] * (1 - $product['discount_percentage'] / 100);
->>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
                         $itemCustomizationCost = 0;
 
                         // Validate and calculate customization cost
@@ -136,11 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($item) {
                         $quantityDiff = $newQuantity - $item['quantity'];
                         if ($item['stock_quantity'] + $item['quantity'] >= $newQuantity) {
-<<<<<<< HEAD
-                            $basePrice = $item['price'] * (1 - $item['discount_percentage']/100);
-=======
                             $basePrice = $item['price'] * (1 - $item['discount_percentage'] / 100);
->>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
                             $selectedCustomizations = json_decode($item['selected_customizations'], true) ?: [];
                             $itemCustomizationCost = 0;
 
@@ -370,7 +358,7 @@ ob_end_flush();
             font-family: 'Poppins', sans-serif;
             line-height: 1.6;
             color: var(--text);
-            background: linear-gradient(135deg, #ddbf92ff 0%, #fff8e1 100%);
+            background: linear-gradient(135deg, #FFE8B7 0%, #fff8e1 100%);
             min-height: 100vh;
             margin: 0;
         }
@@ -1269,72 +1257,18 @@ ob_end_flush();
         .cartbtn:hover {
             transform: scale(1.1);
         }
-<<<<<<< HEAD
-=======
 
->>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
         .customization-list {
             font-size: 0.9rem;
             color: #666;
             margin-top: 10px;
             padding-left: 20px;
         }
-<<<<<<< HEAD
-=======
 
->>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
         .customization-list li {
             list-style-type: disc;
             margin-bottom: 5px;
         }
-<<<<<<< HEAD
-         /* Nav 8: Cookie Crumble */
-        .nav8 {
-            background: #ffe4b5;
-            padding: 20px 40px;
-            border-radius: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 8px 20px rgba(139, 69, 19, 0.2);
-            height:10px;
-        margin-right:50px;
-        }
-
-        .nav8 .logo {
-            font-size: 28px;
-            font-weight: bold;
-            color: #8b4513;
-            font-family: 'Brush Script MT', cursive;
-        }
-
-        .nav8 .logo::before {
-            content: '🍪 ';
-        }
-
-        .nav8 .menu {
-            display: flex;
-            gap: 25px;
-            list-style: none;
-        }
-
-        .nav8 .menu a {
-            color: #8b4513;
-            text-decoration: none;
-            padding: 10px 20px;
-            border-radius: 50px;
-            transition: all 0.3s;
-            background: rgba(139, 69, 19, 0);
-        }
-
-        .nav8 .menu a:hover {
-            background: #8b4513;
-            color: white;
-            transform: translateY(-2px);
-        }
-
-=======
->>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
     </style>
 </head>
 
@@ -1362,7 +1296,6 @@ ob_end_flush();
     <?php endif; ?>
 
     <header>
-        
         <div class="container">
             <nav class="navbar">
                 <a href="index.php" class="logo animated fadeIn">
@@ -1370,23 +1303,8 @@ ob_end_flush();
                     Golden <span>Treat</span>
                 </a>
                 <ul class="nav-links"></ul>
-                
-            
-    <!-- Nav 8 -->
-        <div class="nav-section">
-            
-            <nav class="nav8">
-                 
-                <ul class="menu">
-                    <li><a href="../bakehouse/booking/untitled-1.php">Booking</a></li>
-                    <li><a href="..bakehouse/about.php">About</a></li>
-                    
-                    <li><a href="#contact">Contact</a></li>
-                </ul>
             </nav>
-        </div></nav>
         </div>
-        
     </header>
 
     <!-- Cart Modal -->
@@ -1450,31 +1368,6 @@ ob_end_flush();
                                         </button>
                                     </form>
                                 </div>
-<<<<<<< HEAD
-                            <?php endif; ?>
-                            <div class="cart-item-price">Rs. <?php echo number_format($unitPrice, 2); ?> each</div>
-                            <div class="cart-item-actions">
-                                <form method="POST" class="quantity-form" style="display: flex; align-items: center; gap: 10px;">
-                                    <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
-                                    <input type="hidden" name="cart_id" value="<?php echo $item['id']; ?>">
-                                    <input type="hidden" name="update_cart_item" value="1">
-                                    <button type="button" class="quantity-btn minus">-</button>
-                                    <input type="number" name="quantity" value="<?php echo $item['quantity']; ?>" min="1" class="quantity-input">
-                                    <button type="button" class="quantity-btn plus">+</button>
-                                    <button type="submit" class="btn btn-warning" style="padding: 8px 15px;">
-                                        <i class="fas fa-sync-alt"></i>
-                                    </button>
-                                </form>
-                                <form method="POST" style="display: inline;">
-                                    <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
-                                    <input type="hidden" name="cart_id" value="<?php echo $item['id']; ?>">
-                                    <input type="hidden" name="remove_from_cart" value="1">
-                                    <button type="submit" class="btn btn-danger" style="padding: 8px 15px;">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </form>
-=======
->>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
                             </div>
                         </div>
                     <?php endforeach; ?>
@@ -1671,17 +1564,10 @@ ob_end_flush();
                                                     <button type="button" class="quantity-btn plus">+</button>
                                                 </div>
                                                 <?php if (!empty($availableCustomizations)): ?>
-<<<<<<< HEAD
-                                                    <button type="button" class="btn btn-primary btn-add-to-cart customize-btn" 
-                                                            data-product-id="<?php echo $product['id']; ?>"
-                                                            data-product-name="<?php echo htmlspecialchars($product['name']); ?>"
-                                                            data-base-price="<?php echo $finalPrice; ?>">
-=======
                                                     <button type="button" class="btn btn-primary btn-add-to-cart customize-btn"
                                                         data-product-id="<?php echo $product['id']; ?>"
                                                         data-product-name="<?php echo htmlspecialchars($product['name']); ?>"
                                                         data-base-price="<?php echo $finalPrice; ?>">
->>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
                                                         <i class="fas fa-magic"></i> Customize & Add to Cart
                                                     </button>
                                                 <?php else: ?>
@@ -1918,11 +1804,7 @@ ob_end_flush();
         checkoutBtn?.addEventListener('click', () => {
             const summary = document.getElementById('checkout-summary');
             summary.innerHTML = '';
-<<<<<<< HEAD
-            <?php foreach ($cartItems as $item): 
-=======
             <?php foreach ($cartItems as $item):
->>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
                 $selectedCustomizations = json_decode($item['selected_customizations'], true) ?: [];
                 $customizationNames = getCustomizationNames($pdo, $selectedCustomizations);
             ?>
@@ -1930,19 +1812,11 @@ ob_end_flush();
                 itemDiv.style.cssText = 'padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; flex-wrap: wrap;';
                 let customizations = '';
                 <?php if (!empty($customizationNames)): ?>
-<<<<<<< HEAD
-                    customizations = '<div style="width: 100%; margin-top: 5px; font-size: 0.9rem; color: #666;">Customizations: <?php 
-                        foreach ($customizationNames as $cust) {
-                            echo htmlspecialchars($cust['name']) . ' (+Rs. ' . number_format($cust['price_adjustment'], 2) . '), ';
-                        }
-                    ?></div>';
-=======
                     customizations = '<div style="width: 100%; margin-top: 5px; font-size: 0.9rem; color: #666;">Customizations: <?php
                                                                                                                                     foreach ($customizationNames as $cust) {
                                                                                                                                         echo htmlspecialchars($cust['name']) . ' (+Rs. ' . number_format($cust['price_adjustment'], 2) . '), ';
                                                                                                                                     }
                                                                                                                                     ?></div>';
->>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
                 <?php endif; ?>
                 itemDiv.innerHTML = `
                     <span><?php echo htmlspecialchars($item['product_name']); ?> × <?php echo $item['quantity']; ?></span>
@@ -2010,9 +1884,5 @@ ob_end_flush();
         });
     </script>
 </body>
-<<<<<<< HEAD
-</html>
-=======
 
 </html>
->>>>>>> f553aa9864b2e75f5c631d1a0946a4322e42262c
