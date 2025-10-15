@@ -1,53 +1,5 @@
 <?php
-// DB connection
-$host = "localhost";
-$user = "root";      // XAMPP default
-$pass = "";          // XAMPP default password is empty
-$dbname = "golden_treat";
-
-$conn = new mysqli($host, $user, $pass, $dbname);
-if ($conn->connect_error) die("Connection failed: " . $conn->connect_error);
-
-// Handle booking submission via AJAX (JSON fetch)
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    header("Content-Type: application/json");
-    $data = json_decode(file_get_contents("php://input"), true);
-
-    if (isset($data["action"]) && $data["action"] === "book_table") {
-        $name     = trim(htmlspecialchars($data["name"]));
-        $email    = trim(htmlspecialchars($data["email"]));
-        $phone    = trim(htmlspecialchars($data["phone"]));
-        $date     = $data["date"];
-        $time     = $data["time"];
-        $guests   = intval($data["guests"]);
-        $requests = trim(htmlspecialchars($data["requests"]));
-
-        // Generate next bookingId (BID100X…)
-        $res = $conn->query("SELECT bookingId FROM bookings ORDER BY id DESC LIMIT 1");
-        if ($res && $res->num_rows > 0) {
-            $last = $res->fetch_assoc()["bookingId"];
-            $num  = intval(substr($last, 3)) + 1;
-            $bookingId = "BID" . str_pad($num, 4, "0", STR_PAD_LEFT);
-        } else {
-            $bookingId = "BID1001";
-        }
-
-        // Insert booking (status defaults to Pending)
-        $stmt = $conn->prepare(
-            "INSERT INTO bookings (bookingId, customerName, date, time, tableNumber, status) 
-             VALUES (?,?,?,?,?,?)"
-        );
-        $status = "Pending";
-        $stmt->bind_param("ssssss", $bookingId, $name, $date, $time, $guests, $status);
-
-        if ($stmt->execute()) {
-            echo json_encode(["ok" => true, "msg" => "Booking successful!", "bookingId" => $bookingId]);
-        } else {
-            echo json_encode(["ok" => false, "msg" => "DB Error: " . $conn->error]);
-        }
-        exit;
-    }
-}
+// No PHP logic needed; handled by api.php
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -57,7 +9,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
   <title>Golden Treat - Table Booking</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
   <style>
-
     .booking-section { max-width:700px; margin:50px auto; padding:40px; background:#fff; border-radius:20px;
                        box-shadow:0 10px 30px rgba(212,175,55,0.2); }
     .booking-section h2 { text-align:center; margin-bottom:30px; color:#8B4513; }
@@ -779,13 +730,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             color: white;
             transform: translateY(-2px);
         }
-
-    
   </style>
 </head>
 <body>
  <header>
-        
         <div class="container">
             <nav class="navbar">
                 <a href="index.php" class="logo animated fadeIn">
@@ -793,41 +741,37 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     Golden <span>Treat</span>
                 </a>
                 <ul class="nav-links"></ul>
-                
-            
-    <!-- Nav 8 -->
-        <div class="nav-section">
-            
-            <nav class="nav8">
-                 
-                <ul class="menu">
-                    <li><a href="../../customer/index.php">Home</a></li>
-                    <li><a href="..bakehouse/about.php">About</a></li>
-                    
-                    <li><a href="#contact">Order</a></li>
-                </ul>
+                <div class="nav-section">
+                    <nav class="nav8">
+                        <ul class="menu">
+                            <li><a href="../customer/index.php">Home</a></li>
+                            <li><a href="../about and contact/about.php">About</a></li>
+                            <li><a href="../order/order.php">Order</a></li>
+                        </ul>
+                    </nav>
+                </div>
             </nav>
-        </div></nav>
         </div>
-        
     </header>
 
 <section class="hero" id="home">
-  <h1>Book Your Table</h1>
-  <p>Reserve your spot at Golden Treat Bakery</p>
+  <div class="hero-content">
+    <h1>Book Your Table</h1>
+    <p>Reserve your spot at Golden Treat Bakery</p>
+  </div>
 </section>
 
 <section class="booking-section" id="booking">
   <h2>Table Booking Form</h2>
   <form id="bookingForm">
-    <input type="text" id="name" placeholder="Full Name" required>
+    <input type="text" id="customerName" placeholder="Full Name" required>
     <input type="email" id="email" placeholder="Email" required>
-    <input type="tel" id="phone" placeholder="Phone Number" required>
+    <input type="tel" id="phone" placeholder="Phone Number" pattern="\d{10}" title="Phone number must be 10 digits" required maxlength="10">
     <input type="date" id="date" required>
     <input type="time" id="time" required>
-    <select id="guests" required>
-      <option value="">Number of Guests</option>
-      <?php for($i=1;$i<=20;$i++){ echo "<option value='$i'>$i</option>"; } ?>
+    <select id="tableNumber" required>
+      <option value="">Table Number</option>
+      <?php for($i=1; $i<=10; $i++) { echo "<option value='$i'>$i</option>"; } ?>
     </select>
     <textarea id="requests" rows="4" placeholder="Special Requests (Optional)"></textarea>
     <button type="submit">Book Now</button>
@@ -849,28 +793,87 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
   bookingForm.addEventListener("submit", async (e) => {
     e.preventDefault();
+
+    const customerName = document.getElementById("customerName").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const phone = document.getElementById("phone").value.trim();
+    const date = document.getElementById("date").value;
+    const time = document.getElementById("time").value;
+    const tableNumber = document.getElementById("tableNumber").value;
+
+    // Client-side validation
+    if (!customerName) {
+      modalMsg.textContent = "Name is required";
+      modal.style.display = "flex";
+      return;
+    }
+    if (!email || !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
+      modalMsg.textContent = "Valid email is required";
+      modal.style.display = "flex";
+      return;
+    }
+    if (!phone || !/^\d{10}$/.test(phone)) {
+      modalMsg.textContent = "Phone number must be exactly 10 digits";
+      modal.style.display = "flex";
+      return;
+    }
+    const today = new Date().toISOString().split("T")[0];
+    if (!date || date < today) {
+      modalMsg.textContent = "Booking date must be today or in the future";
+      modal.style.display = "flex";
+      return;
+    }
+    if (!time) {
+      modalMsg.textContent = "Time is required";
+      modal.style.display = "flex";
+      return;
+    }
+    if (!tableNumber) {
+      modalMsg.textContent = "Number of guests must be selected";
+      modal.style.display = "flex";
+      return;
+    }
+
     const data = {
-      action: "book_table",
-      name: document.getElementById("name").value.trim(),
-      email: document.getElementById("email").value.trim(),
-      phone: document.getElementById("phone").value.trim(),
-      date: document.getElementById("date").value,
-      time: document.getElementById("time").value,
-      guests: document.getElementById("guests").value,
-      requests: document.getElementById("requests").value.trim()
+      customerName,
+      email,
+      phone,
+      date,
+      time,
+      tableNumber,
+      status: "Pending"
     };
 
-    const r = await fetch("", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data)
-    });
-    const res = await r.json();
-    modalMsg.textContent = res.ok ? res.msg + " (ID: " + res.bookingId + ")" : res.msg;
-    modal.style.display = "flex";
-    if (res.ok) bookingForm.reset();
+    try {
+      const response = await fetch("api.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+
+      // Log the raw response for debugging
+      const text = await response.text();
+      console.log("Raw response:", text);
+
+      // Try parsing as JSON
+      try {
+        const res = JSON.parse(text);
+        modalMsg.textContent = res.success ? res.msg + " (ID: " + res.bookingId + ")" : res.error;
+        modal.style.display = "flex";
+        if (res.success) {
+          bookingForm.reset();
+        }
+      } catch (e) {
+        modalMsg.textContent = "Error: Invalid response from server";
+        modal.style.display = "flex";
+        console.error("Failed to parse JSON:", e);
+      }
+    } catch (error) {
+      modalMsg.textContent = "Error: " + error.message;
+      modal.style.display = "flex";
+      console.error("Fetch error:", error);
+    }
   });
 </script>
 </body>
 </html>
-
