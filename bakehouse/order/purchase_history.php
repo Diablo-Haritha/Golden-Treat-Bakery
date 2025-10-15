@@ -1,5 +1,5 @@
 <?php
-// purchase_history.php (CSS replaced with user's provided stylesheet and dataset fixes)
+// purchase_history.php (Updated to fetch from order_items, remove net qty/value, update total gross)
 
 // DB connection
 $host = "localhost";
@@ -72,20 +72,26 @@ if ($status !== '') {
 $whereSql = '';
 if (!empty($where)) $whereSql = 'WHERE ' . implode(' AND ', $where);
 
-// Query: include returned quantity per order (aggregated) and compute net
+// Query: Fetch product_name and quantity from order_items, total_amount from orders
 $sql = "
 SELECT 
-  o.id, o.order_date, o.customer_name, o.product, o.quantity, o.price, o.status,
-  COALESCE(r.sum_qty,0) AS returned_qty,
-  GREATEST(o.quantity - COALESCE(r.sum_qty,0), 0) AS net_quantity,
-  (o.price * GREATEST(o.quantity - COALESCE(r.sum_qty,0), 0)) AS net_value
+    o.id, 
+    o.order_date, 
+    o.customer_name, 
+    GROUP_CONCAT(oi.product_name SEPARATOR ', ') AS product, 
+    SUM(oi.quantity) AS quantity, 
+    o.total_amount AS price, 
+    o.status,
+    COALESCE(r.sum_qty, 0) AS returned_qty
 FROM orders o
+LEFT JOIN order_items oi ON o.id = oi.order_id
 LEFT JOIN (
-  SELECT order_id, SUM(quantity) AS sum_qty
-  FROM returns
-  GROUP BY order_id
+    SELECT order_id, SUM(quantity) AS sum_qty
+    FROM returns
+    GROUP BY order_id
 ) r ON r.order_id = o.id
 {$whereSql}
+GROUP BY o.id
 ORDER BY o.order_date DESC, o.id DESC
 LIMIT {$limit}
 ";
@@ -107,17 +113,11 @@ $stmt->close();
 // compute totals
 $totalGross = 0.0;
 $totalReturnedQty = 0;
-$totalNet = 0.0;
 foreach ($rows as $r) {
-    $qty = (int)($r['quantity'] ?? 0);
-    $ret = (int)($r['returned_qty'] ?? 0);
-    $netQty = max(0, (int)($r['net_quantity'] ?? 0));
     $price = (float)($r['price'] ?? 0.0);
-    $netValue = (float)($r['net_value'] ?? ($price * $netQty));
-
-    $totalGross += $price * $qty;
+    $ret = (int)($r['returned_qty'] ?? 0);
+    $totalGross += $price;
     $totalReturnedQty += $ret;
-    $totalNet += $netValue;
 }
 
 // status enum list for UI
@@ -135,7 +135,6 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
-
 </head>
 <body>
   <div class="header">
@@ -146,7 +145,6 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
     </div>
     <div class="header-right">
       <button class="role-btn" onclick="window.location.href='index.html'">Dashboard</button>
-      <div class="user-icon"></div>
     </div>
   </div>
 
@@ -156,9 +154,9 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
       <nav>
         <button class="salesbtn" disabled>Order</button>
         <div class="otherbtn">
-          <button class="Sbtn" onclick="window.location.href='../stoke/stock.php'">Stock</button>
-          <button class="Ubtn" onclick="window.location.href='../sales/index.php'">Sales</button>
-          <button class="Bbtn" onclick="window.location.href='../booking/index.html'">Booking</button>
+          <button class="Sbtn" onclick="window.location.href='stoke.html'">Stock</button>
+          <button class="Ubtn" onclick="window.location.href='sales.html'">Sales</button>
+          <button class="Bbtn" onclick="window.location.href='booking.html'">Booking</button>
         </div>
         <hr />
         <p class="muted">Order Management</p>
@@ -176,28 +174,24 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
         <div class="content">
           <h2>Purchase History</h2>
 
-          <div class="cards" style="grid-template-columns: repeat(3, 1fr);">
+          <div class="cards" style="grid-template-columns: repeat(2, 1fr);">
             <div class="card">
               <h3>Total Gross</h3>
-              <p>Rs. <?= number_format($totalGross,2) ?></p>
+              <p>Rs. <?= number_format($totalGross, 2) ?></p>
             </div>
             <div class="card">
               <h3>Total Returned Qty</h3>
               <p><?= (int)$totalReturnedQty ?></p>
             </div>
-            <div class="card">
-              <h3>Total Net Value</h3>
-              <p>Rs. <?= number_format($totalNet,2) ?></p>
-            </div>
           </div>
 
           <div class="toolbar">
-            <form method="get"  class="filter-bar">
+            <form method="get" class="filter-bar">
               <label>From:
-                <input type="date" name="from" placeholder="Start date" value="<?= htmlspecialchars($from ? substr($from,0,10) : '') ?>" />
+                <input type="date" name="from" placeholder="Start date" value="<?= htmlspecialchars($from ? substr($from, 0, 10) : '') ?>" />
               </label>
               <label>To:
-                <input type="date" name="to" placeholder="End date" value="<?= htmlspecialchars($to ? substr($to,0,10) : '') ?>" />
+                <input type="date" name="to" placeholder="End date" value="<?= htmlspecialchars($to ? substr($to, 0, 10) : '') ?>" />
               </label>
               <input type="text" name="customer_name" placeholder="customer_name" value="<?= htmlspecialchars($customer_name) ?>" />
               <input type="number" name="order_id" placeholder="Order ID" value="<?= ($order_id ? (int)$order_id : '') ?>" />
@@ -225,54 +219,44 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
                   <th>Product</th>
                   <th>Qty</th>
                   <th>Returned</th>
-                  <th>Net Qty</th>
-                  <th>Price (per)</th>
-                  <th>Net Value</th>
+                  <th>Price</th>
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="ordersTable">
                 <?php if (empty($rows)): ?>
-                  <tr><td colspan="11" style="text-align:center;padding:18px">No purchases found for these filters</td></tr>
+                  <tr><td colspan="9" style="text-align:center;padding:18px">No purchases found for these filters</td></tr>
                 <?php else: foreach ($rows as $r): ?>
                   <tr data-status="<?= htmlspecialchars(strtolower($r['status'])) ?>">
                     <td class="col-id"><?= (int)$r['id'] ?></td>
-                    <td><?= htmlspecialchars($r['order_date']) ?></td>
+                    <td><?= htmlspecialchars($r['order_date'] ? $r['order_date'] : 'N/A') ?></td>
                     <td><?= htmlspecialchars($r['customer_name']) ?></td>
                     <td><?= htmlspecialchars($r['product']) ?></td>
                     <td><?= (int)$r['quantity'] ?></td>
                     <td><?= (int)$r['returned_qty'] ?></td>
-                    <td><?= (int)$r['net_quantity'] ?></td>
-                    <td><?= number_format((float)$r['price'],2) ?></td>
-                    <td><?= number_format((float)$r['net_value'],2) ?></td>
-                    <td><span class="badge <?= htmlspecialchars(str_replace(' ','',$r['status'])) ?>"><?= htmlspecialchars($r['status']) ?></span></td>
+                    <td><?= number_format((float)$r['price'], 2) ?></td>
+                    <td><span class="badge <?= htmlspecialchars(str_replace(' ', '', $r['status'])) ?>"><?= htmlspecialchars($r['status']) ?></span></td>
                     <td class="row-actions">
-                      <!-- Hyphenated data attributes -> dataset.orderDate, dataset.netValue, dataset.netQty -->
                       <button class="viewBtn" type="button"
                         data-id="<?= htmlspecialchars($r['id']) ?>"
-                        data-order-date="<?= htmlspecialchars($r['order_date']) ?>"
+                        data-order-date="<?= htmlspecialchars($r['order_date'] ? $r['order_date'] : 'N/A') ?>"
                         data-customer_name="<?= htmlspecialchars($r['customer_name']) ?>"
                         data-product="<?= htmlspecialchars($r['product']) ?>"
                         data-quantity="<?= (int)$r['quantity'] ?>"
-                        data-price="<?= htmlspecialchars(number_format((float)$r['price'],2,'.','')) ?>"
+                        data-price="<?= htmlspecialchars(number_format((float)$r['price'], 2, '.', '')) ?>"
                         data-returned="<?= (int)$r['returned_qty'] ?>"
-                        data-net-qty="<?= (int)$r['net_quantity'] ?>"
-                        data-net-value="<?= htmlspecialchars(number_format((float)$r['net_value'],2,'.','')) ?>"
                         data-status="<?= htmlspecialchars($r['status']) ?>">
                         <i class="fa-solid fa-eye"></i>
                       </button>
-
                       <button class="invoiceBtn" type="button"
                         data-id="<?= htmlspecialchars($r['id']) ?>"
-                        data-order-date="<?= htmlspecialchars($r['order_date']) ?>"
+                        data-order-date="<?= htmlspecialchars($r['order_date'] ? $r['order_date'] : 'N/A') ?>"
                         data-customer_name="<?= htmlspecialchars($r['customer_name']) ?>"
                         data-product="<?= htmlspecialchars($r['product']) ?>"
                         data-quantity="<?= (int)$r['quantity'] ?>"
-                        data-price="<?= htmlspecialchars(number_format((float)$r['price'],2,'.','')) ?>"
+                        data-price="<?= htmlspecialchars(number_format((float)$r['price'], 2, '.', '')) ?>"
                         data-returned="<?= (int)$r['returned_qty'] ?>"
-                        data-net-qty="<?= (int)$r['net_quantity'] ?>"
-                        data-net-value="<?= htmlspecialchars(number_format((float)$r['net_value'],2,'.','')) ?>"
                         data-status="<?= htmlspecialchars($r['status']) ?>">
                         <i class="fa-solid fa-file-invoice"></i>
                       </button>
@@ -282,7 +266,6 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
               </tbody>
             </table>
           </div>
-
         </div>
       </section>
     </main>
@@ -300,9 +283,7 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
           <div class="full"><strong>Product</strong><div id="v_product"></div></div>
           <div><strong>Quantity</strong><div id="v_quantity"></div></div>
           <div><strong>Returned</strong><div id="v_returned"></div></div>
-          <div><strong>Net Quantity</strong><div id="v_netqty"></div></div>
           <div><strong>Price</strong><div id="v_price"></div></div>
-          <div class="full"><strong>Net Value</strong><div id="v_netvalue"></div></div>
           <div class="full"><strong>Status</strong><div id="v_status"></div></div>
         </div>
       </div>
@@ -352,10 +333,8 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
         product: tds[3].textContent.trim(),
         quantity: tds[4].textContent.trim(),
         returned: tds[5].textContent.trim(),
-        netQty: tds[6].textContent.trim(),
-        price: tds[7].textContent.trim(),
-        netValue: tds[8].textContent.trim(),
-        status: tds[9].textContent.trim()
+        price: tds[6].textContent.trim(),
+        status: tds[7].textContent.trim()
       };
     }).filter(Boolean);
   }
@@ -367,11 +346,11 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
   document.getElementById('exportCsv')?.addEventListener('click', () => {
     const rows = gatherVisibleOrders();
     if (!rows.length) { alert('No rows to export'); return; }
-    const hdr = ['Order ID','Date','Customer','Product','Qty','Returned','Net Qty','Price','Net Value','Status'];
+    const hdr = ['Order ID','Date','Customer','Product','Qty','Returned','Price','Status'];
     const lines = [hdr.join(',')];
     rows.forEach(r => lines.push([
       quoteCSV(r.id), quoteCSV(r.date), quoteCSV(r.customer), quoteCSV(r.product),
-      r.quantity, r.returned, r.netQty, quoteCSV(r.price), quoteCSV(r.netValue), quoteCSV(r.status)
+      r.quantity, r.returned, quoteCSV(r.price), quoteCSV(r.status)
     ].join(',')));
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const a = document.createElement('a');
@@ -381,14 +360,23 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
     setTimeout(()=>URL.revokeObjectURL(a.href),1500);
   });
 
-  // XLSX + PDF buttons (create and insert next to CSV)
+  // XLSX + PDF buttons
   const expXlsxBtn = document.createElement('button');
   expXlsxBtn.className = 'btn secondary';
   expXlsxBtn.innerHTML = '<i class="fa-solid fa-file-excel"></i>&nbsp;Excel';
   expXlsxBtn.addEventListener('click', () => {
     const rows = gatherVisibleOrders();
     if (!rows.length) { alert('No rows to export'); return; }
-    const sheetRows = rows.map(r => ({ 'Order ID': r.id, 'Date': r.date, 'Customer': r.customer, 'Product': r.product, 'Qty': +r.quantity, 'Price': r.price, 'Status': r.status }));
+    const sheetRows = rows.map(r => ({
+      'Order ID': r.id,
+      'Date': r.date,
+      'Customer': r.customer,
+      'Product': r.product,
+      'Qty': +r.quantity,
+      'Returned': +r.returned,
+      'Price': r.price,
+      'Status': r.status
+    }));
     const ws = XLSX.utils.json_to_sheet(sheetRows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Purchases');
@@ -403,8 +391,8 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
     if (!rows.length) { alert('No rows to export'); return; }
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
-    const head = [['ID','Date','Customer','Product','Qty','Returned','Net Qty','Price','Net Value','Status']];
-    const body = rows.map(r => [r.id, r.date, r.customer, r.product, r.quantity, r.returned, r.netQty, r.price, r.netValue, r.status]);
+    const head = [['ID','Date','Customer','Product','Qty','Returned','Price','Status']];
+    const body = rows.map(r => [r.id, r.date, r.customer, r.product, r.quantity, r.returned, r.price, r.status]);
     doc.setFontSize(12);
     doc.text('Purchase History', 14, 16);
     doc.autoTable({ startY: 22, head, body, styles: { fontSize: 8 } });
@@ -426,9 +414,7 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
     el('#v_product').textContent = data.product;
     el('#v_quantity').textContent = data.quantity;
     el('#v_returned').textContent = data.returned;
-    el('#v_netqty').textContent = data.netQty;
     el('#v_price').textContent = data.price;
-    el('#v_netvalue').textContent = data.netValue;
     el('#v_status').textContent = data.status;
     viewModal.style.display = 'flex';
 
@@ -440,8 +426,6 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
     invBtn.dataset.quantity = data.quantity;
     invBtn.dataset.price = data.price;
     invBtn.dataset.returned = data.returned;
-    invBtn.dataset.netQty = data.netQty;
-    invBtn.dataset.netValue = data.netValue;
     invBtn.dataset.status = data.status;
   }
   window.closeView = function(){ viewModal.style.display = 'none'; };
@@ -454,12 +438,10 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
       openView({
         id: d.id,
         orderDate: d.orderDate,
-        customer: d.customer,
+        customer: d.customer_name,
         product: d.product,
         quantity: d.quantity,
         returned: d.returned,
-        netQty: d.netQty,
-        netValue: d.netValue,
         price: d.price,
         status: d.status
       });
@@ -471,12 +453,10 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
       openInvoiceWindow({
         id: d.id,
         orderDate: d.orderDate,
-        customer: d.customer,
+        customer: d.customer_name,
         product: d.product,
         quantity: d.quantity,
         returned: d.returned,
-        netQty: d.netQty,
-        netValue: d.netValue,
         price: d.price,
         status: d.status
       });
@@ -493,8 +473,6 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
       product: d.product,
       quantity: d.quantity,
       returned: d.returned,
-      netQty: d.netQty,
-      netValue: d.netValue,
       price: d.price,
       status: d.status
     });
@@ -505,8 +483,7 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
   function escapeHtml(s) { if (s===null||s===undefined) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
   function openInvoiceWindow(data) {
-    const total = Number(data.netValue || 0).toFixed(2);
-    const unitPrice = Number(data.price || 0).toFixed(2);
+    const total = Number(data.price || 0).toFixed(2);
     const content = `
       <!doctype html>
       <html>
@@ -530,7 +507,7 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
         <div class="box">
           <header>
             <div>
-              <h1>TechShelf</h1>
+              <h1>Golden Treat Bakery</h1>
               <div>Purchase Invoice</div>
             </div>
             <div>
@@ -544,19 +521,17 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
           </div>
 
           <table>
-            <thead><tr><th>Product</th><th>Qty</th><th>Returned</th><th>Net Qty</th><th>Unit Price</th><th>Line Total</th></tr></thead>
+            <thead><tr><th>Product</th><th>Qty</th><th>Returned</th><th>Total Price</th></tr></thead>
             <tbody>
               <tr>
                 <td>${escapeHtml(data.product)}</td>
                 <td style="width:60px">${escapeHtml(data.quantity)}</td>
                 <td style="width:60px">${escapeHtml(data.returned)}</td>
-                <td style="width:60px">${escapeHtml(data.netQty)}</td>
-                <td style="width:120px">${escapeHtml(unitPrice)}</td>
                 <td style="width:120px">${escapeHtml(total)}</td>
               </tr>
             </tbody>
             <tfoot>
-              <tr><td colspan="5" class="tot">Total</td><td class="tot">${escapeHtml(total)}</td></tr>
+              <tr><td colspan="3" class="tot">Total</td><td class="tot">${escapeHtml(total)}</td></tr>
             </tfoot>
           </table>
 
