@@ -8,10 +8,13 @@ USE golden_treat;
 -- ============================================================
 -- TABLE: bookings
 -- ============================================================
+
 CREATE TABLE IF NOT EXISTS bookings (
     id INT AUTO_INCREMENT PRIMARY KEY,
     bookingId VARCHAR(50) UNIQUE NOT NULL,
     customerName VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL,
+    phone VARCHAR(10) NOT NULL,
     date DATE NOT NULL,
     time TIME NOT NULL,
     tableNumber INT NOT NULL,
@@ -21,23 +24,25 @@ CREATE TABLE IF NOT EXISTS bookings (
 -- ============================================================
 -- TABLE: bookings_log (Audit / History for bookings)
 -- ============================================================
+USE golden_treat;
+
 CREATE TABLE IF NOT EXISTS bookings_log (
     log_id INT AUTO_INCREMENT PRIMARY KEY,
     booking_id INT,
     operation VARCHAR(50) NOT NULL,
     booking_ref VARCHAR(50),
-    customerName VARCHAR(100),
+    customer_name VARCHAR(100),
+    email VARCHAR(100),
+    phone VARCHAR(10),
     date DATE,
     time TIME,
-    tableNumber INT,
+    guests INT,
     status VARCHAR(20),
     log_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE SET NULL
 );
 
--- ============================================================
--- TRIGGERS: bookings
--- ============================================================
+
 DELIMITER //
 
 -- Trigger AFTER INSERT
@@ -46,9 +51,9 @@ AFTER INSERT ON bookings
 FOR EACH ROW
 BEGIN
     INSERT INTO bookings_log (
-        booking_id, operation, booking_ref, customerName, date, time, tableNumber, status
+        booking_id, operation, booking_ref, customer_name, email, phone, date, time, guests, status
     ) VALUES (
-        NEW.id, 'INSERT', NEW.bookingId, NEW.customerName, NEW.date, NEW.time, NEW.tableNumber, NEW.status
+        NEW.id, 'INSERT', NEW.bookingId, NEW.customerName, NEW.email, NEW.phone, NEW.date, NEW.time, NEW.tableNumber, NEW.status
     );
 END//
 
@@ -58,9 +63,9 @@ AFTER UPDATE ON bookings
 FOR EACH ROW
 BEGIN
     INSERT INTO bookings_log (
-        booking_id, operation, booking_ref, customerName, date, time, tableNumber, status
+        booking_id, operation, booking_ref, customer_name, email, phone, date, time, guests, status
     ) VALUES (
-        NEW.id, 'UPDATE', NEW.bookingId, NEW.customerName, NEW.date, NEW.time, NEW.tableNumber, NEW.status
+        NEW.id, 'UPDATE', NEW.bookingId, NEW.customerName, NEW.email, NEW.phone, NEW.date, NEW.time, NEW.tableNumber, NEW.status
     );
 END//
 
@@ -70,13 +75,17 @@ BEFORE DELETE ON bookings
 FOR EACH ROW
 BEGIN
     INSERT INTO bookings_log (
-        booking_id, operation, booking_ref, customerName, date, time, tableNumber, status
+        booking_id, operation, booking_ref, customer_name, email, phone, date, time, guests, status
     ) VALUES (
-        OLD.id, 'DELETE', OLD.bookingId, OLD.customerName, OLD.date, OLD.time, OLD.tableNumber, OLD.status
+        OLD.id, 'DELETE', OLD.bookingId, OLD.customerName, OLD.email, OLD.phone, OLD.date, OLD.time, OLD.tableNumber, OLD.status
     );
 END//
 
 DELIMITER ;
+
+DROP TRIGGER IF EXISTS trg_bookings_after_insert;
+DROP TRIGGER IF EXISTS trg_bookings_after_update;
+DROP TRIGGER IF EXISTS trg_bookings_before_delete;
 -- ============================================================
 -- BILLING SYSTEM
 -- ============================================================
