@@ -13,7 +13,7 @@ try {
 }
 
 // Build SQL query with filters
-$sql = "SELECT * FROM booking_log WHERE 1=1";
+$sql = "SELECT * FROM bookings_log WHERE 1=1";
 $params = [];
 
 if (!empty($_GET['from'])) {
