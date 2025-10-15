@@ -1151,11 +1151,7 @@ button.del:focus {
           <label>Email *</label>
           <input type="email" name="customer_email" placeholder="Required if new"><br>
           <label>Mobile</label>
-<input type="text" name="customer_mobile" placeholder="077..." 
-       pattern="\d{10}" maxlength="10" minlength="10" 
-       title="Please enter a 10-digit mobile number (e.g., 0771234567)" 
-       required>
-<br>
+          <input type="text" name="customer_mobile" placeholder="077..." maxlength="10" minlength="10"><br>
 
           <label>Address</label>
           <input type="text" name="customer_address" placeholder="Street / City"><br>
