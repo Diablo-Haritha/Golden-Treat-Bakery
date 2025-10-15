@@ -796,3 +796,89 @@ END$$
 
 DELIMITER ;
 
+-- ============================================================
+-- BILLING SYSTEM (Enhanced to Link with Products Table)
+-- ============================================================
+-- Drop existing tables if needed (for recreation)
+DROP TABLE IF EXISTS bill_items;
+DROP TABLE IF EXISTS bills;
+
+-- Table: bills (Enhanced with additional fields for full functionality)
+CREATE TABLE bills (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    customer_name VARCHAR(255) NOT NULL,
+    payment_method VARCHAR(50) DEFAULT NULL,  -- New: Payment method (Cash, Card, etc.)
+    discount DECIMAL(10,2) DEFAULT 0.00,       -- New: Manual discount amount
+    vat_percent DECIMAL(5,2) DEFAULT 8.00,     -- New: VAT percentage (from settings)
+    grand_total DECIMAL(10,2) DEFAULT 0.00,    -- New: Final total after discount + VAT
+    user_id INT NULL,                          -- New: Links to staff/user who created the bill
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- Table: bill_items (Enhanced with product_id for linking to products)
+CREATE TABLE bill_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    bill_id INT NOT NULL,
+    product_id INT NULL,                       -- New: Links to products table (NULL if custom item)
+    item_name VARCHAR(255) NOT NULL,           -- Fallback name if no product_id
+    price DECIMAL(10,2) NOT NULL,              -- Price at time of billing (snapshot)
+    qty INT NOT NULL DEFAULT 1,
+    FOREIGN KEY (bill_id) REFERENCES bills(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- Optional: Trigger to update stock_quantity on products after bill save
+-- (Assumes you want to deduct stock on successful billing)
+DELIMITER //
+CREATE TRIGGER trg_bill_items_after_insert
+AFTER INSERT ON bill_items
+FOR EACH ROW
+BEGIN
+    IF NEW.product_id IS NOT NULL THEN
+        UPDATE products 
+        SET stock_quantity = stock_quantity - NEW.qty 
+        WHERE id = NEW.product_id;
+    END IF;
+END//
+DELIMITER ;
+
+-- Optional: Trigger to log billing activity (integrates with existing audit if needed)
+-- You can extend sales_log or create a new bills_log similar to other tables
+
+-- Sample Data (Updated to include product_id where applicable)
+INSERT INTO bills (customer_name, payment_method, discount, vat_percent, grand_total, user_id) VALUES
+('Kasun Perera', 'Cash', 0.00, 8.00, 1904.00, 1),  -- Assuming user_id 1 is Admin
+('Nimali Silva', 'Card', 50.00, 8.00, 252.00, 2),
+('Ruwan Jayasinghe', 'Online', 0.00, 8.00, 2700.00, 1);
+
+INSERT INTO bill_items (bill_id, product_id, item_name, price, qty) VALUES
+(1, 1, 'Chocolate Croissant', 3.50, 1),  -- Links to product id=1
+(1, NULL, 'Custom Soft Drink', 200.00, 2),  -- Custom item, no product_id
+(2, 2, 'Blueberry Muffin', 2.75, 3),       -- Links to product id=2 (with 10% discount applied externally)
+(2, NULL, 'Egg Puff', 80.00, 5),
+(3, NULL, 'Pizza Large', 2500.00, 1),
+(3, 5, 'Strawberry Tart', 5.50, 2);        -- Links to product id=5
+
+-- Query Example: Fetch a full bill with product details
+SELECT 
+    b.id AS bill_id,
+    b.customer_name,
+    b.payment_method,
+    b.discount,
+    b.vat_percent,
+    b.grand_total,
+    bi.id AS item_id,
+    p.name AS product_name,
+    bi.item_name,
+    bi.price,
+    bi.qty,
+    (bi.price * bi.qty) AS item_total
+FROM bills b
+LEFT JOIN bill_items bi ON b.id = bi.bill_id
+LEFT JOIN products p ON bi.product_id = p.id
+WHERE b.id = 1;  -- Replace with specific bill ID
+
+-- Optional: Update bills table to match existing settings.vat_percent dynamically
+-- Run this after inserting settings or on app load
+UPDATE bills SET vat_percent = (SELECT vat_percent FROM settings LIMIT 1);

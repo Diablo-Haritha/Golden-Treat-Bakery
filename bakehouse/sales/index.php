@@ -16,27 +16,33 @@ $params = [];
 $types = "";
 
 if (!empty($_GET['from']) && !empty($_GET['to'])) {
-    $from = $_GET['from'];
-    $to   = $_GET['to'];
-    if (strtotime($from) && strtotime($to) && $from <= $to) {
-        $where .= " AND date BETWEEN ? AND ?";
+    $from = date('Y-m-d', strtotime($_GET['from']));
+    $to   = date('Y-m-d', strtotime($_GET['to']));
+    if (strtotime($from) && strtotime($to) && strtotime($from) <= strtotime($to)) {
+        $where .= " AND `date` BETWEEN ? AND ?";
         $params[] = $from;
         $params[] = $to;
         $types .= "ss";
     }
 }
+
 if (!empty($_GET['status']) && in_array($_GET['status'], ['Pending','Paid','Cancelled','Returned'])) {
     $where .= " AND status = ?";
     $params[] = $_GET['status'];
     $types .= "s";
 }
+
 if (!empty($_GET['customer'])) {
     $where .= " AND customer LIKE ?";
     $params[] = "%" . $_GET['customer'] . "%";
     $types .= "s";
 }
 
-$sql = "SELECT id, date, customer, user_id, quantity, total, status, staff FROM sales WHERE $where ORDER BY id DESC";
+$sql = "SELECT id, `date`, customer, user_id, quantity, total, status, staff 
+        FROM sales 
+        WHERE $where 
+        ORDER BY id DESC";
+
 $stmt = $conn->prepare($sql);
 if (!empty($params)) {
     $stmt->bind_param($types, ...$params);
@@ -46,7 +52,6 @@ $result = $stmt->get_result();
 $sales = $result->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
-$error = "";
 
 // ---------- EDIT SALE ----------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_sale'])) {
@@ -1146,7 +1151,12 @@ button.del:focus {
           <label>Email *</label>
           <input type="email" name="customer_email" placeholder="Required if new"><br>
           <label>Mobile</label>
-          <input type="text" name="customer_mobile" placeholder="077..."><br>
+<input type="text" name="customer_mobile" placeholder="077..." 
+       pattern="\d{10}" maxlength="10" minlength="10" 
+       title="Please enter a 10-digit mobile number (e.g., 0771234567)" 
+       required>
+<br>
+
           <label>Address</label>
           <input type="text" name="customer_address" placeholder="Street / City"><br>
           <label>District</label>
