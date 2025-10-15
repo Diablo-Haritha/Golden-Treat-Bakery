@@ -157,12 +157,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
                     <th>Log ID</th>
                     <th>Booking ID</th>
                     <th>Operation</th>
-                    <th>Customer</th>
-                    <th>Email</th>
-                    <th>Phone</th>
                     <th>Date</th>
                     <th>Time</th>
-                    <th>Guests</th>
                     <th>Status</th>
                     <th>Timestamp</th>
                 </tr>
@@ -180,12 +176,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
                                 ?>
                                 <span class="<?= $badgeClass; ?>"><?= htmlspecialchars($row['operation'] ?? ''); ?></span>
                             </td>
-                            <td><?= htmlspecialchars($row['customer_name'] ?? ''); ?></td>
-                            <td><?= htmlspecialchars($row['email'] ?? ''); ?></td>
-                            <td><?= htmlspecialchars($row['phone'] ?? ''); ?></td>
                             <td><?= htmlspecialchars($row['date'] ?? ''); ?></td>
                             <td><?= htmlspecialchars($row['time'] ?? ''); ?></td>
-                            <td><?= htmlspecialchars($row['guests'] ?? ''); ?></td>
                             <td><?= htmlspecialchars($row['status'] ?? ''); ?></td>
                             <td><?= isset($row['log_timestamp']) ? date('Y-m-d H:i:s', strtotime($row['log_timestamp'])) : ''; ?></td>
                         </tr>
