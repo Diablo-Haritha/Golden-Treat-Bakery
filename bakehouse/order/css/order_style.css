@@ -30,7 +30,7 @@
       justify-content: space-between;
       background: #fff;
       padding: 12px 16px;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, .08)
+      box-shadow: 0 2px 5px rgba(0, 0, 0, .08);
     }
 
     .header-left img {
@@ -239,7 +239,8 @@
       flex: 1;
       background: #f3f4f6;
       padding: 24px;
-      overflow: auto
+      overflow: auto;
+      
     }
 
     .panel {
@@ -254,7 +255,7 @@
       background: #9c0dc7;
       border-radius: 14px;
       padding: 18px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .8);
       display: flex;
       flex-direction: column;
       gap: 16px
@@ -270,7 +271,7 @@
       background: #fff;
       border-radius: 12px;
       padding: 16px;
-      box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
+       box-shadow: 0 5px 15px rgba(0, 0, 0, 0.9);
       text-align: center
     }
 
@@ -314,13 +315,13 @@
       border-radius: 10px;
       cursor: pointer;
       color: #fff;
-      background: var(--primary)
+      background: var(--primary);
     }
 
     .btn.secondary {
       background: #10b981;
             color: #333;
-            border: 1px solid #ccc;
+            border: 2px solid #000;
     }
      .btn.secondary:hover {
             background-color: #08ee23;
@@ -359,7 +360,7 @@
     .table-wrap {
       background: #fff;
       border-radius: 12px;
-      box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
+       box-shadow: 0 5px 15px rgba(0, 0, 0, 0.9);
       overflow: auto
     }
 
@@ -431,7 +432,7 @@
     .modal-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, .35);
+      background: rgba(0, 0, 0, .4);
       display: none;
       align-items: center;
       justify-content: center;
@@ -443,7 +444,7 @@
       max-width: 520px;
       background: #fff;
       border-radius: 14px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
       padding: 18px
     }
 

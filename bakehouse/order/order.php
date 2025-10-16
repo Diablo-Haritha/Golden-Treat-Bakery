@@ -576,6 +576,7 @@ $totalCustomers = (int)($row4['total_customers'] ?? 0);
           </div>
         </div>
       </section>
+      
 
       <!-- Export -->
       <section id="sales-export" class="panel">

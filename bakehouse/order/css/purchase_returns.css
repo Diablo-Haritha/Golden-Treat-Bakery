@@ -253,7 +253,7 @@
       background: #9c0dc7;
       border-radius: 14px;
       padding: 18px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
       display: flex;
       flex-direction: column;
       gap: 16px
@@ -269,7 +269,7 @@
       background: #fff;
       border-radius: 12px;
       padding: 16px;
-      box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
+       box-shadow: 0 5px 15px rgba(0, 0, 0, 0.9);
       text-align: center
     }
 
@@ -338,7 +338,7 @@
     .table-wrap {
       background: #fff;
       border-radius: 12px;
-      box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.9);  
       overflow: auto
     }
 
