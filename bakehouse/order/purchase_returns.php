@@ -398,7 +398,7 @@ foreach ($rows as $r) {
                       <td><?= number_format((float)$r['refund_amount'], 2) ?></td>
                       <td><?= htmlspecialchars($r['processed_by_name'] ?: $r['processed_by']) ?></td>
                       <td>
-                        <form method="post" style="display:inline" onsubmit="return confirm('Restore return #<?= htmlspecialchars($r['return_id']) ?>?')">
+                        <form method="post" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF'] . '?action=restore'); ?>" style="display:inline" onsubmit="return confirm('Restore return #<?= htmlspecialchars($r['return_id']) ?>?')">
                           <input type="hidden" name="action" value="restore">
                           <input type="hidden" name="return_id" value="<?= htmlspecialchars($r['return_id']) ?>">
                           <button class="btnrestore" type="submit"><i class="fa-solid fa-rotate-left"></i></button>
