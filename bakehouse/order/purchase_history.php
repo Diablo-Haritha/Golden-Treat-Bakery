@@ -1,5 +1,5 @@
 <?php
-// purchase_history.php (Updated to fetch from order_items, remove net qty/value, update total gross)
+// purchase_history.php (Updated with pagination)
 
 // DB connection
 $host = "localhost";
@@ -27,7 +27,12 @@ $to   = isset($_GET['to'])   && $_GET['to']   !== '' ? trim($_GET['to'])   : '';
 $customer_name = isset($_GET['customer_name']) ? trim($_GET['customer_name']) : '';
 $order_id = isset($_GET['order_id']) && $_GET['order_id'] !== '' ? (int)$_GET['order_id'] : 0;
 $status = isset($_GET['status']) ? trim($_GET['status']) : '';
-$limit = 2000; // safety limit
+$current_page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
+if ($current_page < 1) $current_page = 1;
+
+// Pagination settings
+$records_per_page = 10;
+$offset = ($current_page - 1) * $records_per_page;
 
 // Simple date validation (YYYY-MM-DD)
 function validate_date($d) {
@@ -72,6 +77,36 @@ if ($status !== '') {
 $whereSql = '';
 if (!empty($where)) $whereSql = 'WHERE ' . implode(' AND ', $where);
 
+// Count total rows for pagination
+$count_sql = "
+SELECT COUNT(DISTINCT o.id) as total
+FROM orders o
+LEFT JOIN order_items oi ON o.id = oi.order_id
+{$whereSql}
+";
+$count_stmt = $conn->prepare($count_sql);
+if ($count_stmt === false) {
+    die("Count SQL prepare failed: " . $conn->error);
+}
+if (!empty($values)) {
+    $count_values = $values; // Copy values for count query
+    array_unshift($count_values, $types);
+    call_user_func_array([$count_stmt, 'bind_param'], refValues($count_values));
+}
+$count_stmt->execute();
+$total_rows = $count_stmt->get_result()->fetch_assoc()['total'] ?? 0;
+$count_stmt->close();
+
+// Calculate total pages
+$total_pages = ceil($total_rows / $records_per_page);
+if ($total_pages < 1) $total_pages = 1;
+
+// Ensure current page is within bounds
+if ($current_page > $total_pages) {
+    $current_page = $total_pages;
+    $offset = ($current_page - 1) * $records_per_page;
+}
+
 // Query: Fetch product_name and quantity from order_items, total_amount from orders
 $sql = "
 SELECT 
@@ -93,18 +128,16 @@ LEFT JOIN (
 {$whereSql}
 GROUP BY o.id
 ORDER BY o.order_date DESC, o.id DESC
-LIMIT {$limit}
+LIMIT ? OFFSET ?
 ";
-
 $stmt = $conn->prepare($sql);
 if ($stmt === false) {
     die("Prepare failed: " . $conn->error);
 }
-if (!empty($values)) {
-    // bind dynamically
-    array_unshift($values, $types);
-    call_user_func_array([$stmt, 'bind_param'], refValues($values));
-}
+$bind_values = array_merge($values, [$records_per_page, $offset]);
+$bind_types = $types . 'ii';
+array_unshift($bind_values, $bind_types);
+call_user_func_array([$stmt, 'bind_param'], refValues($bind_values));
 $stmt->execute();
 $res = $stmt->get_result();
 $rows = $res->fetch_all(MYSQLI_ASSOC);
@@ -193,7 +226,7 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
               <label>To:
                 <input type="date" name="to" placeholder="End date" value="<?= htmlspecialchars($to ? substr($to, 0, 10) : '') ?>" />
               </label>
-              <input type="text" name="customer_name" placeholder="customer_name" value="<?= htmlspecialchars($customer_name) ?>" />
+              <input type="text" name="customer_name" placeholder="Customer Name" value="<?= htmlspecialchars($customer_name) ?>" />
               <input type="number" name="order_id" placeholder="Order ID" value="<?= ($order_id ? (int)$order_id : '') ?>" />
               <select name="status">
                 <option value="">All status</option>
@@ -205,7 +238,7 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
               <button class="btn" type="submit"><i class="fa-solid fa-filter"></i> Filter</button>
               <button class="btn secondary" id="exportCsv" type="button"><i class="fa-solid fa-file-csv"></i> Export CSV</button>
 
-              <div class="muted" style="margin-left:auto;align-self:center">Showing up to <?= $limit ?> rows</div>
+              <div class="muted" style="margin-left:auto;align-self:center">Showing <?= count($rows) ?> of <?= $total_rows ?> rows</div>
             </form>
           </div>
 
@@ -265,6 +298,61 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
                 <?php endforeach; endif; ?>
               </tbody>
             </table>
+
+            <!-- Pagination Controls -->
+            <div class="pagination">
+              <form method="get" class="pagination-form">
+                <!-- Preserve existing filters -->
+                <?php if ($from): ?>
+                  <input type="hidden" name="from" value="<?= htmlspecialchars($from) ?>">
+                <?php endif; ?>
+                <?php if ($to): ?>
+                  <input type="hidden" name="to" value="<?= htmlspecialchars($to) ?>">
+                <?php endif; ?>
+                <?php if ($customer_name): ?>
+                  <input type="hidden" name="customer_name" value="<?= htmlspecialchars($customer_name) ?>">
+                <?php endif; ?>
+                <?php if ($order_id): ?>
+                  <input type="hidden" name="order_id" value="<?= htmlspecialchars($order_id) ?>">
+                <?php endif; ?>
+                <?php if ($status): ?>
+                  <input type="hidden" name="status" value="<?= htmlspecialchars($status) ?>">
+                <?php endif; ?>
+                
+                <!-- Previous Button -->
+                <button type="submit" name="page" value="<?= max(1, $current_page - 1) ?>" <?= $current_page <= 1 ? 'disabled' : '' ?>>Previous</button>
+                
+                <!-- Page Numbers -->
+                <?php
+                $range = 2; // Number of pages to show before and after current page
+                $start = max(1, $current_page - $range);
+                $end = min($total_pages, $current_page + $range);
+
+                // Show first page and ellipsis if needed
+                if ($start > 1): ?>
+                  <button type="submit" name="page" value="1">1</button>
+                  <?php if ($start > 2): ?>
+                    <span>...</span>
+                  <?php endif; ?>
+                <?php endif; ?>
+
+                <!-- Page range -->
+                <?php for ($i = $start; $i <= $end; $i++): ?>
+                  <button type="submit" name="page" value="<?= $i ?>" <?= $i == $current_page ? 'class="active"' : '' ?>><?= $i ?></button>
+                <?php endfor; ?>
+
+                <!-- Show last page and ellipsis if needed -->
+                <?php if ($end < $total_pages): ?>
+                  <?php if ($end < $total_pages - 1): ?>
+                    <span>...</span>
+                  <?php endif; ?>
+                  <button type="submit" name="page" value="<?= $total_pages ?>"><?= $total_pages ?></button>
+                <?php endif; ?>
+
+                <!-- Next Button -->
+                <button type="submit" name="page" value="<?= min($total_pages, $current_page + 1) ?>" <?= $current_page >= $total_pages ? 'disabled' : '' ?>>Next</button>
+              </form>
+            </div>
           </div>
         </div>
       </section>
@@ -307,18 +395,55 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
   function filterRows(){
     const q = normalize(input?.value || '');
     const status = normalize(statusSelect?.value || '');
-    elAll('#ordersTable tr').forEach(tr => {
-      const tds = Array.from(tr.querySelectorAll('td'));
-      if (!tds.length) { tr.style.display = ''; return; }
-      const rowText = tds.map(td => td.textContent.toLowerCase()).join(' ');
-      const matchesQ = !q || rowText.includes(q);
-      const rowStatus = normalize(tr.getAttribute('data-status'));
-      const matchesStatus = !status || rowStatus === status;
-      tr.style.display = (matchesQ && matchesStatus) ? '' : 'none';
-    });
+    const tbody = document.getElementById('ordersTable');
+    if (!tbody) return;
+    const rows = elAll('tr', tbody);
+    let visibleCount = 0;
+
+    if (!q && !status) {
+      rows.forEach(r => {
+        r.style.display = '';
+        visibleCount++;
+      });
+    } else {
+      rows.forEach(tr => {
+        const tds = Array.from(tr.querySelectorAll('td'));
+        if (!tds.length) {
+          tr.style.display = '';
+          visibleCount++;
+          return;
+        }
+        const rowText = tds.map(td => td.textContent.toLowerCase()).join(' ');
+        const matchesQ = !q || rowText.includes(q);
+        const rowStatus = normalize(tr.getAttribute('data-status'));
+        const matchesStatus = !status || rowStatus === status;
+        tr.style.display = (matchesQ && matchesStatus) ? '' : 'none';
+        if (matchesQ && matchesStatus) visibleCount++;
+      });
+    }
+
+    // Show a message if no rows are visible
+    if (visibleCount === 0 && rows.length > 0) {
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:18px">No matching purchases found on this page</td></tr>';
+    } else if (visibleCount === 0 && rows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:18px">No purchases found for these filters</td></tr>';
+    }
   }
   input?.addEventListener('input', filterRows);
   statusSelect?.addEventListener && statusSelect.addEventListener('change', filterRows);
+
+  // Reset to page 1 when filters change
+  document.querySelectorAll('.filter-bar input, .filter-bar select').forEach(elem => {
+    elem.addEventListener('change', () => {
+      const form = elem.closest('form');
+      const pageInput = document.createElement('input');
+      pageInput.type = 'hidden';
+      pageInput.name = 'page';
+      pageInput.value = '1';
+      form.appendChild(pageInput);
+      form.submit();
+    });
+  });
 
   // gather visible rows for export
   function gatherVisibleOrders() {
@@ -357,7 +482,7 @@ $enumList = ['Order Received','Payment Confirmed','Queued for Baking','In Prepar
     a.href = URL.createObjectURL(blob);
     a.download = 'purchase_history.csv';
     a.click();
-    setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+    setTimeout(() => URL.revokeObjectURL(a.href), 1500);
   });
 
   // XLSX + PDF buttons

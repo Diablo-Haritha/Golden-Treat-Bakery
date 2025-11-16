@@ -28,6 +28,11 @@ while ($row = $enumRes->fetch_assoc()) {
     $enumList[] = $row['status'];
 }
 
+// Initialize flash messages
+$flash_error = $_SESSION['flash_error'] ?? null;
+$flash_success = $_SESSION['flash_success'] ?? null;
+unset($_SESSION['flash_error'], $_SESSION['flash_success']);
+
 // Handle POST actions: add / edit / delete / return
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? null;
@@ -38,10 +43,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $product = trim($_POST['product'] ?? '');
         $quantity = (int)($_POST['quantity'] ?? 1);
         $price = (float)($_POST['price'] ?? 0.00);
-        $status = $_POST['status'] ?? 'pending';
+        $status = in_array($_POST['status'] ?? 'pending', $enumList) ? $_POST['status'] : 'pending';
 
         if (empty($customer) || empty($product)) {
-            $flash_error = "Customer name and product are required.";
+            $_SESSION['flash_error'] = "Customer name and product are required.";
         } else {
             $total_amount = $price * $quantity;
             // Generate order number
@@ -75,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
 
                     $conn->commit();
-                    $flash_success = "Order added successfully.";
+                    $_SESSION['flash_success'] = "Order added successfully.";
                     header("Location: " . $_SERVER['PHP_SELF']);
                     exit;
                 } else {
@@ -83,19 +88,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             } catch (Exception $e) {
                 $conn->rollback();
-                $flash_error = "Insert failed: " . $e->getMessage();
+                $_SESSION['flash_error'] = "Insert failed: " . $e->getMessage();
+                header("Location: " . $_SERVER['PHP_SELF']);
+                exit;
             }
         }
     }
 
     if ($action === 'edit') {
         $id = (int)($_POST['id'] ?? 0);
+        // Debug: Log POST data
+        error_log("Edit POST data: " . print_r($_POST, true));
 
         // Fetch old row from orders and order_items
         $sel = $conn->prepare("SELECT o.status, o.customer_name, o.order_date, oi.product_name, oi.quantity, oi.unit_price, o.deleted_at 
                                FROM orders o 
                                LEFT JOIN order_items oi ON o.id = oi.order_id 
                                WHERE o.id = ? LIMIT 1");
+        if (!$sel) {
+            $_SESSION['flash_error'] = "Prepare failed: " . $conn->error;
+            header("Location: " . $_SERVER['PHP_SELF']);
+            exit;
+        }
         $sel->bind_param("i", $id);
         $sel->execute();
         $resOld = $sel->get_result();
@@ -103,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sel->close();
 
         if (!$oldRow || !empty($oldRow['deleted_at'])) {
-            $flash_error = "Order not found or has been deleted.";
+            $_SESSION['flash_error'] = "Order not found or has been deleted.";
             header("Location: " . $_SERVER['PHP_SELF']);
             exit;
         }
@@ -113,141 +127,168 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $order_date = !empty($_POST['order_date']) ? $_POST['order_date'] : $oldRow['order_date'];
         $customer = trim($_POST['customer_name'] ?? ($oldRow['customer_name'] ?? ''));
         $product = trim($_POST['product'] ?? ($oldRow['product_name'] ?? ''));
-        $quantity = (int)($_POST['quantity'] ?? 1);
-        $price = (float)($_POST['price'] ?? 0.00);
-        $new_status = $_POST['status'] ?? 'pending';
+        $quantity = (int)($_POST['quantity'] ?? ($oldRow['quantity'] ?? 1));
+        $price = (float)($_POST['price'] ?? ($oldRow['unit_price'] ?? 0.00));
+        $new_status = in_array($_POST['status'] ?? $old_status, $enumList) ? $_POST['status'] : $old_status;
 
         if (empty($customer) || empty($product)) {
-            $flash_error = "Customer name and product are required.";
-        } else {
-            $total_amount = $price * $quantity;
-            $conn->begin_transaction();
-            try {
-                // Update orders
-                $stmt = $conn->prepare("UPDATE orders SET order_date = ?, customer_name = ?, total_amount = ?, status = ? WHERE id = ?");
-                $stmt->bind_param("ssdsi", $order_date, $customer, $total_amount, $new_status, $id);
-                $ok = $stmt->execute();
-                $err = $stmt->error;
-                $stmt->close();
-                if (!$ok) throw new Exception("Update orders failed: " . $err);
+            $_SESSION['flash_error'] = "Customer name and product are required.";
+            header("Location: " . $_SERVER['PHP_SELF']);
+            exit;
+        }
 
-                // Update order_items
+        $total_amount = $price * $quantity;
+        $conn->begin_transaction();
+        try {
+            // Update orders
+            $stmt = $conn->prepare("UPDATE orders SET order_date = ?, customer_name = ?, total_amount = ?, status = ? WHERE id = ?");
+            if (!$stmt) throw new Exception("Prepare failed for orders update: " . $conn->error);
+            $stmt->bind_param("ssdsi", $order_date, $customer, $total_amount, $new_status, $id);
+            $ok = $stmt->execute();
+            $err = $stmt->error;
+            $stmt->close();
+            if (!$ok) throw new Exception("Update orders failed: " . $err);
+
+            // Update or insert order_items
+            $checkItems = $conn->prepare("SELECT COUNT(*) as cnt FROM order_items WHERE order_id = ?");
+            $checkItems->bind_param("i", $id);
+            $checkItems->execute();
+            $itemCount = $checkItems->get_result()->fetch_assoc()['cnt'];
+            $checkItems->close();
+
+            if ($itemCount > 0) {
                 $stmt = $conn->prepare("UPDATE order_items SET product_name = ?, quantity = ?, unit_price = ? WHERE order_id = ?");
+                if (!$stmt) throw new Exception("Prepare failed for order_items update: " . $conn->error);
                 $stmt->bind_param("sidi", $product, $quantity, $price, $id);
                 $ok = $stmt->execute();
                 $err = $stmt->error;
                 $stmt->close();
                 if (!$ok) throw new Exception("Update order_items failed: " . $err);
-
-                // If status changed, add history
-                if ($old_status !== null && $old_status !== $new_status) {
-                    $changed_by = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
-                    $note = "Updated through admin UI";
-                    $maxHistRes = $conn->query("SELECT MAX(id_new) as max_id FROM order_status_history");
-                    $maxHistId = ($maxHistRes->fetch_assoc()['max_id'] ?? 0) + 1;
-                    if ($changed_by === null) {
-                        $ins = $conn->prepare(
-                            "INSERT INTO order_status_history (id_new, id, order_id, old_status, new_status, changed_by, note, created_at)
-                             VALUES (?, 0, ?, ?, ?, NULL, ?, NOW())"
-                        );
-                        $ins->bind_param("iisss", $maxHistId, $id, $old_status, $new_status, $note);
-                    } else {
-                        $ins = $conn->prepare(
-                            "INSERT INTO order_status_history (id_new, id, order_id, old_status, new_status, changed_by, note, created_at)
-                             VALUES (?, 0, ?, ?, ?, ?, ?, NOW())"
-                        );
-                        $ins->bind_param("iissis", $maxHistId, $id, $old_status, $new_status, $changed_by, $note);
-                    }
-                    if (!$ins->execute()) {
-                        $err = $ins->error;
-                        $ins->close();
-                        throw new Exception("Failed to insert order status history: " . $err);
-                    }
-                    $ins->close();
-                }
-
-                $conn->commit();
-                $flash_success = "Order updated successfully.";
-                header("Location: " . $_SERVER['PHP_SELF']);
-                exit;
-            } catch (Exception $e) {
-                $conn->rollback();
-                $flash_error = "Update failed: " . $e->getMessage();
+            } else {
+                $stmt = $conn->prepare("INSERT INTO order_items (order_id, product_name, quantity, unit_price) VALUES (?, ?, ?, ?)");
+                if (!$stmt) throw new Exception("Prepare failed for order_items insert: " . $conn->error);
+                $stmt->bind_param("isid", $id, $product, $quantity, $price);
+                $ok = $stmt->execute();
+                $err = $stmt->error;
+                $stmt->close();
+                if (!$ok) throw new Exception("Insert order_items failed: " . $err);
             }
+
+            // If status changed, add history
+            if ($old_status !== null && $old_status !== $new_status) {
+                $changed_by = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+                $note = "Updated through admin UI";
+                $maxHistRes = $conn->query("SELECT MAX(id_new) as max_id FROM order_status_history");
+                $maxHistId = ($maxHistRes->fetch_assoc()['max_id'] ?? 0) + 1;
+                if ($changed_by === null) {
+                    $ins = $conn->prepare(
+                        "INSERT INTO order_status_history (id_new, id, order_id, old_status, new_status, changed_by, note, created_at)
+                         VALUES (?, 0, ?, ?, ?, NULL, ?, NOW())"
+                    );
+                    if (!$ins) throw new Exception("Prepare failed for status history: " . $conn->error);
+                    $ins->bind_param("iisss", $maxHistId, $id, $old_status, $new_status, $note);
+                } else {
+                    $ins = $conn->prepare(
+                        "INSERT INTO order_status_history (id_new, id, order_id, old_status, new_status, changed_by, note, created_at)
+                         VALUES (?, 0, ?, ?, ?, ?, ?, NOW())"
+                    );
+                    if (!$ins) throw new Exception("Prepare failed for status history: " . $conn->error);
+                    $ins->bind_param("iissis", $maxHistId, $id, $old_status, $new_status, $changed_by, $note);
+                }
+                if (!$ins->execute()) {
+                    $err = $ins->error;
+                    $ins->close();
+                    throw new Exception("Failed to insert order status history: " . $err);
+                }
+                $ins->close();
+            }
+
+            $conn->commit();
+            $_SESSION['flash_success'] = "Order updated successfully.";
+            header("Location: " . $_SERVER['PHP_SELF']);
+            exit;
+        } catch (Exception $e) {
+            $conn->rollback();
+            $_SESSION['flash_error'] = "Update failed: " . $e->getMessage();
+            header("Location: " . $_SERVER['PHP_SELF']);
+            exit;
         }
     }
 
     if ($action === 'delete') {
         $id = (int)($_POST['id'] ?? 0);
         if ($id <= 0) {
-            $flash_error = "Invalid order id.";
-        } else {
-            $deleted_by = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+            $_SESSION['flash_error'] = "Invalid order id.";
+            header("Location: " . $_SERVER['PHP_SELF']);
+            exit;
+        }
+        $deleted_by = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
 
-            try {
-                $conn->begin_transaction();
+        try {
+            $conn->begin_transaction();
 
-                $s2 = $conn->prepare("SELECT status, deleted_at FROM orders WHERE id = ? FOR UPDATE");
-                if (!$s2) throw new Exception("Prepare failed (select order): " . $conn->error);
-                $s2->bind_param("i", $id);
-                $s2->execute();
-                $res2 = $s2->get_result();
-                $orderRow = $res2 ? $res2->fetch_assoc() : null;
-                $s2->close();
+            $s2 = $conn->prepare("SELECT status, deleted_at FROM orders WHERE id = ? FOR UPDATE");
+            if (!$s2) throw new Exception("Prepare failed (select order): " . $conn->error);
+            $s2->bind_param("i", $id);
+            $s2->execute();
+            $res2 = $s2->get_result();
+            $orderRow = $res2 ? $res2->fetch_assoc() : null;
+            $s2->close();
 
-                if (!$orderRow) {
-                    throw new Exception("Order not found (id: $id).");
-                }
-                if (!empty($orderRow['deleted_at'])) {
-                    throw new Exception("Order already deleted.");
-                }
-
-                $colCheck = $conn->query("SHOW COLUMNS FROM orders LIKE 'deleted_by'");
-                $hasDeletedBy = ($colCheck && $colCheck->num_rows > 0);
-
-                if ($hasDeletedBy) {
-                    if ($deleted_by === null) {
-                        $upd = $conn->prepare("UPDATE orders SET deleted_at = NOW(), deleted_by = NULL WHERE id = ? AND deleted_at IS NULL");
-                        $upd->bind_param("i", $id);
-                    } else {
-                        $upd = $conn->prepare("UPDATE orders SET deleted_at = NOW(), deleted_by = ? WHERE id = ? AND deleted_at IS NULL");
-                        $upd->bind_param("ii", $deleted_by, $id);
-                    }
-                } else {
-                    $upd = $conn->prepare("UPDATE orders SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL");
-                    $upd->bind_param("i", $id);
-                }
-                $upd->execute();
-                if ($upd->affected_rows <= 0) {
-                    $upd->close();
-                    throw new Exception("Update affected 0 rows (order may already be deleted).");
-                }
-                $upd->close();
-
-                $old_status = $orderRow['status'] ?? null;
-                $new_status = 'Deleted';
-                $note = "Order soft-deleted via admin UI";
-                $maxHistRes = $conn->query("SELECT MAX(id_new) as max_id FROM order_status_history");
-                $maxHistId = ($maxHistRes->fetch_assoc()['max_id'] ?? 0) + 1;
-
-                if ($deleted_by === null) {
-                    $ins = $conn->prepare("INSERT INTO order_status_history (id_new, id, order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, 0, ?, ?, ?, NULL, ?, NOW())");
-                    $ins->bind_param("iisss", $maxHistId, $id, $old_status, $new_status, $note);
-                } else {
-                    $ins = $conn->prepare("INSERT INTO order_status_history (id_new, id, order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, 0, ?, ?, ?, ?, ?, NOW())");
-                    $ins->bind_param("iissis", $maxHistId, $id, $old_status, $new_status, $deleted_by, $note);
-                }
-                $ins->execute();
-                $ins->close();
-
-                $conn->commit();
-                $flash_success = "Order deleted successfully.";
-                header("Location: " . $_SERVER['PHP_SELF']);
-                exit;
-            } catch (Exception $e) {
-                $conn->rollback();
-                $flash_error = "Delete failed: " . $e->getMessage();
+            if (!$orderRow) {
+                throw new Exception("Order not found (id: $id).");
             }
+            if (!empty($orderRow['deleted_at'])) {
+                throw new Exception("Order already deleted.");
+            }
+
+            $colCheck = $conn->query("SHOW COLUMNS FROM orders LIKE 'deleted_by'");
+            $hasDeletedBy = ($colCheck && $colCheck->num_rows > 0);
+
+            if ($hasDeletedBy) {
+                if ($deleted_by === null) {
+                    $upd = $conn->prepare("UPDATE orders SET deleted_at = NOW(), deleted_by = NULL WHERE id = ? AND deleted_at IS NULL");
+                    $upd->bind_param("i", $id);
+                } else {
+                    $upd = $conn->prepare("UPDATE orders SET deleted_at = NOW(), deleted_by = ? WHERE id = ? AND deleted_at IS NULL");
+                    $upd->bind_param("ii", $deleted_by, $id);
+                }
+            } else {
+                $upd = $conn->prepare("UPDATE orders SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL");
+                $upd->bind_param("i", $id);
+            }
+            $upd->execute();
+            if ($upd->affected_rows <= 0) {
+                $upd->close();
+                throw new Exception("Update affected 0 rows (order may already be deleted).");
+            }
+            $upd->close();
+
+            $old_status = $orderRow['status'] ?? null;
+            $new_status = 'Deleted';
+            $note = "Order soft-deleted via admin UI";
+            $maxHistRes = $conn->query("SELECT MAX(id_new) as max_id FROM order_status_history");
+            $maxHistId = ($maxHistRes->fetch_assoc()['max_id'] ?? 0) + 1;
+
+            if ($deleted_by === null) {
+                $ins = $conn->prepare("INSERT INTO order_status_history (id_new, id, order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, 0, ?, ?, ?, NULL, ?, NOW())");
+                $ins->bind_param("iisss", $maxHistId, $id, $old_status, $new_status, $note);
+            } else {
+                $ins = $conn->prepare("INSERT INTO order_status_history (id_new, id, order_id, old_status, new_status, changed_by, note, created_at) VALUES (?, 0, ?, ?, ?, ?, ?, NOW())");
+                $ins->bind_param("iissis", $maxHistId, $id, $old_status, $new_status, $deleted_by, $note);
+            }
+            $ins->execute();
+            $ins->close();
+
+            $conn->commit();
+            $_SESSION['flash_success'] = "Order deleted successfully.";
+            header("Location: " . $_SERVER['PHP_SELF']);
+            exit;
+        } catch (Exception $e) {
+            $conn->rollback();
+            $_SESSION['flash_error'] = "Delete failed: " . $e->getMessage();
+            header("Location: " . $_SERVER['PHP_SELF']);
+            exit;
         }
     }
 
@@ -260,9 +301,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $processed_by = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
 
         if ($id <= 0) {
-            $flash_error = "Invalid order id for return.";
+            $_SESSION['flash_error'] = "Invalid order id for return.";
         } elseif ($return_qty <= 0) {
-            $flash_error = "Return quantity must be at least 1.";
+            $_SESSION['flash_error'] = "Return quantity must be at least 1.";
         } else {
             try {
                 $conn->begin_transaction();
@@ -312,12 +353,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $ins->close();
 
                 $conn->commit();
-                $flash_success = "Return processed successfully for order #$id.";
+                $_SESSION['flash_success'] = "Return processed successfully for order #$id.";
                 header("Location: " . $_SERVER['PHP_SELF']);
                 exit;
             } catch (Exception $e) {
                 $conn->rollback();
-                $flash_error = "Return failed: " . $e->getMessage();
+                $_SESSION['flash_error'] = "Return failed: " . $e->getMessage();
+                header("Location: " . $_SERVER['PHP_SELF']);
+                exit;
             }
         }
     }
@@ -360,15 +403,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $ins->close();
         }
         $stmt->close();
-        $flash_success = "Order restored successfully.";
+        $_SESSION['flash_success'] = "Order restored successfully.";
         header("Location: " . $_SERVER['PHP_SELF']);
         exit;
     }
 }
 
-// Handle GET filters
+// Handle GET filters and pagination
 $order_id = (int)($_GET['order_id'] ?? 0);
 $status = trim($_GET['status'] ?? '');
+$current_page = (int)($_GET['page'] ?? 1);
+if ($current_page < 1) $current_page = 1;
+
+// Define records per page
+$records_per_page = 10;
+$offset = ($current_page - 1) * $records_per_page;
 
 // Build dynamic WHERE clause
 $where = "WHERE o.deleted_at IS NULL";
@@ -385,19 +434,32 @@ if (!empty($status)) {
     $types .= "s";
 }
 
+// Count total orders for pagination
+$count_sql = "SELECT COUNT(*) as total FROM orders o $where";
+$count_stmt = $conn->prepare($count_sql);
+if ($params) {
+    $count_stmt->bind_param($types, ...$params);
+}
+$count_stmt->execute();
+$total_orders = $count_stmt->get_result()->fetch_assoc()['total'];
+$count_stmt->close();
+
+// Calculate total pages
+$total_pages = ceil($total_orders / $records_per_page);
+
 // Fetch orders with order_items
 $sql = "SELECT o.id, o.order_date, o.customer_name, oi.product_name, oi.quantity, oi.unit_price, o.status 
         FROM orders o 
         LEFT JOIN order_items oi ON o.id = oi.order_id 
-        $where ORDER BY o.id DESC";
-
+        $where ORDER BY o.id DESC LIMIT ? OFFSET ?";
 $stmt = $conn->prepare($sql);
 if ($stmt === false) {
     die("SQL prepare failed: " . $conn->error);
 }
-if ($params) {
-    $stmt->bind_param($types, ...$params);
-}
+$params[] = $records_per_page;
+$params[] = $offset;
+$types .= "ii";
+$stmt->bind_param($types, ...$params);
 $stmt->execute();
 $result = $stmt->get_result();
 $orders = $result->fetch_all(MYSQLI_ASSOC);
@@ -419,7 +481,6 @@ $totalCustomers = (int)($row4['total_customers'] ?? 0);
 
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -432,7 +493,6 @@ $totalCustomers = (int)($row4['total_customers'] ?? 0);
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
 </head>
-
 <body>
   <!-- Header -->
   <div class="header">
@@ -540,7 +600,7 @@ $totalCustomers = (int)($row4['total_customers'] ?? 0);
                         data-customer="<?= htmlspecialchars($o['customer_name']) ?>"
                         data-product="<?= htmlspecialchars($o['product_name'] ?? '') ?>"
                         data-quantity="<?= (int)$o['quantity'] ?>"
-                        data-price="<?= htmlspecialchars($o['unit_price']) ?>"
+                        data-price="<?= htmlspecialchars(number_format((float)$o['unit_price'], 2, '.', '')) ?>"
                         data-status="<?= htmlspecialchars($o['status']) ?>">
                         <i class="fa-solid fa-eye"></i>
                       </button>
@@ -551,7 +611,7 @@ $totalCustomers = (int)($row4['total_customers'] ?? 0);
                         data-customer="<?= htmlspecialchars($o['customer_name']) ?>"
                         data-product="<?= htmlspecialchars($o['product_name'] ?? '') ?>"
                         data-quantity="<?= (int)$o['quantity'] ?>"
-                        data-price="<?= htmlspecialchars($o['unit_price']) ?>"
+                        data-price="<?= htmlspecialchars(number_format((float)$o['unit_price'], 2, '.', '')) ?>"
                         data-status="<?= htmlspecialchars($o['status']) ?>">
                         <i class="fa-regular fa-pen-to-square"></i>
                       </button>
@@ -559,7 +619,7 @@ $totalCustomers = (int)($row4['total_customers'] ?? 0);
                         type="button"
                         data-id="<?= htmlspecialchars($o['id']) ?>"
                         data-quantity="<?= (int)$o['quantity'] ?>"
-                        data-price="<?= htmlspecialchars($o['unit_price']) ?>"
+                        data-price="<?= htmlspecialchars(number_format((float)$o['unit_price'], 2, '.', '')) ?>"
                         title="Process return for order #<?= htmlspecialchars($o['id']) ?>">
                         <i class="fa-solid fa-rotate-left"></i>
                       </button>
@@ -573,11 +633,55 @@ $totalCustomers = (int)($row4['total_customers'] ?? 0);
                 <?php endforeach; endif; ?>
               </tbody>
             </table>
+            <!-- Pagination Controls -->
+            <div class="pagination">
+              <form method="get" class="pagination-form">
+                <!-- Preserve existing filters -->
+                <?php if ($order_id): ?>
+                  <input type="hidden" name="order_id" value="<?= htmlspecialchars($order_id) ?>">
+                <?php endif; ?>
+                <?php if ($status): ?>
+                  <input type="hidden" name="status" value="<?= htmlspecialchars($status) ?>">
+                <?php endif; ?>
+                
+                <!-- Previous Button -->
+                <button type="submit" name="page" value="<?= max(1, $current_page - 1) ?>" <?= $current_page <= 1 ? 'disabled' : '' ?>>Previous</button>
+                
+                <!-- Page Numbers -->
+                <?php
+                $range = 2; // Number of pages to show before and after current page
+                $start = max(1, $current_page - $range);
+                $end = min($total_pages, $current_page + $range);
+
+                // Show first page and ellipsis if needed
+                if ($start > 1): ?>
+                  <button type="submit" name="page" value="1">1</button>
+                  <?php if ($start > 2): ?>
+                    <span>...</span>
+                  <?php endif; ?>
+                <?php endif; ?>
+
+                <!-- Page range -->
+                <?php for ($i = $start; $i <= $end; $i++): ?>
+                  <button type="submit" name="page" value="<?= $i ?>" <?= $i == $current_page ? 'class="active"' : '' ?>><?= $i ?></button>
+                <?php endfor; ?>
+
+                <!-- Show last page and ellipsis if needed -->
+                <?php if ($end < $total_pages): ?>
+                  <?php if ($end < $total_pages - 1): ?>
+                    <span>...</span>
+                  <?php endif; ?>
+                  <button type="submit" name="page" value="<?= $total_pages ?>"><?= $total_pages ?></button>
+                <?php endif; ?>
+
+                <!-- Next Button -->
+                <button type="submit" name="page" value="<?= min($total_pages, $current_page + 1) ?>" <?= $current_page >= $total_pages ? 'disabled' : '' ?>>Next</button>
+              </form>
+            </div>
           </div>
         </div>
       </section>
       
-
       <!-- Export -->
       <section id="sales-export" class="panel">
         <div class="content">
@@ -588,11 +692,9 @@ $totalCustomers = (int)($row4['total_customers'] ?? 0);
               <input type="date" id="expTo" />
               <select id="expStatus">
                 <option value="">All Status</option>
-                <option>pending</option>
-                <option>confirmed</option>
-                <option>shipped</option>
-                <option>delivered</option>
-                <option>cancelled</option>
+                <?php foreach ($enumList as $st): ?>
+                  <option value="<?= htmlspecialchars($st) ?>"><?= htmlspecialchars($st) ?></option>
+                <?php endforeach; ?>
               </select>
               <input type="text" id="expCustomer" placeholder="Customer" />
             </div>
@@ -616,19 +718,17 @@ $totalCustomers = (int)($row4['total_customers'] ?? 0);
         <input type="hidden" name="action" id="order_form_action" value="add">
         <input type="hidden" name="id" id="order_form_id" value="0">
         <div class="form-grid">
-          <div><label>Date</label><input id="order_form_date" name="order_date" type="date"></div>
-          <div><label>Quantity</label><input id="order_form_quantity" name="quantity" type="number" min="1" value="1"></div>
+          <div><label>Date</label><input id="order_form_date" name="order_date" type="date" required></div>
+          <div><label>Quantity</label><input id="order_form_quantity" name="quantity" type="number" min="1" value="1" required></div>
           <div class="full"><label>Price</label><input id="order_form_price" name="price" type="number" step="0.01" min="0" value="0.00" required></div>
           <div class="full"><label>Customer</label><input id="order_form_customer" name="customer_name" type="text" required></div>
           <div class="full"><label>Product</label><input id="order_form_product" name="product" type="text" required></div>
           <div class="full">
             <label>Status</label>
             <select id="order_form_status" name="status">
-              <option>pending</option>
-              <option>confirmed</option>
-              <option>shipped</option>
-              <option>delivered</option>
-              <option>cancelled</option>
+              <?php foreach ($enumList as $st): ?>
+                <option value="<?= htmlspecialchars($st) ?>"><?= htmlspecialchars($st) ?></option>
+              <?php endforeach; ?>
             </select>
           </div>
         </div>
@@ -648,9 +748,9 @@ $totalCustomers = (int)($row4['total_customers'] ?? 0);
         <input type="hidden" name="action" value="return">
         <input type="hidden" name="id" id="return_order_id" value="0">
         <div class="form-grid">
-          <div><label>Return Date</label><input name="return_date" id="return_date" type="date" value="<?= date('Y-m-d') ?>"></div>
-          <div><label>Quantity to return</label><input name="return_quantity" id="return_quantity" type="number" min="1" value="1"></div>
-          <div class="full"><label>Refund Amount</label><input name="refund_amount" id="return_refund_amount" type="number" step="0.01" min="0" value="0.00"></div>
+          <div><label>Return Date</label><input name="return_date" id="return_date" type="date" value="<?= date('Y-m-d') ?>" required></div>
+          <div><label>Quantity to return</label><input name="return_quantity" id="return_quantity" type="number" min="1" value="1" required></div>
+          <div class="full"><label>Refund Amount</label><input name="refund_amount" id="return_refund_amount" type="number" step="0.01" min="0" value="0.00" required></div>
           <div class="full"><label>Reason</label><textarea name="return_reason" id="return_reason" rows="3"></textarea></div>
         </div>
         <div class="footer" style="margin-top:12px">
@@ -669,28 +769,48 @@ $totalCustomers = (int)($row4['total_customers'] ?? 0);
     const inAction = (val) => document.getElementById('order_form_action').value = val;
     const inId = (val) => document.getElementById('order_form_id').value = val;
     const inDate = (val) => document.getElementById('order_form_date').value = val;
-    const inCustomer = (val) => document.getElementById('order_form_customer').value = val;
-    const inProduct = (val) => document.getElementById('order_form_product').value = val;
-    const inQuantity = (val) => document.getElementById('order_form_quantity').value = val;
+    const inCustomer = (val) => document.getElementById('order_form_customer').value = val || '';
+    const inProduct = (val) => document.getElementById('order_form_product').value = val || '';
+    const inQuantity = (val) => document.getElementById('order_form_quantity').value = val || '1';
     const inPrice = (val) => {
       const el = document.getElementById('order_form_price');
       if (el) el.value = (val === undefined || val === null) ? '0.00' : Number(val).toFixed(2);
     };
-    const inStatus = (val) => document.getElementById('order_form_status').value = val;
+    const inStatus = (val) => {
+      const el = document.getElementById('order_form_status');
+      if (el) {
+        const option = Array.from(el.options).find(opt => opt.value.toLowerCase() === (val || '').toLowerCase());
+        if (option) el.value = option.value;
+        else el.value = el.options[0]?.value || '';
+      }
+    };
     const saveBtn = () => document.querySelector('#orderModalBackdrop .footer .btn:not(.light)');
     const today = () => new Date().toISOString().slice(0,10);
 
+    // Reset form to prevent data leakage
+    function resetOrderForm() {
+      inAction('add');
+      inId('0');
+      inDate('');
+      inCustomer('');
+      inProduct('');
+      inQuantity('1');
+      inPrice('0.00');
+      inStatus('');
+      orderForm.reset();
+    }
+
     function parseAndCallOpen(btn, fn) {
       const ds = btn.dataset;
-      const id = ds.id;
-      const order_date = ds.orderDate || '';
+      const id = ds.id || '';
+      const order_date = ds.orderDate || today();
       const customer = ds.customer || '';
       const product = ds.product || '';
       const quantity = ds.quantity || '1';
       const price = ds.price || '0.00';
       const status = ds.status || '';
       try {
-        fn(id, order_date, customer, product, Number(quantity), price, status);
+        fn(id, order_date, customer, product, Number(quantity), Number(price), status);
       } catch (err) {
         console.error('Failed to call modal function', err, { id, order_date, customer, product, quantity, price, status });
       }
@@ -822,7 +942,7 @@ $totalCustomers = (int)($row4['total_customers'] ?? 0);
         a.href = URL.createObjectURL(blob);
         a.download = name;
         a.click();
-        setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
       }
 
       const btnCsv = document.getElementById('expCsv');
@@ -868,6 +988,7 @@ $totalCustomers = (int)($row4['total_customers'] ?? 0);
     });
 
     window.openOrderAdd = function(){
+      resetOrderForm();
       document.getElementById('orderModalTitle').textContent = 'Add Order';
       inAction('add');
       inId('0');
@@ -876,37 +997,41 @@ $totalCustomers = (int)($row4['total_customers'] ?? 0);
       inProduct('');
       inQuantity('1');
       inPrice('0.00');
-      inStatus('pending');
+      inStatus('<?php echo htmlspecialchars($enumList[0] ?? 'pending'); ?>');
       enableFormFields();
       if (saveBtn()) saveBtn().style.display = '';
       orderModalBackdrop.style.display = 'flex';
+      document.getElementById('order_form_date').focus();
     };
 
     window.openOrderEdit = function(id, order_date, customer, product, quantity, price, status){
+      resetOrderForm();
       document.getElementById('orderModalTitle').textContent = 'Edit Order #' + id;
       inAction('edit');
       inId(String(id));
       inDate(order_date || today());
       inCustomer(customer || '');
       inProduct(product || '');
-      inQuantity(String(quantity ?? 1));
-      inPrice(price ?? '0.00');
-      inStatus(status || 'pending');
+      inQuantity(String(quantity || 1));
+      inPrice(price || '0.00');
+      inStatus(status || '<?php echo htmlspecialchars($enumList[0] ?? 'pending'); ?>');
       enableFormFields();
       if (saveBtn()) saveBtn().style.display = '';
       orderModalBackdrop.style.display = 'flex';
+      document.getElementById('order_form_customer').focus();
     };
 
     window.openOrderView = function(id, order_date, customer, product, quantity, price, status){
+      resetOrderForm();
       document.getElementById('orderModalTitle').textContent = 'View Order #' + id;
       inAction('view');
       inId(String(id));
       inDate(order_date || today());
       inCustomer(customer || '');
       inProduct(product || '');
-      inQuantity(String(quantity ?? 1));
-      inPrice(price ?? '0.00');
-      inStatus(status || '');
+      inQuantity(String(quantity || 1));
+      inPrice(price || '0.00');
+      inStatus(status || '<?php echo htmlspecialchars($enumList[0] ?? 'pending'); ?>');
       disableFormFields();
       const s = saveBtn();
       if (s) s.style.display = 'none';
@@ -914,13 +1039,14 @@ $totalCustomers = (int)($row4['total_customers'] ?? 0);
     };
 
     function disableFormFields(){
-      ['order_form_date','order_form_customer','order_form_product','order_form_quantity','order_form_price','order_form_status'].forEach(n=>{
+      ['order_form_date','order_form_customer','order_form_product','order_form_quantity','order_form_price','order_form_status'].forEach(n => {
         const el = document.getElementById(n);
-        if (el) el.setAttribute('disabled','disabled');
+        if (el) el.setAttribute('disabled', 'disabled');
       });
     }
+
     function enableFormFields(){
-      ['order_form_date','order_form_customer','order_form_product','order_form_quantity','order_form_price','order_form_status'].forEach(n=>{
+      ['order_form_date','order_form_customer','order_form_product','order_form_quantity','order_form_price','order_form_status'].forEach(n => {
         const el = document.getElementById(n);
         if (el) el.removeAttribute('disabled');
       });
@@ -931,6 +1057,7 @@ $totalCustomers = (int)($row4['total_customers'] ?? 0);
       const s = saveBtn();
       if (s) s.style.display = '';
       orderModalBackdrop.style.display = 'none';
+      resetOrderForm();
     };
 
     if (orderForm) {
@@ -939,6 +1066,35 @@ $totalCustomers = (int)($row4['total_customers'] ?? 0);
         if (act === 'view') {
           e.preventDefault();
           return false;
+        }
+        // Client-side validation
+        const customer = document.getElementById('order_form_customer').value.trim();
+        const product = document.getElementById('order_form_product').value.trim();
+        const price = parseFloat(document.getElementById('order_form_price').value);
+        const quantity = parseInt(document.getElementById('order_form_quantity').value);
+        if (!customer) {
+          e.preventDefault();
+          alert('Customer name is required.');
+          document.getElementById('order_form_customer').focus();
+          return;
+        }
+        if (!product) {
+          e.preventDefault();
+          alert('Product name is required.');
+          document.getElementById('order_form_product').focus();
+          return;
+        }
+        if (isNaN(price) || price < 0) {
+          e.preventDefault();
+          alert('Price must be a valid number >= 0.');
+          document.getElementById('order_form_price').focus();
+          return;
+        }
+        if (isNaN(quantity) || quantity < 1) {
+          e.preventDefault();
+          alert('Quantity must be at least 1.');
+          document.getElementById('order_form_quantity').focus();
+          return;
         }
       });
     }
@@ -962,22 +1118,55 @@ $totalCustomers = (int)($row4['total_customers'] ?? 0);
       const q = (globalSearch?.value || '').trim().toLowerCase();
       if (!tbody) return;
       const rows = Array.from(tbody.querySelectorAll('tr'));
+      let visibleCount = 0;
+
       if (!q) {
-        rows.forEach(r => r.style.display = '');
-        return;
+        rows.forEach(r => {
+          r.style.display = '';
+          visibleCount++;
+        });
+      } else {
+        rows.forEach(r => {
+          const tds = Array.from(r.querySelectorAll('td'));
+          if (!tds.length) {
+            r.style.display = '';
+            visibleCount++;
+            return;
+          }
+          const rowText = tds.map(td => (td.textContent || '').toLowerCase()).join(' ');
+          const match = rowText.includes(q);
+          r.style.display = match ? '' : 'none';
+          if (match) visibleCount++;
+        });
       }
-      rows.forEach(r => {
-        const tds = Array.from(r.querySelectorAll('td'));
-        if (!tds.length) { r.style.display = ''; return; }
-        const rowText = tds.map(td => (td.textContent || '').toLowerCase()).join(' ');
-        const match = rowText.includes(q);
-        r.style.display = match ? '' : 'none';
-      });
+
+      // Show a message if no rows are visible
+      if (visibleCount === 0 && rows.length > 0) {
+        const noResultRow = document.createElement('tr');
+        noResultRow.innerHTML = '<td colspan="7" style="text-align:center;padding:18px">No matching orders found on this page</td>';
+        tbody.innerHTML = '';
+        tbody.appendChild(noResultRow);
+      } else if (visibleCount === 0 && rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:18px">No orders found</td></tr>';
+      }
     }
 
     if (globalSearch) {
       globalSearch.addEventListener('input', filterTable);
     }
+
+    // Reset to page 1 when filters change
+    document.querySelectorAll('.filter-bar select, .filter-bar input[name="order_id"]').forEach(elem => {
+      elem.addEventListener('change', () => {
+        const form = elem.closest('form');
+        const pageInput = document.createElement('input');
+        pageInput.type = 'hidden';
+        pageInput.name = 'page';
+        pageInput.value = '1';
+        form.appendChild(pageInput);
+        form.submit();
+      });
+    });
 
     const btnAdd = document.getElementById('btnAdd');
     if (btnAdd) btnAdd.addEventListener('click', openOrderAdd);
