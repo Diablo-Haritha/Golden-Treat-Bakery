@@ -57,17 +57,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Start transaction for orders and order_items
             $conn->begin_transaction();
             try {
-                // Insert into orders
-                $stmt = $conn->prepare("INSERT INTO orders (order_number, order_date, customer_name, total_amount, status) VALUES (?, ?, ?, ?, ?)");
+                // Insert into orders (UPDATED: Now sets product, quantity, price, original_quantity, original_price for trigger consistency)
+                $stmt = $conn->prepare("INSERT INTO orders (order_number, order_date, customer_name, product, quantity, original_quantity, price, original_price, total_amount, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 if ($stmt) {
-                    $stmt->bind_param("sssds", $order_number, $order_date, $customer, $total_amount, $status);
+                    $stmt->bind_param("ssssiiddds", $order_number, $order_date, $customer, $product, $quantity, $quantity, $price, $price, $total_amount, $status);
                     $ok = $stmt->execute();
                     $err = $stmt->error;
                     $order_id = $conn->insert_id;
                     $stmt->close();
                     if (!$ok) throw new Exception("Insert into orders failed: " . $err);
 
-                    // Insert into order_items
+                    // Insert into order_items (unchanged)
                     $stmt = $conn->prepare("INSERT INTO order_items (order_id, product_name, quantity, unit_price) VALUES (?, ?, ?, ?)");
                     if ($stmt) {
                         $stmt->bind_param("isid", $order_id, $product, $quantity, $price);
@@ -100,8 +100,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Debug: Log POST data
         error_log("Edit POST data: " . print_r($_POST, true));
 
-        // Fetch old row from orders and order_items
-        $sel = $conn->prepare("SELECT o.status, o.customer_name, o.order_date, oi.product_name, oi.quantity, oi.unit_price, o.deleted_at 
+        // Fetch old row from orders and order_items (UPDATED: Use COALESCE to handle legacy data without order_items)
+        $sel = $conn->prepare("SELECT o.status, o.customer_name, o.order_date, COALESCE(oi.product_name, o.product) AS product_name, COALESCE(oi.quantity, o.quantity) AS quantity, COALESCE(oi.unit_price, o.price) AS unit_price, o.deleted_at 
                                FROM orders o 
                                LEFT JOIN order_items oi ON o.id = oi.order_id 
                                WHERE o.id = ? LIMIT 1");
@@ -140,10 +140,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $total_amount = $price * $quantity;
         $conn->begin_transaction();
         try {
-            // Update orders
-            $stmt = $conn->prepare("UPDATE orders SET order_date = ?, customer_name = ?, total_amount = ?, status = ? WHERE id = ?");
+            // Update orders (UPDATED: Now sets product, quantity, price for trigger consistency; originals unchanged to preserve history)
+            $stmt = $conn->prepare("UPDATE orders SET order_date = ?, customer_name = ?, product = ?, quantity = ?, price = ?, total_amount = ?, status = ? WHERE id = ?");
             if (!$stmt) throw new Exception("Prepare failed for orders update: " . $conn->error);
-            $stmt->bind_param("ssdsi", $order_date, $customer, $total_amount, $new_status, $id);
+            $stmt->bind_param("sssid dsi", $order_date, $customer, $product, $quantity, $price, $total_amount, $new_status, $id);
             $ok = $stmt->execute();
             $err = $stmt->error;
             $stmt->close();
@@ -308,8 +308,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $conn->begin_transaction();
 
-                // Fetch order details to validate
-                $sel = $conn->prepare("SELECT o.id, oi.quantity, oi.unit_price, o.total_amount, o.status, o.deleted_at 
+                // Fetch order details to validate (UPDATED: Use COALESCE to handle legacy data without order_items)
+                $sel = $conn->prepare("SELECT o.id, COALESCE(oi.quantity, o.quantity) AS quantity, COALESCE(oi.unit_price, o.price) AS unit_price, o.total_amount, o.status, o.deleted_at 
                                       FROM orders o 
                                       LEFT JOIN order_items oi ON o.id = oi.order_id 
                                       WHERE o.id = ? FOR UPDATE");
@@ -447,8 +447,8 @@ $count_stmt->close();
 // Calculate total pages
 $total_pages = ceil($total_orders / $records_per_page);
 
-// Fetch orders with order_items
-$sql = "SELECT o.id, o.order_date, o.customer_name, oi.product_name, oi.quantity, oi.unit_price, o.status 
+// Fetch orders with order_items (UPDATED: Use COALESCE to fall back to orders fields for legacy data)
+$sql = "SELECT o.id, o.order_date, o.customer_name, COALESCE(oi.product_name, o.product) AS product_name, COALESCE(oi.quantity, o.quantity) AS quantity, COALESCE(oi.unit_price, o.price) AS unit_price, o.status 
         FROM orders o 
         LEFT JOIN order_items oi ON o.id = oi.order_id 
         $where ORDER BY o.id DESC LIMIT ? OFFSET ?";
@@ -479,6 +479,7 @@ $row4 = $res4 ? $res4->fetch_assoc() : null;
 $totalCustomers = (int)($row4['total_customers'] ?? 0);
 ?>
 
+<!-- The HTML remains unchanged; no fixes needed there -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
