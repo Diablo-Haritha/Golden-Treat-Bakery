@@ -448,10 +448,19 @@ $count_stmt->close();
 $total_pages = ceil($total_orders / $records_per_page);
 
 // Fetch orders with order_items (UPDATED: Use COALESCE to fall back to orders fields for legacy data)
-$sql = "SELECT o.id, o.order_date, o.customer_name, COALESCE(oi.product_name, o.product) AS product_name, COALESCE(oi.quantity, o.quantity) AS quantity, COALESCE(oi.unit_price, o.price) AS unit_price, o.status 
-        FROM orders o 
-        LEFT JOIN order_items oi ON o.id = oi.order_id 
+$sql = "SELECT 
+          o.id,
+          o.order_date,
+          o.customer_name,
+          COALESCE(oi.product_name, o.product) AS product_name,
+          COALESCE(oi.quantity, o.quantity) AS quantity,
+          COALESCE(oi.unit_price, o.price) AS unit_price,
+          o.total_amount,
+          o.status
+        FROM orders o
+        LEFT JOIN order_items oi ON o.id = oi.order_id
         $where ORDER BY o.id DESC LIMIT ? OFFSET ?";
+
 $stmt = $conn->prepare($sql);
 if ($stmt === false) {
     die("SQL prepare failed: " . $conn->error);
@@ -577,7 +586,7 @@ $totalCustomers = (int)($row4['total_customers'] ?? 0);
                   <th>Customer</th>
                   <th>Product</th>
                   <th>Quantity</th>
-                  <th>Price</th>
+                  <th>Total</th>
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>
@@ -591,7 +600,9 @@ $totalCustomers = (int)($row4['total_customers'] ?? 0);
                     <td><?= htmlspecialchars($o['customer_name']) ?></td>
                     <td><?= htmlspecialchars($o['product_name'] ?? '') ?></td>
                     <td><?= (int)$o['quantity'] ?></td>
-                    <td><?= number_format((float)$o['unit_price'], 2) ?></td>
+                    <td>
+  <?= number_format((float)($o['total_amount'] ?? ((float)$o['unit_price'] * (int)$o['quantity'])), 2) ?>
+</td>
                     <td><?= htmlspecialchars($o['status']) ?></td>
                     <td>
                       <button class="btnview"
@@ -602,6 +613,7 @@ $totalCustomers = (int)($row4['total_customers'] ?? 0);
                         data-product="<?= htmlspecialchars($o['product_name'] ?? '') ?>"
                         data-quantity="<?= (int)$o['quantity'] ?>"
                         data-price="<?= htmlspecialchars(number_format((float)$o['unit_price'], 2, '.', '')) ?>"
+                        data-total="<?= htmlspecialchars(number_format((float)($o['total_amount'] ?? ((float)$o['unit_price'] * (int)$o['quantity'])), 2, '.', '')) ?>"
                         data-status="<?= htmlspecialchars($o['status']) ?>">
                         <i class="fa-solid fa-eye"></i>
                       </button>
@@ -613,6 +625,7 @@ $totalCustomers = (int)($row4['total_customers'] ?? 0);
                         data-product="<?= htmlspecialchars($o['product_name'] ?? '') ?>"
                         data-quantity="<?= (int)$o['quantity'] ?>"
                         data-price="<?= htmlspecialchars(number_format((float)$o['unit_price'], 2, '.', '')) ?>"
+                        data-total="<?= htmlspecialchars(number_format((float)($o['total_amount'] ?? ((float)$o['unit_price'] * (int)$o['quantity'])), 2, '.', '')) ?>"
                         data-status="<?= htmlspecialchars($o['status']) ?>">
                         <i class="fa-regular fa-pen-to-square"></i>
                       </button>
