@@ -143,7 +143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Update orders (UPDATED: Now sets product, quantity, price for trigger consistency; originals unchanged to preserve history)
             $stmt = $conn->prepare("UPDATE orders SET order_date = ?, customer_name = ?, product = ?, quantity = ?, price = ?, total_amount = ?, status = ? WHERE id = ?");
             if (!$stmt) throw new Exception("Prepare failed for orders update: " . $conn->error);
-            $stmt->bind_param("sssid dsi", $order_date, $customer, $product, $quantity, $price, $total_amount, $new_status, $id);
+            $stmt->bind_param("sssiddsi", $order_date, $customer, $product, $quantity, $price, $total_amount, $new_status, $id);
             $ok = $stmt->execute();
             $err = $stmt->error;
             $stmt->close();
